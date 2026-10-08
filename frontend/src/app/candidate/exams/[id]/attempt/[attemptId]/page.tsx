@@ -306,7 +306,7 @@ function AttemptContent() {
 
   const requestAdminReview = (reason: string) => {
     if (socket) {
-      socket.emit('violation:created', { attemptId, type: 'MANUAL_REVIEW', severity: 'CRITICAL', source: 'AI', actionTaken: 'LOGGED', description: reason });
+      socket.emit('violation:created', { attemptId, type: 'MANUAL_REVIEW', severity: 'CRITICAL', source: 'AI', actionTaken: 'LOG', description: reason });
     }
   };
 
@@ -506,7 +506,7 @@ function AttemptContent() {
 
   function handleViolation(type: string, severity: string, message: string) {
     if (socket) {
-      socket.emit('violation:created', { attemptId, type, severity, source: 'BROWSER', actionTaken: 'LOGGED' });
+      socket.emit('violation:created', { attemptId, type, severity, source: 'BROWSER', actionTaken: 'LOG' });
     }
     captureSnapshot(type, severity, message);
   }
