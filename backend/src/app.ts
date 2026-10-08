@@ -10,7 +10,7 @@ const app: Application = express();
 
 // Security Middleware
 app.use(helmet());
-app.use(cors({ origin: process.env.CORS_ORIGIN || 'http://localhost:3000' }));
+app.use(cors({ origin: process.env.CORS_ORIGIN ? process.env.CORS_ORIGIN.split(',') : ['http://localhost:3000', 'https://proctorguard-ai.vercel.app'] }));
 
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes

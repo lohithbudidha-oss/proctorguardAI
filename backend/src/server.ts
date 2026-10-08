@@ -14,7 +14,7 @@ import { setupSockets } from './sockets/proctorSocket';
 // Setup Socket.IO
 const io = new Server(server, {
   cors: {
-    origin: process.env.CORS_ORIGIN || 'http://localhost:3000',
+    origin: process.env.CORS_ORIGIN ? process.env.CORS_ORIGIN.split(',') : ['http://localhost:3000', 'https://proctorguard-ai.vercel.app'],
     methods: ['GET', 'POST', 'PATCH', 'DELETE']
   }
 });
