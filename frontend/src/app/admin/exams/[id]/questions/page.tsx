@@ -11,7 +11,7 @@ function QuestionBuilderContent() {
   const router = useRouter();
   const examId = params.id as string;
   
-  const [exam, setExam] = useState<{ id: string; title: string; duration: number } | null>(null);
+  const [exam, setExam] = useState<{ id: string; title: string; duration: number; status?: string } | null>(null);
   const [questions, setQuestions] = useState<{ _id?: string; id?: string; text: string; type: string; category: string; marks: number; options: { id: string; text: string }[]; correctAnswer: string }[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -174,7 +174,7 @@ function QuestionBuilderContent() {
                   <span className="text-xs font-bold uppercase text-blue-600 bg-blue-50 px-2 py-1 rounded border border-blue-100">{q.marks} Mark(s)</span>
                 </div>
                 {exam?.status === 'DRAFT' && (
-                  <button onClick={() => handleDelete(q._id)} className="text-slate-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition">
+                  <button onClick={() => handleDelete(q._id as string)} className="text-slate-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition">
                     <Trash2 className="w-5 h-5" />
                   </button>
                 )}

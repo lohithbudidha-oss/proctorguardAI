@@ -63,10 +63,10 @@ function EvidenceContent() {
                 {chunks.map((c, i) => (
                   <div key={i} className="rounded-lg overflow-hidden border border-slate-200">
                     <div className="bg-slate-800 text-slate-300 text-xs p-2 flex justify-between">
-                      <span>Chunk #{c.sequence}</span>
-                      <span>{Math.round(c.duration / 1000)}s</span>
+                      <span>Chunk #{c.chunkIndex}</span>
+                      <span>{new Date(c.createdAt).toLocaleTimeString()}</span>
                     </div>
-                    <video controls src={c.url} className="w-full aspect-video bg-black" />
+                    <video controls src={c.fileUrl} className="w-full aspect-video bg-black" />
                   </div>
                 ))}
               </div>

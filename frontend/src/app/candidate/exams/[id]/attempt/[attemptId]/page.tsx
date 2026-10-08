@@ -23,7 +23,7 @@ function AttemptContent() {
   const [timeRemaining, setTimeRemaining] = useState(3600); // 1 hour mock
   const [streamsStarted, setStreamsStarted] = useState(false);
   const [aiStatus, setAiStatus] = useState('Initializing AI...');
-  const [examStatus, setExamStatus] = useState<'IN_PROGRESS' | 'PAUSED' | 'TERMINATED'>('IN_PROGRESS');
+  const [examStatus, setExamStatus] = useState<'IN_PROGRESS' | 'PAUSED' | 'TERMINATED' | 'SUBMITTED'>('IN_PROGRESS');
   const [violationReviewState, setViolationReviewState] = useState({ active: false, reason: '', reminders: 0 });
   const [resumeCountdown, setResumeCountdown] = useState<number | null>(null);
   
@@ -42,14 +42,17 @@ function AttemptContent() {
 
   useEffect(() => {
     // Fetch attempt details
-    api.get(`/candidate/attempts/${attemptId}`).then((res: { data: { attempt: { expiresAt: string | null }, exam: { duration: number }, questions: { _id?: string; id?: string; text: string; type: string; options?: { text?: string; id?: string }[] }[], answers: { questionId: string; selectedAnswer: string; isMarkedForReview: boolean }[] } }) => {
+    api.get(`/candidate/attempts/${attemptId}`).then((res: any) => {
       const { attempt, exam, questions, answers } = res.data;
       
-      const mappedQuestions = questions.map((q: { _id?: string; id?: string; text: string; type: string; options?: { text?: string; id?: string }[] }) => ({
-        id: q._id || q.id,
-        text: q.text,
-        type: q.type,
-        options: q.options ? q.options.map((opt: { text?: string; id?: string }) => opt.text || opt.id) : []
+      const mappedQuestions = questions.map((q: any) => ({
+        id: q._id || q.id || '',
+        text: q.text || '',
+        type: q.type || 'SINGLE_CHOICE',
+        options: q.options ? q.options.map((opt: any) => opt.text || opt.id || '') : [],
+        marks: q.marks || 1,
+        negativeMarks: q.negativeMarks || 0,
+        correctAnswer: q.correctAnswer || ''
       }));
       setQuestions(mappedQuestions);
 
@@ -418,15 +421,15 @@ function AttemptContent() {
 
   // Audio Detection (Web Speech API)
   useEffect(() => {
-    let recognition: SpeechRecognition | null = null;
+    let recognition: any = null;
     try {
-      const SpeechRecognitionConstructor = (window as unknown as { SpeechRecognition?: typeof SpeechRecognition, webkitSpeechRecognition?: typeof SpeechRecognition }).SpeechRecognition || (window as unknown as { SpeechRecognition?: typeof SpeechRecognition, webkitSpeechRecognition?: typeof SpeechRecognition }).webkitSpeechRecognition;
+      const SpeechRecognitionConstructor = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
       if (SpeechRecognitionConstructor) {
         recognition = new SpeechRecognitionConstructor();
         recognition.continuous = true;
         recognition.interimResults = true;
         
-        recognition.onresult = (event: SpeechRecognitionEvent) => {
+        recognition.onresult = (event: any) => {
           // If we detect any speech, trigger violation
           const transcript = event.results[event.results.length - 1][0].transcript.trim();
           if (transcript.length > 0) {
@@ -745,7 +748,7 @@ function AttemptContent() {
               <h2 className="text-xl font-bold text-slate-800">No Questions Found</h2>
               <p className="text-slate-500 mt-2">This exam doesn't have any questions configured.</p>
               <button 
-                onClick={submitExam} 
+                onClick={() => submitExam()} 
                 className="mt-6 bg-blue-600 text-white px-6 py-2 rounded font-semibold hover:bg-blue-700"
               >
                 End Exam

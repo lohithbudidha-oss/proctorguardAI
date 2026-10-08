@@ -1,9 +1,9 @@
 'use client';
-import React, { useState } from 'react';
+import React, { useState, Suspense } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import api from '@/lib/api';
 
-export default function PublicExamRegistration() {
+function RegistrationForm() {
   const router = useRouter();
   const params = useParams();
   const examId = params.id;
@@ -59,5 +59,13 @@ export default function PublicExamRegistration() {
         </form>
       </div>
     </div>
+  );
+}
+
+export default function PublicExamRegistration() {
+  return (
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center p-4">Loading...</div>}>
+      <RegistrationForm />
+    </Suspense>
   );
 }

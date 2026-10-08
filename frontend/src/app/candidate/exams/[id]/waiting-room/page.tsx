@@ -10,7 +10,7 @@ function WaitingRoomContent() {
   const params = useParams();
   const examId = params.id as string;
 
-  const [exam, setExam] = useState<{ title: string; duration: number; startAt?: string; questionCount?: number } | null>(null);
+  const [exam, setExam] = useState<any>(null);
   const [canStart, setCanStart] = useState(false);
   const [countdown, setCountdown] = useState('');
   const [devicesEnabled, setDevicesEnabled] = useState(false);

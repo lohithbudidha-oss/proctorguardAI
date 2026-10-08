@@ -472,8 +472,8 @@ export default function LiveMonitoringPage() {
                           <div className="flex justify-between items-center mb-1">
                             <span className={`font-bold text-sm ${v.severity === 'CRITICAL' ? 'text-red-400' : v.severity === 'HIGH' ? 'text-amber-400' : 'text-slate-300'}`}>{v.type}</span>
                           </div>
-                          <div className="text-slate-500 text-xs font-mono mb-2">{new Date(v.detectedAt).toLocaleTimeString()}</div>
-                          <div className="text-slate-400 text-xs">Source: <span className="text-slate-300 font-semibold">{v.source}</span></div>
+                          <div className="text-slate-500 text-xs font-mono mb-2">{new Date(v.timestamp).toLocaleTimeString()}</div>
+                          <div className="text-slate-400 text-xs">Source: <span className="text-slate-300 font-semibold">AI Detection</span></div>
                         </div>
                       </div>
                     ))}

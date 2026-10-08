@@ -11,7 +11,7 @@ function CandidateResultContent() {
   const attemptId = params.attemptId as string;
   const examId = params.id as string;
 
-  const [result, setResult] = useState<{ score: number; totalMarks: number; passed: boolean; violations: number; status: string } | null>(null);
+  const [result, setResult] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
