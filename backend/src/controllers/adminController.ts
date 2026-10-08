@@ -40,7 +40,14 @@ export const approveCandidate = async (req: Request, res: Response, next: NextFu
 
 export const getLiveCandidates = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const attempts = await Attempt.find({ status: { $in: [AttemptStatus.IN_PROGRESS, AttemptStatus.PAUSED, AttemptStatus.LOCKED] } })
+    const attempts = await Attempt.find({ 
+      status: { $in: [AttemptStatus.IN_PROGRESS, AttemptStatus.PAUSED, AttemptStatus.LOCKED] },
+      $or: [
+        { expiresAt: { $gt: new Date() } },
+        { expiresAt: { $exists: false } },
+        { expiresAt: null }
+      ]
+    })
       .populate('candidateId', 'name email')
       .populate('examId', 'title');
 
