@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, Plus, Settings, Users, MonitorPlay, FileText, CheckCircle } from 'lucide-react';
+import { ArrowLeft, Plus, Settings, Users, MonitorPlay, FileText, CheckCircle, Trash2, Eye, Edit2 } from 'lucide-react';
 import api from '@/lib/api';
 
 interface Exam {
@@ -62,6 +62,28 @@ export default function AdminExamsPage() {
     }
   };
 
+  const handleEdit = async (exam: Exam) => {
+    const newTitle = prompt('Enter new title:', exam.title);
+    if (!newTitle) return;
+    try {
+      await api.patch(`/admin/exams/${exam._id}`, { title: newTitle });
+      fetchExams();
+    } catch(err) {
+      alert('Failed to edit exam. Ensure it is still in DRAFT status.');
+    }
+  };
+
+  const handleDelete = async (examId: string) => {
+    if (confirm('Are you sure you want to delete this exam? This action cannot be undone.')) {
+      try {
+        await api.delete(`/admin/exams/${examId}`);
+        fetchExams();
+      } catch (err) {
+        alert('Failed to delete exam. Make sure you have the latest backend deployed.');
+      }
+    }
+  };
+
   if (loading) return <div className="p-10 text-center font-bold text-slate-500">Loading Exams...</div>;
 
   return (
@@ -109,7 +131,29 @@ export default function AdminExamsPage() {
                 </div>
               </div>
               
-              <div className="flex space-x-3">
+              <div className="flex items-center space-x-3">
+                <button
+                  onClick={() => alert('View functionality coming soon')}
+                  className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition"
+                  title="View Details"
+                >
+                  <Eye className="w-5 h-5" />
+                </button>
+                <button
+                  onClick={() => handleEdit(exam)}
+                  className="p-2 text-slate-400 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition"
+                  title="Edit Title"
+                >
+                  <Edit2 className="w-5 h-5" />
+                </button>
+                <button
+                  onClick={() => handleDelete(exam._id)}
+                  className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition"
+                  title="Delete Exam"
+                >
+                  <Trash2 className="w-5 h-5" />
+                </button>
+                <div className="w-px h-6 bg-slate-200 mx-2"></div>
                 <Link 
                   href={`/admin/exams/${exam._id}/questions`}
                   className="px-4 py-2 text-slate-600 font-semibold border border-slate-200 rounded-lg hover:bg-slate-50 transition"
