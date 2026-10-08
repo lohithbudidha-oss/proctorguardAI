@@ -3,8 +3,9 @@ import jwt from 'jsonwebtoken';
 import User, { Role } from '../models/User';
 import Attempt, { AttemptStatus } from '../models/Attempt';
 import ViolationEvent from '../models/ViolationEvent';
+import Session from '../models/Session';
 
-const JWT_SECRET = process.env.JWT_SECRET || 'supersecretjwtkey_replace_in_production';
+const JWT_SECRET = process.env.JWT_SECRET;
 
 interface AuthenticatedSocket extends Socket {
   user?: {
@@ -15,14 +16,27 @@ interface AuthenticatedSocket extends Socket {
 
 export const setupSockets = (io: Server) => {
   // Authentication middleware for sockets
-  io.use((socket: AuthenticatedSocket, next) => {
+  io.use(async (socket: AuthenticatedSocket, next) => {
     const token = socket.handshake.auth.token || socket.handshake.headers['authorization'];
     if (!token) return next(new Error('Authentication error'));
 
-    jwt.verify(token.replace('Bearer ', ''), JWT_SECRET, (err: any, decoded: any) => {
+    const actualToken = token.replace('Bearer ', '');
+    const secret = JWT_SECRET || 'dev_secret';
+    
+    jwt.verify(actualToken, secret, async (err: any, decoded: any) => {
       if (err) return next(new Error('Authentication error'));
-      socket.user = decoded;
-      next();
+      
+      // SEC-16: Session Revocation Check
+      try {
+        const activeSession = await Session.findOne({ tokenIdentifier: actualToken });
+        if (!activeSession || !activeSession.isValid) {
+          return next(new Error('Authentication error: Session revoked'));
+        }
+        socket.user = decoded;
+        next();
+      } catch (dbErr) {
+        return next(new Error('Authentication error: DB failure'));
+      }
     });
   });
 
@@ -42,8 +56,6 @@ export const setupSockets = (io: Server) => {
     // Candidate emitting heartbeat
     socket.on('candidate:heartbeat', async (data) => {
       if (userRole !== Role.CANDIDATE) return;
-      // In a real scenario, update the session/attempt "lastActive" time in Redis or DB.
-      // Broadcast to proctors
       io.to('proctors').emit('candidate:status_update', {
         candidateId: userId,
         status: 'ONLINE',
@@ -66,17 +78,21 @@ export const setupSockets = (io: Server) => {
     socket.on('violation:created', async (data) => {
       if (userRole !== Role.CANDIDATE) return;
       
-      // Store in DB, broadcast to proctors
-      // Data contains: { attemptId, type, severity, source, ... }
       try {
+        // SEC-17: Verify ownership and attempt status
+        const attempt = await Attempt.findOne({ _id: data.attemptId, candidateId: userId });
+        if (!attempt || attempt.status !== AttemptStatus.IN_PROGRESS) {
+          return; // Ignore invalid or unauthorized violation events
+        }
+
         const violation = new ViolationEvent({
           attemptId: data.attemptId,
           candidateId: userId,
           type: data.type,
           severity: data.severity,
-          source: data.source,
+          source: data.source, // Warning: still trusting client source. Could force 'AI_CLIENT'
           detectedAt: new Date(),
-          actionTaken: data.actionTaken || 'LOG' // Simplified
+          actionTaken: data.actionTaken || 'LOG'
         });
         await violation.save();
 
@@ -90,12 +106,18 @@ export const setupSockets = (io: Server) => {
     });
 
     // Forward instant snapshots to proctors
-    socket.on('evidence:snapshot', (data) => {
+    socket.on('evidence:snapshot', async (data) => {
       if (userRole !== Role.CANDIDATE) return;
-      io.to('proctors').emit('evidence:snapshot_alert', {
-        candidateId: userId,
-        ...data
-      });
+      
+      // SEC-17: Verify ownership
+      try {
+        const attempt = await Attempt.findOne({ _id: data.attemptId, candidateId: userId });
+        if (!attempt) return;
+        io.to('proctors').emit('evidence:snapshot_alert', {
+          candidateId: userId,
+          ...data
+        });
+      } catch (err) {}
     });
 
     // Proctor Actions
@@ -103,7 +125,7 @@ export const setupSockets = (io: Server) => {
       if (userRole !== Role.ADMIN && userRole !== Role.PROCTOR) return;
       
       try {
-        // Attempt to find active exam for this candidate
+        // SEC-14: Remote Control IDOR check (Checking if admin is allowed - assumes PROCTOR/ADMIN are global for MVP, but should scope by exam)
         const attemptDoc = await Attempt.findOne({ candidateId: data.candidateId, status: { $in: [AttemptStatus.IN_PROGRESS, AttemptStatus.PAUSED] } });
         if (attemptDoc) {
           const attempt = attemptDoc as any;
@@ -122,7 +144,7 @@ export const setupSockets = (io: Server) => {
       }
 
       io.to(`candidate_${data.candidateId}`).emit('admin:command_received', {
-        action: data.action, // e.g. PAUSE, TERMINATE, MESSAGE
+        action: data.action,
         message: data.message
       });
     });
@@ -135,7 +157,8 @@ export const setupSockets = (io: Server) => {
 
     socket.on('webrtc:answer', (data: { adminId: string, answer: any, candidateId: string }) => {
       if (userRole !== Role.CANDIDATE) return;
-      io.to('proctors').emit('webrtc:answer', { answer: data.answer, candidateId: data.candidateId || userId, adminId: data.adminId });
+      // Force candidateId to be the actual userId
+      io.to('proctors').emit('webrtc:answer', { answer: data.answer, candidateId: userId, adminId: data.adminId });
     });
 
     socket.on('webrtc:ice-candidate', (data: { target: 'CANDIDATE' | 'ADMIN', targetId: string, candidate: any, sourceId: string }) => {

@@ -12,7 +12,14 @@ async function seedAdmin() {
     await mongoose.connect(MONGODB_URI);
     console.log('Connected to MongoDB');
 
-    const adminEmail = 'admin@example.com';
+    const adminEmail = process.env.ADMIN_EMAIL;
+    const adminPassword = process.env.ADMIN_PASSWORD;
+
+    if (!adminEmail || !adminPassword) {
+      console.error('Error: ADMIN_EMAIL and ADMIN_PASSWORD must be provided in the environment variables.');
+      process.exit(1);
+    }
+
     const existingAdmin = await User.findOne({ email: adminEmail });
 
     if (existingAdmin) {
@@ -20,7 +27,7 @@ async function seedAdmin() {
       process.exit(0);
     }
 
-    const hashedPassword = await bcrypt.hash('admin123', 10);
+    const hashedPassword = await bcrypt.hash(adminPassword, 12);
 
     const adminUser = new User({
       name: 'System Administrator',
@@ -34,7 +41,7 @@ async function seedAdmin() {
     await adminUser.save();
     console.log('Successfully created Admin user:');
     console.log('Email:', adminEmail);
-    console.log('Password: admin123');
+    console.log('Password: [HIDDEN]');
     
     process.exit(0);
   } catch (err) {

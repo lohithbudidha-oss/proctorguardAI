@@ -18,17 +18,20 @@ export const startAttempt = async (req: AuthRequest, res: Response, next: NextFu
       return res.status(403).json({ success: false, message: 'Your account is pending Admin approval. Please wait.' });
     }
 
-    const assignment = await Assignment.findOne({ examId, candidateId }); // Bypassed status check for demo
+    const assignment = await Assignment.findOne({ examId, candidateId });
     if (!assignment) {
       return res.status(403).json({ success: false, message: 'Valid assignment not found' });
     }
-
-    const exam = await Exam.findById(examId);
-    if (!exam) {
-      return res.status(404).json({ success: false, message: 'Exam not found' });
+    
+    if (assignment.status === AssignmentStatus.COMPLETED || assignment.status === AssignmentStatus.EXPIRED) {
+      return res.status(403).json({ success: false, message: 'Assignment is completed or expired' });
     }
 
-    // Check if within scheduled time (mock logic, expand as needed)
+    const exam = await Exam.findById(examId);
+    if (!exam || exam.status !== 'PUBLISHED') {
+      return res.status(404).json({ success: false, message: 'Exam not found or not published' });
+    }
+
     const now = new Date();
     if (exam.startAt && now < exam.startAt) {
       return res.status(403).json({ success: false, message: 'Exam has not started yet' });
@@ -37,11 +40,17 @@ export const startAttempt = async (req: AuthRequest, res: Response, next: NextFu
       return res.status(403).json({ success: false, message: 'Exam has ended' });
     }
 
-    // Check attempt limits (Bypassed for demo testing)
-    // const attemptCount = await Attempt.countDocuments({ assignmentId: assignment._id });
-    // if (attemptCount >= assignment.allowedAttempts) {
-    //   return res.status(403).json({ success: false, message: 'Attempt limit reached' });
-    // }
+    // Check attempt limits using a transaction-like strict check
+    const attemptCount = await Attempt.countDocuments({ assignmentId: assignment._id });
+    if (attemptCount >= assignment.allowedAttempts) {
+      return res.status(403).json({ success: false, message: 'Attempt limit reached' });
+    }
+    
+    // Prevent concurrent active attempts
+    const activeAttempt = await Attempt.findOne({ assignmentId: assignment._id, status: { $in: [AttemptStatus.IN_PROGRESS, AttemptStatus.PAUSED] } });
+    if (activeAttempt) {
+      return res.status(409).json({ success: false, message: 'You already have an active attempt for this exam.' });
+    }
 
     const attempt = new Attempt({
       examId,
@@ -56,7 +65,6 @@ export const startAttempt = async (req: AuthRequest, res: Response, next: NextFu
 
     await attempt.save();
 
-    // Mark assignment as active
     assignment.status = AssignmentStatus.ACTIVE;
     await assignment.save();
 
@@ -116,6 +124,12 @@ export const saveAnswer = async (req: AuthRequest, res: Response, next: NextFunc
       attempt.submittedAt = now;
       await attempt.save();
       return res.status(403).json({ success: false, message: 'Exam time expired. Attempt auto-submitted.' });
+    }
+
+    // SEC-21: Verify question belongs to the exam
+    const question = await Question.findOne({ _id: questionId, examId: attempt.examId });
+    if (!question) {
+      return res.status(400).json({ success: false, message: 'Invalid question for this exam' });
     }
 
     let answer = await Answer.findOne({ attemptId, questionId });

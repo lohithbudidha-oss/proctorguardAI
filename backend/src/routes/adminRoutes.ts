@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { getCandidates, updateCandidateStatus, approveCandidate, getLiveCandidates, lockAttempt, unlockAttempt, forceSubmitAttempt } from '../controllers/adminController';
-import { createExam, getExams, getExamById, updateExam, publishExam, getExamCandidates, assignCandidate, allowRewriteAll } from '../controllers/examController';
+import { createExam, getExams, getExamById, updateExam, deleteExam, publishExam, getExamCandidates, assignCandidate, allowRewriteAll } from '../controllers/examController';
 import { getQuestions, createQuestion, updateQuestion, deleteQuestion } from '../controllers/questionController';
 import { authenticate, requireRole } from '../middleware/authMiddleware';
 import { Role } from '../models/User';
@@ -22,6 +22,7 @@ router.post('/exams', createExam);
 router.get('/exams', getExams);
 router.get('/exams/:id', getExamById);
 router.patch('/exams/:id', updateExam);
+router.delete('/exams/:id', deleteExam);
 router.post('/exams/:id/publish', publishExam);
 
 // Questions

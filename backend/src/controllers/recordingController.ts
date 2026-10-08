@@ -250,6 +250,13 @@ export const uploadSnapshot = async (req: AuthRequest, res: Response, next: Next
     const userId = req.user!.userId;
 
     if (!req.file) return res.status(400).json({ success: false, message: 'No image data provided' });
+    
+    // SEC-08: Verify ownership and attempt status
+    const Attempt = require('../models/Attempt').default;
+    const attempt = await Attempt.findOne({ _id: attemptId, candidateId: userId });
+    if (!attempt || attempt.status !== 'IN_PROGRESS') {
+      return res.status(403).json({ success: false, message: 'Invalid or inactive attempt' });
+    }
 
     const storageKey = `evidence/${attemptId}/${Date.now()}.jpg`;
     await storageService.uploadChunk(storageKey, req.file.buffer, req.file.mimetype);

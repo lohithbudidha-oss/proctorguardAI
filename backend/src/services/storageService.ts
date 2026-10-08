@@ -12,7 +12,10 @@ class StorageProvider {
   }
 
   async uploadChunk(key: string, buffer: Buffer, mimeType: string): Promise<string> {
-    const fullPath = path.join(this.baseDir, key);
+    const fullPath = path.resolve(this.baseDir, key);
+    if (!fullPath.startsWith(path.resolve(this.baseDir))) {
+      throw new Error('Path traversal detected');
+    }
     const dir = path.dirname(fullPath);
     if (!fs.existsSync(dir)) {
       fs.mkdirSync(dir, { recursive: true });
@@ -22,12 +25,20 @@ class StorageProvider {
   }
 
   async generateSignedUrl(key: string, expiresIn: number = 3600): Promise<string> {
-    // For local, just return the path (this would need a static route in production)
-    return `file://${path.join(this.baseDir, key)}`;
+    const fullPath = path.resolve(this.baseDir, key);
+    if (!fullPath.startsWith(path.resolve(this.baseDir))) {
+      throw new Error('Path traversal detected');
+    }
+    // In MVP this should be a static route mapped to temp_storage or presigned S3 url
+    return `file://${fullPath}`;
   }
 
   getFilePath(key: string): string {
-    return path.join(this.baseDir, key);
+    const fullPath = path.resolve(this.baseDir, key);
+    if (!fullPath.startsWith(path.resolve(this.baseDir))) {
+      throw new Error('Path traversal detected');
+    }
+    return fullPath;
   }
 }
 

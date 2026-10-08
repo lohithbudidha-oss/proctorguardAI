@@ -58,6 +58,17 @@ export const updateExam = async (req: Request, res: Response, next: NextFunction
   }
 };
 
+export const deleteExam = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { id } = req.params;
+    const exam = await Exam.findByIdAndDelete(id);
+    if (!exam) return res.status(404).json({ success: false, message: 'Exam not found' });
+    res.status(200).json({ success: true, message: 'Exam deleted successfully' });
+  } catch (err) {
+    next(err);
+  }
+};
+
 export const publishExam = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { id } = req.params;

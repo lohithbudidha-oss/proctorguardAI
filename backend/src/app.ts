@@ -40,11 +40,21 @@ app.use('/api/recordings', recordingRoutes);
 
 // Global Error Handler
 app.use((err: any, req: Request, res: Response, next: NextFunction) => {
-  console.error(err.stack);
+  console.error(err);
+  const isProduction = process.env.NODE_ENV === 'production';
+  
+  let message = 'Internal Server Error';
+  if (!isProduction || err.status < 500) {
+    message = err.message || message;
+  }
+
   res.status(err.status || 500).json({
     success: false,
-    message: err.message || 'Internal Server Error',
-    code: err.code || 'INTERNAL_ERROR'
+    error: {
+      code: err.code || 'INTERNAL_ERROR',
+      message: message,
+      requestId: req.headers['x-request-id'] || 'unknown'
+    }
   });
 });
 

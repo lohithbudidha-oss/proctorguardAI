@@ -2,7 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 import { Role } from '../models/User';
 
-const JWT_SECRET = process.env.JWT_SECRET || 'supersecretjwtkey_replace_in_production';
+const JWT_SECRET = process.env.JWT_SECRET;
 
 export interface AuthRequest extends Request {
   user?: {
@@ -23,7 +23,8 @@ export const authenticate = async (req: AuthRequest, res: Response, next: NextFu
   const token = authHeader.split(' ')[1];
 
   try {
-    const decoded = jwt.verify(token, JWT_SECRET) as any;
+    const secret = JWT_SECRET || 'dev_secret';
+    const decoded = jwt.verify(token, secret) as any;
     
     // REM-08: Session Revocation Check
     const activeSession = await Session.findOne({ tokenIdentifier: token });
