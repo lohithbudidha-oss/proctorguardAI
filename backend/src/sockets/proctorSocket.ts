@@ -89,6 +89,15 @@ export const setupSockets = (io: Server) => {
       }
     });
 
+    // Forward instant snapshots to proctors
+    socket.on('evidence:snapshot', (data) => {
+      if (userRole !== Role.CANDIDATE) return;
+      io.to('proctors').emit('evidence:snapshot_alert', {
+        candidateId: userId,
+        ...data
+      });
+    });
+
     // Proctor Actions
     socket.on('admin:command', async (data: { candidateId: string, action: string, message?: string }) => {
       if (userRole !== Role.ADMIN && userRole !== Role.PROCTOR) return;

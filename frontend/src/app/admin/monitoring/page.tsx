@@ -110,6 +110,36 @@ export default function LiveMonitoringPage() {
       });
     });
 
+    initSocket.on('evidence:snapshot_alert', (data) => {
+      setCandidates(prev => {
+        const cand = prev[data.candidateId];
+        if (!cand) return prev;
+        
+        // Prepend the new image-based violation
+        const newViolation = {
+          type: data.type,
+          severity: data.severity,
+          description: data.description,
+          detectedAt: new Date().toISOString(),
+          snapshotImage: data.image
+        };
+        
+        let newRisk = cand.riskScore;
+        if (data.severity === 'CRITICAL') newRisk += 40;
+        else if (data.severity === 'HIGH') newRisk += 20;
+        else newRisk += 5;
+
+        return {
+          ...prev,
+          [data.candidateId]: { 
+            ...cand, 
+            riskScore: Math.min(100, newRisk),
+            violations: [newViolation, ...cand.violations] 
+          }
+        };
+      });
+    });
+
     initSocket.on('webrtc:answer', async (data) => {
       if (peerConnectionRef.current && data.adminId === initSocket.id) {
         await peerConnectionRef.current.setRemoteDescription(new RTCSessionDescription(data.answer));
@@ -159,7 +189,10 @@ export default function LiveMonitoringPage() {
 
     peerConnectionRef.current = pc;
 
-    const offer = await pc.createOffer({ offerToReceiveVideo: true, offerToReceiveAudio: true });
+    pc.addTransceiver('video', { direction: 'recvonly' });
+    pc.addTransceiver('audio', { direction: 'recvonly' });
+
+    const offer = await pc.createOffer();
     await pc.setLocalDescription(offer);
 
     socket.emit('webrtc:offer', {
@@ -472,8 +505,13 @@ export default function LiveMonitoringPage() {
                           <div className="flex justify-between items-center mb-1">
                             <span className={`font-bold text-sm ${v.severity === 'CRITICAL' ? 'text-red-400' : v.severity === 'HIGH' ? 'text-amber-400' : 'text-slate-300'}`}>{v.type}</span>
                           </div>
-                          <div className="text-slate-500 text-xs font-mono mb-2">{new Date(v.timestamp).toLocaleTimeString()}</div>
-                          <div className="text-slate-400 text-xs">Source: <span className="text-slate-300 font-semibold">AI Detection</span></div>
+                          <div className="text-slate-500 text-xs font-mono mb-2">{new Date(v.timestamp || v.detectedAt).toLocaleTimeString()}</div>
+                          <div className="text-slate-400 text-xs mb-2">{v.description || 'Source: AI Detection'}</div>
+                          {v.snapshotImage && (
+                            <div className="mt-2 rounded overflow-hidden border border-slate-700 shadow-md">
+                              <img src={v.snapshotImage} alt="Violation Evidence" className="w-full h-auto" />
+                            </div>
+                          )}
                         </div>
                       </div>
                     ))}

@@ -485,6 +485,12 @@ function AttemptContent() {
         const ctx = canvas.getContext('2d');
         if (ctx) {
           ctx.drawImage(videoRef.current, 0, 0, canvas.width, canvas.height);
+          
+          const dataUrl = canvas.toDataURL('image/jpeg', 0.5);
+          if (socket) {
+            socket.emit('evidence:snapshot', { attemptId, type, severity, description: message, image: dataUrl });
+          }
+
           canvas.toBlob(async (blob) => {
             if (blob) {
               const formData = new FormData();
