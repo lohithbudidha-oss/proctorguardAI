@@ -6,7 +6,7 @@ import { Readable } from 'stream';
 export class GoogleDriveService {
   private drive: any;
   private isConfigured: boolean = false;
-  private folderId: string;
+  private folderId: string = '';
 
   constructor() {
     try {

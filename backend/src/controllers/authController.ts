@@ -121,7 +121,6 @@ export const logout = async (req: Request, res: Response, next: NextFunction) =>
   }
 };
 
-import bcrypt from 'bcrypt';
 
 export const publicExamRegister = async (req: Request, res: Response, next: NextFunction) => {
   try {

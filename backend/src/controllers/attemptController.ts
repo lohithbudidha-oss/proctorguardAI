@@ -165,7 +165,7 @@ export const submitAttempt = async (req: AuthRequest, res: Response, next: NextF
       await assignment.save();
     }
 
-    await evaluateAttempt(attemptId, candidateId);
+    await evaluateAttempt(attemptId as string, candidateId as string);
 
     res.status(200).json({ success: true, message: 'Exam submitted successfully' });
   } catch (err) {
