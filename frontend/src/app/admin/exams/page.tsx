@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, Plus, Settings, Users, MonitorPlay, FileText, CheckCircle, Trash2, Eye, Edit2 } from 'lucide-react';
+import { ArrowLeft, Plus, Settings, Users, MonitorPlay, FileText, CheckCircle, Trash2, Eye, Edit2, X } from 'lucide-react';
 import api from '@/lib/api';
 
 interface Exam {
@@ -17,6 +17,10 @@ export default function AdminExamsPage() {
   const router = useRouter();
   const [exams, setExams] = useState<Exam[]>([]);
   const [loading, setLoading] = useState(true);
+  
+  const [selectedExam, setSelectedExam] = useState<Exam | null>(null);
+  const [isViewModalOpen, setIsViewModalOpen] = useState(false);
+  const [examDetails, setExamDetails] = useState<any>(null);
 
   const fetchExams = () => {
     api.get('/admin/exams')
@@ -70,6 +74,18 @@ export default function AdminExamsPage() {
       fetchExams();
     } catch(err) {
       alert('Failed to edit exam. Ensure it is still in DRAFT status.');
+    }
+  };
+
+  const handleView = async (exam: Exam) => {
+    setSelectedExam(exam);
+    setIsViewModalOpen(true);
+    setExamDetails(null); // Reset while loading
+    try {
+      const res = await api.get(`/admin/exams/${exam._id}`);
+      setExamDetails(res.data.exam);
+    } catch (err) {
+      console.error('Failed to fetch exam details', err);
     }
   };
 
@@ -133,7 +149,7 @@ export default function AdminExamsPage() {
               
               <div className="flex items-center space-x-3">
                 <button
-                  onClick={() => alert('View functionality coming soon')}
+                  onClick={() => handleView(exam)}
                   className="p-2 text-white bg-blue-500 hover:bg-blue-600 rounded-lg shadow-sm transition"
                   title="View Details"
                 >
@@ -185,6 +201,63 @@ export default function AdminExamsPage() {
           )}
         </div>
       </div>
+
+      {isViewModalOpen && selectedExam && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 backdrop-blur-sm p-4">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-2xl overflow-hidden flex flex-col max-h-[90vh]">
+            <div className="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">
+              <h3 className="text-xl font-bold text-slate-800">Exam Details</h3>
+              <button onClick={() => setIsViewModalOpen(false)} className="text-slate-400 hover:text-slate-600 transition">
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+            <div className="p-6 overflow-y-auto flex-1">
+              {!examDetails ? (
+                <div className="flex justify-center py-10"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div></div>
+              ) : (
+                <div className="space-y-6">
+                  <div>
+                    <h4 className="text-sm font-semibold text-slate-400 uppercase tracking-wider mb-1">Title</h4>
+                    <p className="text-lg font-bold text-slate-900">{examDetails.title}</p>
+                  </div>
+                  <div className="grid grid-cols-2 gap-6">
+                    <div>
+                      <h4 className="text-sm font-semibold text-slate-400 uppercase tracking-wider mb-1">Status</h4>
+                      <span className={`px-2.5 py-1 rounded-md text-xs font-bold uppercase tracking-wider ${examDetails.status === 'PUBLISHED' ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-600'}`}>
+                        {examDetails.status}
+                      </span>
+                    </div>
+                    <div>
+                      <h4 className="text-sm font-semibold text-slate-400 uppercase tracking-wider mb-1">Duration</h4>
+                      <p className="text-slate-800 font-medium">{examDetails.duration} Minutes</p>
+                    </div>
+                  </div>
+                  <div>
+                    <h4 className="text-sm font-semibold text-slate-400 uppercase tracking-wider mb-1">Description</h4>
+                    <p className="text-slate-700 whitespace-pre-wrap">{examDetails.description || 'No description provided.'}</p>
+                  </div>
+                  <div>
+                    <h4 className="text-sm font-semibold text-slate-400 uppercase tracking-wider mb-1">Instructions</h4>
+                    <p className="text-slate-700 whitespace-pre-wrap">{examDetails.instructions || 'No special instructions.'}</p>
+                  </div>
+                  <div>
+                    <h4 className="text-sm font-semibold text-slate-400 uppercase tracking-wider mb-1">Created At</h4>
+                    <p className="text-slate-700">{new Date(examDetails.createdAt).toLocaleString()}</p>
+                  </div>
+                </div>
+              )}
+            </div>
+            <div className="px-6 py-4 border-t border-slate-100 bg-slate-50 flex justify-end">
+              <button 
+                onClick={() => setIsViewModalOpen(false)}
+                className="px-6 py-2 bg-slate-800 text-white font-semibold rounded-lg hover:bg-slate-700 transition"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
