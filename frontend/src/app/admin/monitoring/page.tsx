@@ -18,6 +18,18 @@ interface CandidateState {
   attemptId?: string;
 }
 
+interface ActiveViolationAlert {
+  candidateId: string;
+  name: string;
+  attemptId?: string;
+  violation: {
+    severity: string;
+    type: string;
+    description?: string;
+    snapshotImage?: string;
+  };
+}
+
 interface LiveCandidateEntry {
   candidateId: string;
   name: string;
@@ -37,6 +49,7 @@ export default function LiveMonitoringPage() {
   const [socket, setSocket] = useState<ReturnType<typeof io> | null>(null);
   const [selectedCandidate, setSelectedCandidate] = useState<CandidateState | null>(null);
   const [isStreaming, setIsStreaming] = useState(false);
+  const [activeAlert, setActiveAlert] = useState<ActiveViolationAlert | null>(null);
 
   const remoteVideoRef = React.useRef<HTMLVideoElement>(null);
   const peerConnectionRef = React.useRef<RTCPeerConnection | null>(null);
@@ -99,6 +112,16 @@ export default function LiveMonitoringPage() {
         else if (data.violation.severity === 'HIGH') newRisk += 20;
         else newRisk += 5;
 
+        // Proactive Alert for High/Critical
+        if (data.violation.severity === 'CRITICAL' || data.violation.severity === 'HIGH') {
+          setActiveAlert({
+            candidateId: data.candidateId,
+            name: cand.name,
+            attemptId: cand.attemptId,
+            violation: data.violation
+          });
+        }
+
         return {
           ...prev,
           [data.candidateId]: { 
@@ -128,6 +151,16 @@ export default function LiveMonitoringPage() {
         if (data.severity === 'CRITICAL') newRisk += 40;
         else if (data.severity === 'HIGH') newRisk += 20;
         else newRisk += 5;
+
+        // Proactive Alert for High/Critical
+        if (data.severity === 'CRITICAL' || data.severity === 'HIGH') {
+          setActiveAlert({
+            candidateId: data.candidateId,
+            name: cand.name,
+            attemptId: cand.attemptId,
+            violation: newViolation
+          });
+        }
 
         return {
           ...prev,
@@ -233,6 +266,21 @@ export default function LiveMonitoringPage() {
       console.error(err);
       alert('Failed to execute command');
     }
+  };
+
+  const handleAlertAction = (action: 'TERMINATE' | 'PAUSE' | 'DISMISS') => {
+    if (!activeAlert) return;
+
+    if (action === 'TERMINATE') {
+      handleApiCommand(activeAlert.candidateId, 'FORCE_SUBMIT', activeAlert.attemptId);
+      sendCommand(activeAlert.candidateId, 'TERMINATE', 'Exam terminated by Admin due to violations.');
+    } else if (action === 'PAUSE') {
+      handleApiCommand(activeAlert.candidateId, 'LOCK', activeAlert.attemptId);
+      sendCommand(activeAlert.candidateId, 'PAUSE', 'Exam paused by Admin for review.');
+    }
+    
+    // Dismiss the alert box
+    setActiveAlert(null);
   };
 
   return (
@@ -521,6 +569,74 @@ export default function LiveMonitoringPage() {
             </div>
           </div>
         </>
+      )}
+
+      {/* Proactive Violation Alert Modal */}
+      {activeAlert && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-md p-4">
+          <div className="bg-[#131c31] border-2 border-red-500/50 rounded-2xl shadow-[0_0_50px_rgba(239,68,68,0.3)] max-w-lg w-full overflow-hidden animate-in fade-in zoom-in duration-300">
+            <div className="bg-red-500/10 p-6 flex flex-col items-center text-center border-b border-red-500/20">
+              <div className="w-16 h-16 bg-red-500/20 rounded-full flex items-center justify-center mb-4">
+                <ShieldAlert className="w-8 h-8 text-red-500 animate-pulse" />
+              </div>
+              <h2 className="text-2xl font-black text-white uppercase tracking-wider text-red-500">Security Alert</h2>
+              <p className="text-red-400 font-medium mt-1">Immediate action required</p>
+            </div>
+            
+            <div className="p-6">
+              <div className="bg-[#0f172a] rounded-xl p-4 border border-slate-700 mb-6">
+                <div className="flex justify-between items-center mb-3">
+                  <span className="text-slate-400 font-bold uppercase text-xs">Candidate</span>
+                  <span className="text-white font-bold">{activeAlert.name}</span>
+                </div>
+                <div className="flex justify-between items-center mb-3">
+                  <span className="text-slate-400 font-bold uppercase text-xs">Violation Type</span>
+                  <span className={`font-bold ${activeAlert.violation.severity === 'CRITICAL' ? 'text-red-400' : 'text-amber-400'}`}>
+                    {activeAlert.violation.type}
+                  </span>
+                </div>
+                {activeAlert.violation.description && (
+                  <div className="flex justify-between items-center">
+                    <span className="text-slate-400 font-bold uppercase text-xs">Details</span>
+                    <span className="text-slate-300 text-sm text-right ml-4">{activeAlert.violation.description}</span>
+                  </div>
+                )}
+              </div>
+              
+              {activeAlert.violation.snapshotImage && (
+                <div className="mb-6 rounded-lg overflow-hidden border border-slate-700 shadow-md">
+                  <img src={activeAlert.violation.snapshotImage} alt="Violation Evidence Snapshot" className="w-full h-auto object-cover max-h-48" />
+                </div>
+              )}
+
+              <p className="text-slate-400 text-center text-sm mb-6">Please decide how to proceed with this candidate's examination.</p>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <button 
+                  onClick={() => handleAlertAction('TERMINATE')}
+                  className="px-4 py-3 bg-red-500 hover:bg-red-600 text-white font-bold rounded-lg transition-colors flex flex-col items-center justify-center"
+                >
+                  <AlertTriangle className="w-5 h-5 mb-1" />
+                  Terminate
+                </button>
+                <button 
+                  onClick={() => handleAlertAction('PAUSE')}
+                  className="px-4 py-3 bg-amber-500 hover:bg-amber-600 text-white font-bold rounded-lg transition-colors flex flex-col items-center justify-center"
+                >
+                  <PauseCircle className="w-5 h-5 mb-1" />
+                  Pause Exam
+                </button>
+                <button 
+                  onClick={() => handleAlertAction('DISMISS')}
+                  className="px-4 py-3 bg-slate-700 hover:bg-slate-600 text-white font-bold rounded-lg transition-colors flex flex-col items-center justify-center"
+                >
+                  <CheckCircle2 className="w-5 h-5 mb-1" />
+                  Continue
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
