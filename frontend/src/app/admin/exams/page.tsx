@@ -134,24 +134,24 @@ export default function AdminExamsPage() {
               <div className="flex items-center space-x-3">
                 <button
                   onClick={() => alert('View functionality coming soon')}
-                  className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition"
+                  className="p-2 text-white bg-blue-500 hover:bg-blue-600 rounded-lg shadow-sm transition"
                   title="View Details"
                 >
-                  <Eye className="w-5 h-5" />
+                  <Eye className="w-4 h-4" />
                 </button>
                 <button
                   onClick={() => handleEdit(exam)}
-                  className="p-2 text-slate-400 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition"
+                  className="p-2 text-white bg-amber-500 hover:bg-amber-600 rounded-lg shadow-sm transition"
                   title="Edit Title"
                 >
-                  <Edit2 className="w-5 h-5" />
+                  <Edit2 className="w-4 h-4" />
                 </button>
                 <button
                   onClick={() => handleDelete(exam._id)}
-                  className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition"
+                  className="p-2 text-white bg-red-500 hover:bg-red-600 rounded-lg shadow-sm transition"
                   title="Delete Exam"
                 >
-                  <Trash2 className="w-5 h-5" />
+                  <Trash2 className="w-4 h-4" />
                 </button>
                 <div className="w-px h-6 bg-slate-200 mx-2"></div>
                 <Link 
