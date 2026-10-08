@@ -13,7 +13,7 @@ interface CandidateState {
   status: 'ONLINE' | 'OFFLINE';
   camera: 'STARTED' | 'STOPPED';
   screen: 'STARTED' | 'STOPPED';
-  violations: { severity: string; type: string; timestamp: string }[];
+  violations: { severity: string; type: string; timestamp?: string; detectedAt?: string; description?: string; snapshotImage?: string; }[];
   riskScore: number;
   attemptId?: string;
 }
@@ -26,7 +26,7 @@ interface LiveCandidateEntry {
   camera: 'STARTED' | 'STOPPED';
   screen: 'STARTED' | 'STOPPED';
   riskScore: number;
-  violations: { severity: string; type: string; timestamp: string }[];
+  violations: { severity: string; type: string; timestamp?: string; detectedAt?: string; description?: string; snapshotImage?: string; }[];
   attemptId: string;
 }
 
@@ -505,7 +505,7 @@ export default function LiveMonitoringPage() {
                           <div className="flex justify-between items-center mb-1">
                             <span className={`font-bold text-sm ${v.severity === 'CRITICAL' ? 'text-red-400' : v.severity === 'HIGH' ? 'text-amber-400' : 'text-slate-300'}`}>{v.type}</span>
                           </div>
-                          <div className="text-slate-500 text-xs font-mono mb-2">{new Date(v.timestamp || v.detectedAt).toLocaleTimeString()}</div>
+                          <div className="text-slate-500 text-xs font-mono mb-2">{new Date(v.timestamp || v.detectedAt || new Date().toISOString()).toLocaleTimeString()}</div>
                           <div className="text-slate-400 text-xs mb-2">{v.description || 'Source: AI Detection'}</div>
                           {v.snapshotImage && (
                             <div className="mt-2 rounded overflow-hidden border border-slate-700 shadow-md">
