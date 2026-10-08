@@ -72,7 +72,7 @@ export default function LiveMonitoringPage() {
     });
 
     const initSocket = io(process.env.NEXT_PUBLIC_WS_URL || 'http://localhost:5000', {
-      auth: { token: 'mock-admin-token' }
+      auth: { token: localStorage.getItem('token') }
     });
 
     initSocket.on('candidate:status_update', (data) => {

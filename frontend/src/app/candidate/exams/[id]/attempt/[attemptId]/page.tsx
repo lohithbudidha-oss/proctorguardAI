@@ -126,7 +126,7 @@ function AttemptContent() {
     setMediaInitialized(true);
 
     const initSocket = io(process.env.NEXT_PUBLIC_WS_URL || 'http://localhost:5000', {
-      auth: { token: 'mock-token' } // In production, get from localStorage
+      auth: { token: localStorage.getItem('token') } // Use the real token
     });
 
     initSocket.on('admin:command_received', (data: { action: string; message?: string }) => {
