@@ -2,7 +2,8 @@
 
 import React, { useState, useEffect, Suspense, useCallback } from 'react';
 import { useRouter, useParams } from 'next/navigation';
-import { CheckCircle2, XCircle, Loader2, AlertTriangle, Monitor, Camera, Mic, Wifi } from 'lucide-react';
+import { CheckCircle2, XCircle, Loader2, AlertTriangle, Monitor, Camera, Mic, Wifi, ArrowLeft } from 'lucide-react';
+import Link from 'next/link';
 import api from '@/lib/api';
 
 function SystemCheckContent() {
@@ -120,6 +121,9 @@ function SystemCheckContent() {
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-6">
       <div className="max-w-2xl w-full bg-white rounded-xl shadow-xl p-8 border border-slate-100">
+        <Link href="/candidate/dashboard" className="text-blue-600 font-bold flex items-center mb-6 hover:underline">
+          <ArrowLeft className="w-4 h-4 mr-2" /> Back to Dashboard
+        </Link>
         <div className="text-center mb-8">
           <h1 className="text-3xl font-bold text-slate-800 mb-2">System Readiness Check</h1>
           <p className="text-slate-500">We need to ensure your system meets the requirements for this proctored examination.</p>

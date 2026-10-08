@@ -2,7 +2,8 @@
 
 import React, { useState, useEffect, Suspense } from 'react';
 import { useRouter, useParams } from 'next/navigation';
-import { Clock, ShieldAlert, MonitorPlay, AlertTriangle } from 'lucide-react';
+import { Clock, ShieldAlert, MonitorPlay, AlertTriangle, ArrowLeft } from 'lucide-react';
+import Link from 'next/link';
 import api from '@/lib/api';
 
 function WaitingRoomContent() {
@@ -111,7 +112,12 @@ function WaitingRoomContent() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 flex items-center justify-center p-6">
+    <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-6">
+      <div className="max-w-4xl w-full mb-4">
+        <Link href="/candidate/dashboard" className="text-blue-600 font-bold flex items-center hover:underline">
+          <ArrowLeft className="w-4 h-4 mr-2" /> Back to Dashboard
+        </Link>
+      </div>
       <div className="max-w-4xl w-full bg-white rounded-xl shadow-xl overflow-hidden border border-slate-200">
         <div className="bg-slate-900 p-8 text-white flex flex-col items-center justify-center">
           <ShieldAlert className="w-16 h-16 text-blue-400 mb-4" />

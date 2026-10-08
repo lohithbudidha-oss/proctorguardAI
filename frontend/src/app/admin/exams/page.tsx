@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Plus, Settings, Users, MonitorPlay, FileText, CheckCircle } from 'lucide-react';
+import { ArrowLeft, Plus, Settings, Users, MonitorPlay, FileText, CheckCircle } from 'lucide-react';
 import api from '@/lib/api';
 
 interface Exam {
@@ -67,6 +67,9 @@ export default function AdminExamsPage() {
   return (
     <div className="min-h-screen bg-slate-50">
       <div className="max-w-7xl mx-auto px-6 py-12">
+        <Link href="/admin/monitoring" className="text-blue-600 font-bold flex items-center mb-6 hover:underline">
+          <ArrowLeft className="w-4 h-4 mr-2" /> Back to Monitoring
+        </Link>
         <div className="flex justify-between items-center mb-10">
           <div>
             <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight">Exam Management</h1>
