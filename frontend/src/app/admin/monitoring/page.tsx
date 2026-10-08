@@ -253,10 +253,10 @@ export default function LiveMonitoringPage() {
             <div onClick={() => router.push('/admin/exams')} className="text-slate-400 px-4 py-3 rounded-xl font-medium hover:bg-slate-800/50 hover:text-slate-200 cursor-pointer transition-all flex items-center">
               <FileText className="w-5 h-5 mr-3" /> Exam Management
             </div>
-            <div className="text-slate-400 px-4 py-3 rounded-xl font-medium hover:bg-slate-800/50 hover:text-slate-200 cursor-pointer transition-all flex items-center">
+            <div onClick={() => router.push('/admin/violations')} className="text-slate-400 px-4 py-3 rounded-xl font-medium hover:bg-slate-800/50 hover:text-slate-200 cursor-pointer transition-all flex items-center">
               <AlertTriangle className="w-5 h-5 mr-3" /> Violation Queue
             </div>
-            <div className="text-slate-400 px-4 py-3 rounded-xl font-medium hover:bg-slate-800/50 hover:text-slate-200 cursor-pointer transition-all flex items-center">
+            <div onClick={() => router.push('/admin/reports')} className="text-slate-400 px-4 py-3 rounded-xl font-medium hover:bg-slate-800/50 hover:text-slate-200 cursor-pointer transition-all flex items-center">
               <CheckCircle2 className="w-5 h-5 mr-3" /> Integrity Reports
             </div>
         </div>
