@@ -98,15 +98,6 @@ function AttemptContent() {
       // Only enforce fullscreen AFTER the media streams have successfully started
       if (!document.fullscreenElement && examStatus === 'IN_PROGRESS' && streamsStarted) {
         handleViolation('FULLSCREEN_EXIT', 'CRITICAL', 'Candidate exited fullscreen mode.');
-        alert('CRITICAL VIOLATION: You exited fullscreen mode. Your exam has been terminated.');
-        
-        // Auto-submit exam
-        api.post(`/candidate/attempts/${attemptId}/submit`).then(() => {
-          setExamStatus('SUBMITTED');
-          if (socket) socket.emit('exam:submitted', { attemptId });
-        }).catch(() => {
-          setExamStatus('SUBMITTED');
-        });
       }
     };
 
@@ -274,8 +265,7 @@ function AttemptContent() {
         const screenTrack = screenStream.getVideoTracks()[0];
         if (screenTrack) {
           screenTrack.onended = () => {
-            handleViolation('SCREEN_SHARE_STOPPED', 'CRITICAL', 'Screen sharing was stopped. Exam paused.');
-            initSocket.emit('admin:command_received', { action: 'PAUSE', message: 'Screen share lost' });
+            handleViolation('SCREEN_SHARE_STOPPED', 'CRITICAL', 'Screen sharing was stopped.');
           };
         }
 
@@ -315,33 +305,10 @@ function AttemptContent() {
   }, [isLoading, mediaInitialized, examStatus, attemptId, examId]);
 
   const requestAdminReview = (reason: string) => {
-    if (violationReviewState.active) return;
-    setExamStatus('PAUSED');
-    setViolationReviewState({ active: true, reason, reminders: 0 });
-    
     if (socket) {
-      socket.emit('violation:created', { attemptId, type: 'MANUAL_REVIEW', severity: 'CRITICAL', source: 'AI', actionTaken: 'PAUSED_WAITING_REVIEW', description: reason });
-      addWarning('Violation detected: ' + reason + '. Waiting for Proctor review...');
+      socket.emit('violation:created', { attemptId, type: 'MANUAL_REVIEW', severity: 'CRITICAL', source: 'AI', actionTaken: 'LOGGED', description: reason });
     }
   };
-
-  useEffect(() => {
-    if (!violationReviewState.active) return;
-    const interval = setInterval(() => {
-      setViolationReviewState(prev => {
-        if (prev.reminders >= 3) {
-          clearInterval(interval);
-          submitExam('TERMINATED: No response from admin after 3 reminders for violation: ' + prev.reason);
-          return prev;
-        }
-        if (socket) {
-          socket.emit('violation:created', { attemptId, type: 'MANUAL_REVIEW_REMINDER', severity: 'HIGH', source: 'SYSTEM', actionTaken: `REMINDER_${prev.reminders + 1}` });
-        }
-        return { ...prev, reminders: prev.reminders + 1 };
-      });
-    }, 15000);
-    return () => clearInterval(interval);
-  }, [violationReviewState.active, socket]);
 
   // AI Face Detection (Mediapipe)
   useEffect(() => {
@@ -475,7 +442,6 @@ function AttemptContent() {
 
     const handleCopyPaste = (e: Event) => {
       e.preventDefault();
-      addWarning('Copy/Paste is disabled during the examination.');
     };
 
     document.addEventListener('visibilitychange', handleVisibilityChange);
@@ -539,11 +505,8 @@ function AttemptContent() {
   }
 
   function handleViolation(type: string, severity: string, message: string) {
-    if (severity !== 'CRITICAL') {
-      addWarning(message);
-    }
     if (socket) {
-      socket.emit('violation:created', { attemptId, type, severity, source: 'BROWSER', actionTaken: severity === 'CRITICAL' ? 'TERMINATED' : 'WARNING' });
+      socket.emit('violation:created', { attemptId, type, severity, source: 'BROWSER', actionTaken: 'LOGGED' });
     }
     captureSnapshot(type, severity, message);
   }
