@@ -1,0 +1,180 @@
+﻿
+C:\Users\LOHITH\Desktop\Portal\frontend\src\app\about\page.tsx
+  34:85  error  `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`  react/no-unescaped-entities
+
+C:\Users\LOHITH\Desktop\Portal\frontend\src\app\admin\candidates\page.tsx
+   5:28  warning  'UserX' is defined but never used                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            @typescript-eslint/no-unused-vars
+   9:48  error    Unexpected any. Specify a different type                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     @typescript-eslint/no-explicit-any
+  10:10  warning  'loading' is assigned a value but never used                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 @typescript-eslint/no-unused-vars
+  13:5   error    Error: Cannot access variable before it is declared
+
+`fetchCandidates` is accessed before it is declared, which prevents the earlier access from updating when this value changes over time.
+
+C:\Users\LOHITH\Desktop\Portal\frontend\src\app\admin\candidates\page.tsx:13:5
+  11 |
+  12 |   useEffect(() => {
+> 13 |     fetchCandidates();
+     |     ^^^^^^^^^^^^^^^ `fetchCandidates` accessed before it is declared
+  14 |   }, []);
+  15 |
+  16 |   const fetchCandidates = () => {
+
+C:\Users\LOHITH\Desktop\Portal\frontend\src\app\admin\candidates\page.tsx:16:3
+  14 |   }, []);
+  15 |
+> 16 |   const fetchCandidates = () => {
+     |   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 17 |     api.get('/admin/candidates')
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 18 |       .then(res => {
+     ΓÇª
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 25 |       });
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 26 |   };
+     | ^^^^^ `fetchCandidates` is declared here
+  27 |
+  28 |   const handleApprove = async (candidateId: string) => {
+  29 |     try {  react-hooks/immutability
+
+C:\Users\LOHITH\Desktop\Portal\frontend\src\app\admin\evidence\[attemptId]\page.tsx
+   6:29  warning  'Camera' is defined but never used                 @typescript-eslint/no-unused-vars
+  11:10  warning  'loading' is assigned a value but never used       @typescript-eslint/no-unused-vars
+  13:10  warning  'snapshots' is assigned a value but never used     @typescript-eslint/no-unused-vars
+  13:21  warning  'setSnapshots' is assigned a value but never used  @typescript-eslint/no-unused-vars
+  21:15  warning  'attemptsReq' is assigned a value but never used   @typescript-eslint/no-unused-vars
+  27:16  warning  'err' is defined but never used                    @typescript-eslint/no-unused-vars
+
+C:\Users\LOHITH\Desktop\Portal\frontend\src\app\admin\exams\[id]\assign\page.tsx
+   4:21  warning  'useRouter' is defined but never used                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               @typescript-eslint/no-unused-vars
+  36:5   error    Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+C:\Users\LOHITH\Desktop\Portal\frontend\src\app\admin\exams\[id]\assign\page.tsx:36:5
+  34 |
+  35 |   useEffect(() => {
+> 36 |     fetchData();
+     |     ^^^^^^^^^ Avoid calling setState() directly within an effect
+  37 |   }, [examId]);
+  38 |
+  39 |   const handleAssign = async (userId: string) => {  react-hooks/set-state-in-effect
+  37:6   warning  React Hook useEffect has a missing dependency: 'fetchData'. Either include it or remove the dependency array                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        react-hooks/exhaustive-deps
+  79:28  warning  'err' is defined but never used                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     @typescript-eslint/no-unused-vars
+
+C:\Users\LOHITH\Desktop\Portal\frontend\src\app\admin\exams\[id]\questions\page.tsx
+  11:9   warning  'router' is assigned a value but never used                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   @typescript-eslint/no-unused-vars
+  46:5   error    Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+C:\Users\LOHITH\Desktop\Portal\frontend\src\app\admin\exams\[id]\questions\page.tsx:46:5
+  44 |
+  45 |   useEffect(() => {
+> 46 |     fetchData();
+     |     ^^^^^^^^^ Avoid calling setState() directly within an effect
+  47 |   }, [examId]);
+  48 |
+  49 |   const handleAddQuestion = async () => {  react-hooks/set-state-in-effect
+  47:6   warning  React Hook useEffect has a missing dependency: 'fetchData'. Either include it or remove the dependency array                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  react-hooks/exhaustive-deps
+  56:14  warning  'err' is defined but never used                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               @typescript-eslint/no-unused-vars
+  66:16  warning  'err' is defined but never used                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               @typescript-eslint/no-unused-vars
+
+C:\Users\LOHITH\Desktop\Portal\frontend\src\app\admin\exams\page.tsx
+   6:16  warning  'Settings' is defined but never used  @typescript-eslint/no-unused-vars
+  59:16  warning  'err' is defined but never used       @typescript-eslint/no-unused-vars
+
+C:\Users\LOHITH\Desktop\Portal\frontend\src\app\admin\monitoring\page.tsx
+    6:10  warning  'Shield' is defined but never used                                                                         @typescript-eslint/no-unused-vars
+  133:6   warning  React Hook useEffect has a missing dependency: 'router'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+  198:9   warning  'getRiskColor' is assigned a value but never used                                                          @typescript-eslint/no-unused-vars
+
+C:\Users\LOHITH\Desktop\Portal\frontend\src\app\candidate\exams\[id]\attempt\[attemptId]\page.tsx
+    7:30  warning  'Monitor' is defined but never used                                                                                                                                                     @typescript-eslint/no-unused-vars
+    7:39  warning  'Video' is defined but never used                                                                                                                                                       @typescript-eslint/no-unused-vars
+    7:46  warning  'VideoOff' is defined but never used                                                                                                                                                    @typescript-eslint/no-unused-vars
+    7:62  warning  'WifiOff' is defined but never used                                                                                                                                                     @typescript-eslint/no-unused-vars
+   16:61  warning  'recordingStatus' is assigned a value but never used                                                                                                                                    @typescript-eslint/no-unused-vars
+   42:60  error    Unexpected any. Specify a different type                                                                                                                                                @typescript-eslint/no-explicit-any
+   45:49  error    Unexpected any. Specify a different type                                                                                                                                                @typescript-eslint/no-explicit-any
+   49:50  error    Unexpected any. Specify a different type                                                                                                                                                @typescript-eslint/no-explicit-any
+   56:29  error    Unexpected any. Specify a different type                                                                                                                                                @typescript-eslint/no-explicit-any
+   81:52  error    Unexpected any. Specify a different type                                                                                                                                                @typescript-eslint/no-explicit-any
+  191:16  warning  'err' is defined but never used                                                                                                                                                         @typescript-eslint/no-unused-vars
+  205:6   warning  React Hook useEffect has missing dependencies: 'attemptId', 'handleViolation', 'router', 'startRecording', and 'stopAllRecordings'. Either include them or remove the dependency array  react-hooks/exhaustive-deps
+  234:6   warning  React Hook useEffect has missing dependencies: 'attemptId' and 'submitExam'. Either include them or remove the dependency array                                                         react-hooks/exhaustive-deps
+  293:19  warning  'e' is defined but never used                                                                                                                                                           @typescript-eslint/no-unused-vars
+  310:6   warning  React Hook useEffect has a missing dependency: 'triggerAIViolation'. Either include it or remove the dependency array                                                                   react-hooks/exhaustive-deps
+  334:14  warning  'err' is defined but never used                                                                                                                                                         @typescript-eslint/no-unused-vars
+  341:6   warning  React Hook useEffect has missing dependencies: 'handleViolation' and 'requestAdminReview'. Either include them or remove the dependency array                                           react-hooks/exhaustive-deps
+  386:6   warning  React Hook useEffect has missing dependencies: 'handleViolation' and 'requestAdminReview'. Either include them or remove the dependency array                                           react-hooks/exhaustive-deps
+  401:6   warning  React Hook useEffect has a missing dependency: 'submitExam'. Either include it or remove the dependency array                                                                           react-hooks/exhaustive-deps
+  476:17  warning  'e' is defined but never used                                                                                                                                                           @typescript-eslint/no-unused-vars
+
+C:\Users\LOHITH\Desktop\Portal\frontend\src\app\candidate\exams\[id]\result\[attemptId]\page.tsx
+   5:39  warning  'Clock' is defined but never used            @typescript-eslint/no-unused-vars
+  12:9   warning  'examId' is assigned a value but never used  @typescript-eslint/no-unused-vars
+
+C:\Users\LOHITH\Desktop\Portal\frontend\src\app\candidate\exams\[id]\system-check\page.tsx
+   5:42  warning  'AlertTriangle' is defined but never used                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      @typescript-eslint/no-unused-vars
+   6:8   warning  'api' is defined but never used                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                @typescript-eslint/no-unused-vars
+  27:3   warning  The 'runAllChecks' function makes the dependencies of useEffect Hook (at line 85) change on every render. Move it inside the useEffect callback. Alternatively, wrap the definition of 'runAllChecks' in its own useCallback() Hook                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            react-hooks/exhaustive-deps
+  56:14  warning  'err' is defined but never used                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                @typescript-eslint/no-unused-vars
+  71:14  warning  'err' is defined but never used                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                @typescript-eslint/no-unused-vars
+  79:7   error    Error: Cannot access variable before it is declared
+
+`checkOverallReadiness` is accessed before it is declared, which prevents the earlier access from updating when this value changes over time.
+
+C:\Users\LOHITH\Desktop\Portal\frontend\src\app\candidate\exams\[id]\system-check\page.tsx:79:7
+  77 |
+  78 |     if (allPassed) {
+> 79 |       checkOverallReadiness();
+     |       ^^^^^^^^^^^^^^^^^^^^^ `checkOverallReadiness` accessed before it is declared
+  80 |     }
+  81 |   }
+  82 |
+
+C:\Users\LOHITH\Desktop\Portal\frontend\src\app\candidate\exams\[id]\system-check\page.tsx:102:3
+  100 |   };
+  101 |
+> 102 |   const checkOverallReadiness = () => {
+      |   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 103 |     setAllReady(true);
+      | ^^^^^^^^^^^^^^^^^^^^^^
+> 104 |   };
+      | ^^^^^ `checkOverallReadiness` is declared here
+  105 |
+  106 |   const proceedToWaitingRoom = () => {
+  107 |     router.push(`/candidate/exams/${examId}/waiting-room`);                                                      react-hooks/immutability
+  84:5   error    Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+C:\Users\LOHITH\Desktop\Portal\frontend\src\app\candidate\exams\[id]\system-check\page.tsx:84:5
+  82 |
+  83 |   useEffect(() => {
+> 84 |     runAllChecks();
+     |     ^^^^^^^^^^^^ Avoid calling setState() directly within an effect
+  85 |   }, [runAllChecks]);
+  86 |
+  87 |   const testScreenShare = async () => {  react-hooks/set-state-in-effect
+  87:9   warning  'testScreenShare' is assigned a value but never used                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           @typescript-eslint/no-unused-vars
+  97:14  warning  'err' is defined but never used                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                @typescript-eslint/no-unused-vars
+
+C:\Users\LOHITH\Desktop\Portal\frontend\src\app\register\page.tsx
+  6:53  warning  'Activity' is defined but never used  @typescript-eslint/no-unused-vars
+
+Γ£û 57 problems (12 errors, 45 warnings)
+
