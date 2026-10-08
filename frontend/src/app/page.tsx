@@ -12,8 +12,8 @@ export default function LandingPage() {
         </div>
         <nav className="space-x-6 hidden md:block">
           <Link href="/about" className="text-slate-600 font-medium hover:text-blue-600 transition-colors">How it works</Link>
-          <Link href="/organizations" className="text-slate-600 font-medium hover:text-blue-600 transition-colors">For Organizations</Link>
-          <Link href="/support" className="text-slate-600 font-medium hover:text-blue-600 transition-colors">Support</Link>
+          <Link href="#" className="text-slate-600 font-medium hover:text-blue-600 transition-colors">For Organizations</Link>
+          <Link href="#" className="text-slate-600 font-medium hover:text-blue-600 transition-colors">Support</Link>
         </nav>
         <div className="space-x-4">
           <Link href="/login" className="text-blue-600 font-semibold hover:text-blue-800 transition-colors">Login</Link>
