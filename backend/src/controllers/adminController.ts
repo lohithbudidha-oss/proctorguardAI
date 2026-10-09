@@ -145,7 +145,7 @@ export const getViolations = async (req: Request, res: Response, next: NextFunct
 };
 import Result from '../models/Result';
 
-export const getResults = async (req: AuthRequest, res: Response, next: NextFunction) => {
+export const getResults = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const results = await Result.find()
       .populate('candidateId', 'name email')
@@ -157,7 +157,7 @@ export const getResults = async (req: AuthRequest, res: Response, next: NextFunc
   }
 };
 
-export const verifyResult = async (req: AuthRequest, res: Response, next: NextFunction) => {
+export const verifyResult = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { id } = req.params;
     const { status } = req.body;
