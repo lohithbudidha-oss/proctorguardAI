@@ -106,7 +106,7 @@ function QuestionBuilderContent() {
               <div>
                 <label className="block text-sm font-semibold text-slate-700 mb-1">Question Text</label>
                 <textarea 
-                  className="w-full border-slate-300 rounded-lg p-3 border focus:ring-2 focus:ring-blue-500 outline-none" 
+                  className="w-full border-slate-300 rounded-lg p-3 border focus:ring-2 focus:ring-blue-500 outline-none text-slate-900 bg-white" 
                   rows={3}
                   value={newQuestion.text}
                   onChange={e => setNewQuestion({...newQuestion, text: e.target.value})}
@@ -119,7 +119,7 @@ function QuestionBuilderContent() {
                     <label className="block text-sm font-semibold text-slate-700 mb-1">Option {opt.id}</label>
                     <input 
                       type="text"
-                      className="w-full border-slate-300 rounded-lg p-2 border focus:ring-2 focus:ring-blue-500 outline-none"
+                      className="w-full border-slate-300 rounded-lg p-2 border focus:ring-2 focus:ring-blue-500 outline-none text-slate-900 bg-white"
                       value={opt.text}
                       onChange={e => {
                         const newOpts = [...newQuestion.options];
@@ -135,7 +135,7 @@ function QuestionBuilderContent() {
                 <div>
                   <label className="block text-sm font-semibold text-slate-700 mb-1">Correct Answer</label>
                   <select 
-                    className="w-full border-slate-300 rounded-lg p-2 border outline-none"
+                    className="w-full border-slate-300 rounded-lg p-2 border outline-none text-slate-900 bg-white focus:ring-2 focus:ring-blue-500"
                     value={newQuestion.correctAnswer}
                     onChange={e => setNewQuestion({...newQuestion, correctAnswer: e.target.value})}
                   >
@@ -144,11 +144,11 @@ function QuestionBuilderContent() {
                 </div>
                 <div>
                   <label className="block text-sm font-semibold text-slate-700 mb-1">Marks</label>
-                  <input type="number" className="w-full border-slate-300 rounded-lg p-2 border outline-none" value={newQuestion.marks} onChange={e => setNewQuestion({...newQuestion, marks: Number(e.target.value)})} />
+                  <input type="number" className="w-full border-slate-300 rounded-lg p-2 border outline-none text-slate-900 bg-white focus:ring-2 focus:ring-blue-500" value={newQuestion.marks} onChange={e => setNewQuestion({...newQuestion, marks: Number(e.target.value)})} />
                 </div>
                 <div>
                   <label className="block text-sm font-semibold text-slate-700 mb-1">Category</label>
-                  <input type="text" className="w-full border-slate-300 rounded-lg p-2 border outline-none" value={newQuestion.category} onChange={e => setNewQuestion({...newQuestion, category: e.target.value})} />
+                  <input type="text" className="w-full border-slate-300 rounded-lg p-2 border outline-none text-slate-900 bg-white focus:ring-2 focus:ring-blue-500" value={newQuestion.category} onChange={e => setNewQuestion({...newQuestion, category: e.target.value})} />
                 </div>
               </div>
 
