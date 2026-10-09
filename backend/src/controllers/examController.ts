@@ -146,6 +146,19 @@ export const assignCandidate = async (req: Request, res: Response, next: NextFun
   }
 };
 
+export const unassignCandidate = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { id: examId, candidateId } = req.params;
+    const assignment = await Assignment.findOneAndDelete({ examId, candidateId });
+    if (!assignment) {
+      return res.status(404).json({ success: false, message: 'Assignment not found' });
+    }
+    res.status(200).json({ success: true, message: 'Candidate unassigned' });
+  } catch (err) {
+    next(err);
+  }
+};
+
 export const allowRewriteAll = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { id } = req.params;

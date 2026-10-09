@@ -62,6 +62,17 @@ function CandidateAssignmentContent() {
     }
   };
 
+  const handleUnassign = async (candidateId: string) => {
+    if (confirm('Are you sure you want to unassign this candidate?')) {
+      try {
+        await api.delete(`/admin/exams/${examId}/assign/${candidateId}`);
+        fetchData();
+      } catch (err: unknown) {
+        alert('Failed to unassign candidate');
+      }
+    }
+  };
+
   const isAssigned = (userId: string) => {
     return candidates.some(c => {
       const cid = c.candidateId;
@@ -165,6 +176,12 @@ function CandidateAssignmentContent() {
                       <span className="text-xs font-bold uppercase tracking-wider text-slate-500 bg-slate-100 px-2 py-1 rounded">
                         {assignment.status}
                       </span>
+                      <button 
+                        onClick={() => handleUnassign(assignment.candidateId?._id || assignment.candidateId?.id)}
+                        className="px-2 py-1 bg-rose-100 text-rose-700 hover:bg-rose-200 text-xs font-bold rounded transition ml-2"
+                      >
+                        Remove
+                      </button>
                     </div>
                   </div>
                 ))
