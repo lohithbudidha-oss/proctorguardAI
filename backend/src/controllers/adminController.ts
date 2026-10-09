@@ -51,24 +51,25 @@ export const getLiveCandidates = async (req: Request, res: Response, next: NextF
       .populate('candidateId', 'name email')
       .populate('examId', 'title');
 
-    const liveData = attempts.map(doc => {
-      const attempt = doc as any;
-      const candidate = attempt.candidateId;
-      const exam = attempt.examId;
-      return {
-        attemptId: attempt._id,
-        candidateId: candidate._id,
-        name: candidate.name,
-        examId: exam._id,
-        examName: exam.title,
-        status: attempt.status,
-        startedAt: attempt.startedAt,
-        expiresAt: attempt.expiresAt,
-        camera: 'STARTED',
-        screen: 'STARTED',
-        riskScore: 0,
-        violations: []
-      };
+    const liveData = attempts
+      .filter((doc: any) => doc.candidateId && doc.examId)
+      .map((doc: any) => {
+        const candidate = doc.candidateId;
+        const exam = doc.examId;
+        return {
+          attemptId: doc._id,
+          candidateId: candidate._id,
+          name: candidate.name,
+          examId: exam._id,
+          examName: exam.title,
+          status: doc.status,
+          startedAt: doc.startedAt,
+          expiresAt: doc.expiresAt,
+          camera: 'STARTED',
+          screen: 'STARTED',
+          riskScore: 0,
+          violations: []
+        };
     });
     res.status(200).json({ success: true, candidates: liveData });
   } catch (err) {
@@ -122,6 +123,22 @@ export const forceSubmitAttempt = async (req: Request, res: Response, next: Next
     const { evaluateAttempt } = require('./attemptController');
     await evaluateAttempt(attemptId, attempt.candidateId.toString());
     res.status(200).json({ success: true, message: 'Attempt force submitted' });
+  } catch (err) {
+    next(err);
+  }
+};
+
+import ViolationEvent from '../models/ViolationEvent';
+
+export const getViolations = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const violations = await ViolationEvent.find()
+      .populate('candidateId', 'name email')
+      .populate({ path: 'attemptId', populate: { path: 'examId', select: 'title' } })
+      .sort({ detectedAt: -1 })
+      .limit(100);
+      
+    res.status(200).json({ success: true, violations });
   } catch (err) {
     next(err);
   }
