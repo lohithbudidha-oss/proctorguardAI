@@ -1,4 +1,4 @@
-import mongoose from 'mongoose';
+﻿import mongoose from 'mongoose';
 import Exam from '../models/Exam';
 import Question, { QuestionType, Difficulty } from '../models/Question';
 
@@ -30,34 +30,28 @@ Q22. Eight executives (A, B, C, D, E, F, G, H) sit around a circular table:A sit
 Q23. Four statements about an integer $N$:P: "$N$ is divisible by 4."Q: "$N$ is divisible by 9."R: "$N$ is prime."S: "$N$ is odd."If exactly two statements are true and two are false, which statements are true?(A) P and Q(B) Q and R(C) R and S(D) P and S
 Q24. Tasks with execution times: A (3d), B (4d, after A), C (2d, after A), D (5d, after B), E (1d, after C & B), F (3d, after D & E). What is the minimum project completion time (Critical Path)?(A) 12 days(B) 13 days(C) 15 days(D) 18 days
 Q25. In "The Hardest Logic Puzzle Ever", what is the minimum number of questions required to decipher the true identities of True, False, and Random using a unknown language ('da'/'ja')?(A) 2(B) 3(C) 4(D) 5
-Q26. Premises:All Alpha are Beta.No Beta are Gamma.Some Delta are Gamma.Which conclusion logically follows with certainty?(A) No Delta are Alpha(B) Some Delta are not Alpha(C) All Beta are Delta(D) Some Alpha are Gamma
-Q27. On a standard 6-sided die, opposite faces sum to 7. If three visible faces at a single corner show 1, 2, and 3, what is the orientation condition for this to be a valid standard die?(A) 1, 2, 3 must go counter-clockwise around their shared vertex(B) 1, 2, 3 must go clockwise around their shared vertex(C) It is impossible regardless of orientation(D) It is always valid in any orientation
-Q28. In a $5 \\times 5$ binary grid, you can invert all bits in any chosen row or column. Can a grid with a single 1 and twenty-four 0s be converted into an all-zero grid?(A) Yes, in 5 moves(B) Yes, in 10 moves(C) No, because $2 \\times 2$ parity invariants are preserved(D) Yes, but only if applied along main diagonal
-Q29. Five speakers (P, Q, R, S, T) present in five time slots. P must present before Q, R must present immediately after S, and T cannot present in slot 1 or 5. How many valid schedules exist?(A) 6(B) 12(C) 18(D) 24
-Q30. Find $X$ in the numeric matrix based on pattern symmetry:$$\\begin{pmatrix} 4 & 7 & 18 \\\\ 6 & 2 & 10 \\\\ 5 & 9 & X \\end{pmatrix}$$(A) 19(B) 21(C) 23(D) 25
-Q31. Find the area of the region bounded by $\\vert{}x\\vert{} + \\vert{}y\\vert{} + \\vert{}x + y\\vert{} \\le 2$.(A) 3 square units(B) 4 square units(C) 6 square units(D) 8 square units
-Q32. An equilateral triangle of side length $a$ is rotated around one of its sides by $360^\\circ$. Find the total volume of the resulting 3D solid.(A) \\frac{\\pi a^3}{2}(B) \\frac{\\pi a^3}{3}(C) \\frac{\\pi a^3}{4}(D) \\frac{\\sqrt{3}\\pi a^3}{6}
-Q33. A sphere is inscribed inside a right circular cone of base radius $r$ and height $h$. What is the radius $R$ of the sphere?(A) $R = \\frac{rh}{\\sqrt{r^2 + h^2} + r}$(B) $R = \\frac{rh}{\\sqrt{r^2 + h^2}}$(C) $R = \\frac{r^2 h}{r^2 + h^2}$(D) $R = \\frac{rh}{2r + h}$
-Q34. Three circles of equal radius $R$ are mutually tangent to each other externally. What is the area of the enclosed region between them?(A) $R^2 \\left( \\sqrt{3} - \\frac{\\pi}{2} \\right)$(B) $R^2 \\left( 2\\sqrt{3} - \\pi \\right)$(C) $R^2 \\left( \\sqrt{3} - \\frac{\\pi}{3} \\right)$(D) \\frac{\\pi R^2}{6}
-Q35. In $\\triangle ABC$, $AB = 13$, $BC = 14$, and $AC = 15$. Find the length of the altitude drawn from vertex $A$ to side $BC$.(A) 10(B) 11(C) 12(D) 13
-Q36. At what exact time after 12:00 do the minute hand and hour hand of a clock overlap next?(A) 1 hour, 5 minutes, 20 seconds(B) 1 hour, 5 minutes, 27.27 seconds ($1 \\text{ hr } 5 \\frac{5}{11} \\text{ min}$)(C) 1 hour, 5 minutes, 30 seconds(D) 1 hour, 6 minutes, 0 seconds
-Q37. A fair coin is flipped 10 times. What is the probability of getting at least 3 consecutive heads?(A) \\frac{256}{1024}(B) \\frac{521}{1024}(C) \\frac{612}{1024}(D) \\frac{720}{1024}
-Q38. Find the number of non-negative integral solutions to $x_1 + x_2 + x_3 + x_4 = 20$.(A) 1140(B) 1540(C) 1771(D) 2024
-Q39. Evaluate the infinite nested radical: $x = \\sqrt{6 + \\sqrt{6 + \\sqrt{6 + \\dots}}}$(A) 2(B) 3(C) 6(D) \\infty
-Q40. Pipe A fills a tank in 10 hours, Pipe B in 15 hours. Pipe C empties it in 12 hours. If all three open together, how many hours to fill the empty tank?(A) 6 hours(B) 8.57 hours (\\frac{60}{7} hours)(C) 10 hours(D) 12 hours
-Q41. The average score of 30 students is 75. Excluding the highest and lowest scores, the remaining average is 74. If Highest $-$ Lowest $= 40$, find the highest score.(A) 89(B) 98(C) 109(D) 115
-Q42. $A$ can do work in 12 days, $B$ in 15 days, $C$ in 20 days. $A$ works alone for 2 days, then $B$ joins $A$ for 2 days. Then $A$ leaves and $C$ joins $B$. How many total days were taken to finish the work?(A) 6 days(B) 7 days(C) 8 days(D) 9 days
-Q43. How many integers between 1 and 1000 inclusive are divisible by neither 2, 3, nor 5?(A) 233(B) 266(C) 300(D) 333
-Q44. A boat travels 24 km upstream and 28 km downstream in 6 hours. It also travels 30 km upstream and 21 km downstream in 6.5 hours. Find the speed of the boat in still water.(A) 8 km/h(B) 10 km/h(C) 12 km/h(D) 14 km/h
-Q45. Two towers $h_1$ and $h_2$ stand on flat ground. From the base of each tower, the angle of elevation of the top of the other tower is $30^\\circ$ and $60^\\circ$ respectively. Find the ratio $h_1 : h_2$.(A) $1 : 2$(B) $1 : 3$(C) $1 : \\sqrt{3}$(D) $2 : 3$
+Q26. A, B, C, and D are playing cards. A and B are partners and sit opposite each other; C and D are partners and sit opposite each other. N, S, E, W represent North, South, East, West. If A faces North, and C faces West, in which direction does D face?(A) North(B) South(C) East(D) West
+Q27. Find the odd one out:(A) 121(B) 169(C) 225(D) 289
+Q28. In a row of 40 students, X is 13th from the left end and Y is 17th from the right end. How many students are sitting between X and Y?(A) 8(B) 9(C) 10(D) 11
+Q29. In triangle ABC, D and E are points on AB and AC respectively such that DE is parallel to BC. If AD = 3 cm, DB = 5 cm, and the area of triangle ADE is 18 cm^2, what is the area of the quadrilateral DBCE?(A) 110 cm^2(B) 128 cm^2(C) 144 cm^2(D) 162 cm^2
+Q30. A right circular cylinder and a right circular cone have equal base radii and equal heights. If the volume of the cylinder is 270 cm^3, what is the volume of the cone?(A) 90 cm^3(B) 135 cm^3(C) 180 cm^3(D) 270 cm^3
+Q31. Find the angle between the hour hand and minute hand of a clock at 3:40.(A) 120 degrees(B) 130 degrees(C) 140 degrees(D) 150 degrees
+Q32. Two concentric circles have radii of 13 cm and 5 cm. What is the length of the chord of the larger circle that touches the smaller circle as a tangent?(A) 12 cm(B) 18 cm(C) 24 cm(D) 26 cm
+Q33. A man walks 10 km North, turns right and walks 6 km, turns right again and walks 18 km. How far and in which direction is he from his starting point?(A) 10 km, South-East(B) 10 km, South-West(C) 12 km, South-East(D) 14 km, South-East
+Q34. Find the area of the region bounded by the curve x^2 + y^2 = 16 and the lines x = 0 and y = 0 in the first quadrant.(A) 2 * pi(B) 4 * pi(C) 8 * pi(D) 16 * pi
+Q35. Pipe A can fill a cistern in 12 hours, Pipe B in 16 hours. A third Pipe C empties the full cistern in 8 hours. If all three pipes are opened together, how long will it take to fill the empty cistern?(A) 24 hours(B) 36 hours(C) 48 hours(D) 72 hours
+Q36. A worker's efficiency increases by 25%. As a result, the time required to complete a task decreases by how many hours if the task originally took 20 hours?(A) 4 hours(B) 5 hours(C) 6 hours(D) 8 hours
+Q37. In how many ways can a committee of 4 people be formed from 5 men and 4 women such that the committee contains at least 2 women?(A) 60(B) 81(C) 105(D) 126
+Q38. Find the maximum area of a rectangle that can be inscribed in a circle of radius R.(A) R^2(B) sqrt(2) * R^2(C) 2 * R^2(D) 4 * R^2
+Q39. The median of a set of 11 distinct numbers arranged in ascending order is 25. If the 3 largest numbers are increased by 5 each, what happens to the median of the new set?(A) Increases by 5(B) Increases by 1.5(C) Decreases by 5(D) Remains unchanged (25)
+Q40. Two dice are thrown simultaneously. What is the probability that the sum of the numbers appearing on both dice is a multiple of 4?(A) 1/4(B) 1/3(C) 5/12(D) 1/2
 `;
 
 const answers: Record<string, string> = {
   '1': 'B', '2': 'C', '3': 'C', '4': 'B', '5': 'B', '6': 'B', '7': 'B', '8': 'B', '9': 'C', '10': 'B',
   '11': 'B', '12': 'B', '13': 'B', '14': 'A', '15': 'A', '16': 'B', '17': 'B', '18': 'B', '19': 'B', '20': 'C',
-  '21': 'A', '22': 'C', '23': 'A', '24': 'C', '25': 'B', '26': 'B', '27': 'A', '28': 'C', '29': 'B', '30': 'C',
-  '31': 'C', '32': 'C', '33': 'A', '34': 'A', '35': 'C', '36': 'B', '37': 'B', '38': 'C', '39': 'B', '40': 'B',
-  '41': 'C', '42': 'B', '43': 'B', '44': 'B', '45': 'B'
+  '21': 'A', '22': 'C', '23': 'A', '24': 'C', '25': 'B', '26': 'C', '27': 'C', '28': 'C', '29': 'A', '30': 'A',
+  '31': 'B', '32': 'C', '33': 'A', '34': 'B', '35': 'C', '36': 'A', '37': 'B', '38': 'C', '39': 'D', '40': 'A'
 };
 
 const addAptitudeTest = async () => {
@@ -123,3 +117,5 @@ const addAptitudeTest = async () => {
 };
 
 addAptitudeTest();
+
+
