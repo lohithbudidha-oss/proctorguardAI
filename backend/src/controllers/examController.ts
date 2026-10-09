@@ -166,3 +166,24 @@ export const allowRewriteAll = async (req: Request, res: Response, next: NextFun
     next(err);
   }
 };
+
+export const allowRewrite = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { id, candidateId } = req.params;
+    
+    const assignment = await Assignment.findOne({ examId: id, candidateId });
+    if (!assignment) {
+      return res.status(404).json({ success: false, message: 'Assignment not found' });
+    }
+    
+    assignment.allowedAttempts += 1;
+    if (['COMPLETED', 'TERMINATED', 'EXPIRED'].includes(assignment.status)) {
+      assignment.status = AssignmentStatus.PENDING;
+    }
+    await assignment.save();
+    
+    res.status(200).json({ success: true, message: 'Granted rewrite to candidate' });
+  } catch (err) {
+    next(err);
+  }
+};

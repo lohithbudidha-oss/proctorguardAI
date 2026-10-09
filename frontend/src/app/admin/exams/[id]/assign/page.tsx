@@ -50,6 +50,18 @@ function CandidateAssignmentContent() {
     }
   };
 
+  const handleAllowRewrite = async (candidateId: string) => {
+    if (confirm('Are you sure you want to allow this candidate to re-write the exam?')) {
+      try {
+        const res = await api.post(`/admin/exams/${examId}/allow-rewrite/${candidateId}`);
+        alert(res.data.message);
+        fetchData();
+      } catch (err) {
+        alert('Failed to grant rewrite');
+      }
+    }
+  };
+
   const isAssigned = (userId: string) => {
     return candidates.some(c => {
       const cid = c.candidateId;
@@ -141,7 +153,15 @@ function CandidateAssignmentContent() {
                       <p className="font-bold text-slate-800">{assignment.candidateId?.name || 'Unknown'}</p>
                       <p className="text-sm text-slate-500">{assignment.candidateId?.email || 'Unknown'}</p>
                     </div>
-                    <div className="text-right">
+                    <div className="flex items-center space-x-3">
+                      {['COMPLETED', 'TERMINATED', 'EXPIRED'].includes(assignment.status) && (
+                        <button 
+                          onClick={() => handleAllowRewrite(assignment.candidateId?._id || assignment.candidateId?.id)}
+                          className="px-2 py-1 bg-amber-100 text-amber-700 hover:bg-amber-200 text-xs font-bold rounded transition"
+                        >
+                          Allow Re-write
+                        </button>
+                      )}
                       <span className="text-xs font-bold uppercase tracking-wider text-slate-500 bg-slate-100 px-2 py-1 rounded">
                         {assignment.status}
                       </span>
