@@ -10,8 +10,20 @@ export default function CandidateDashboard() {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [currentTime, setCurrentTime] = useState('');
+  const [showNotifications, setShowNotifications] = useState(false);
 
   const [exams, setExams] = useState<{ id: string; title: string; duration: number; status: string; scheduledFor: string; resultStatus?: string; attemptId?: string }[]>([]);
+
+  const notifications = exams.flatMap(exam => {
+    const notifs = [];
+    if (exam.status === 'AVAILABLE') {
+      notifs.push({ id: `${exam.id}-avail`, title: 'Exam Available', message: `You can now take "${exam.title}".` });
+    }
+    if (exam.resultStatus === 'APPROVED') {
+      notifs.push({ id: `${exam.id}-res`, title: 'Result Published', message: `Your result for "${exam.title}" is ready.` });
+    }
+    return notifs;
+  });
 
   useEffect(() => {
     // Check auth token
@@ -58,10 +70,40 @@ export default function CandidateDashboard() {
           </div>
           
           <div className="flex items-center space-x-6">
-            <button className="text-slate-400 hover:text-blue-600 transition-colors relative">
-              <Bell className="w-5 h-5" />
-              <span className="absolute top-0 right-0 w-2 h-2 bg-red-500 rounded-full animate-pulse border border-white"></span>
-            </button>
+            <div className="relative">
+              <button 
+                onClick={() => setShowNotifications(!showNotifications)}
+                className="text-slate-400 hover:text-blue-600 transition-colors relative"
+              >
+                <Bell className="w-5 h-5" />
+                {notifications.length > 0 && (
+                  <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-red-500 rounded-full animate-pulse border-2 border-white"></span>
+                )}
+              </button>
+
+              {showNotifications && (
+                <div className="absolute right-0 mt-3 w-80 bg-white rounded-xl shadow-2xl border border-slate-100 py-2 z-50 overflow-hidden transform origin-top-right transition-all">
+                  <div className="px-4 py-2 border-b border-slate-100 flex justify-between items-center">
+                    <h3 className="font-bold text-slate-800">Notifications</h3>
+                    <span className="text-xs font-semibold bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">{notifications.length} New</span>
+                  </div>
+                  <div className="max-h-80 overflow-y-auto">
+                    {notifications.length === 0 ? (
+                      <div className="p-6 text-center text-slate-500 text-sm">
+                        You have no new notifications.
+                      </div>
+                    ) : (
+                      notifications.map(notif => (
+                        <div key={notif.id} className="p-4 border-b border-slate-50 hover:bg-slate-50 transition-colors cursor-pointer">
+                          <p className="text-sm font-bold text-slate-800">{notif.title}</p>
+                          <p className="text-xs text-slate-500 mt-1">{notif.message}</p>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
             <div className="h-6 w-px bg-slate-200"></div>
             <div className="flex items-center space-x-3 group cursor-pointer" onClick={handleLogout}>
               <div className="text-right hidden md:block">
