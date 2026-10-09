@@ -400,13 +400,7 @@ function AttemptContent() {
       requestAdminReview('The exam window lost focus');
     };
 
-    const handleFullscreenChange = () => {
-      if (!document.fullscreenElement) {
-        handleViolation('FULLSCREEN_EXIT', 'CRITICAL', 'You exited fullscreen mode.');
-        requestAdminReview('You exited fullscreen mode');
-        submitExam('You have been terminated for exiting fullscreen mode. Redirecting to dashboard...', true);
-      }
-    };
+
 
     const handleCopyPaste = (e: Event) => {
       e.preventDefault();
@@ -414,7 +408,6 @@ function AttemptContent() {
 
     document.addEventListener('visibilitychange', handleVisibilityChange);
     window.addEventListener('blur', handleFocusLoss);
-    document.addEventListener('fullscreenchange', handleFullscreenChange);
     document.addEventListener('copy', handleCopyPaste);
     document.addEventListener('paste', handleCopyPaste);
     document.addEventListener('contextmenu', handleCopyPaste);
@@ -422,7 +415,6 @@ function AttemptContent() {
     return () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
       window.removeEventListener('blur', handleFocusLoss);
-      document.removeEventListener('fullscreenchange', handleFullscreenChange);
       document.removeEventListener('copy', handleCopyPaste);
       document.removeEventListener('paste', handleCopyPaste);
       document.removeEventListener('contextmenu', handleCopyPaste);
