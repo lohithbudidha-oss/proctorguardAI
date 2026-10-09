@@ -94,8 +94,13 @@ export default function AdminExamsPage() {
       try {
         await api.delete(`/admin/exams/${examId}`);
         fetchExams();
-      } catch (err) {
-        alert('Failed to delete exam. Make sure you have the latest backend deployed.');
+      } catch (err: any) {
+        if (err.response?.status === 404) {
+          alert('Exam already deleted or not found. Refreshing list...');
+          fetchExams();
+        } else {
+          alert('Failed to delete exam. Make sure you have the latest backend deployed.');
+        }
       }
     }
   };

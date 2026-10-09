@@ -1,4 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
+import mongoose from 'mongoose';
 import Exam, { ExamStatus } from '../models/Exam';
 
 export const createExam = async (req: Request, res: Response, next: NextFunction) => {
@@ -63,6 +64,11 @@ export const deleteExam = async (req: Request, res: Response, next: NextFunction
     const { id } = req.params;
     const exam = await Exam.findByIdAndDelete(id);
     if (!exam) return res.status(404).json({ success: false, message: 'Exam not found' });
+    
+    // Cascade delete questions and assignments
+    await mongoose.model('Question').deleteMany({ examId: id });
+    await mongoose.model('Assignment').deleteMany({ examId: id });
+
     res.status(200).json({ success: true, message: 'Exam deleted successfully' });
   } catch (err) {
     next(err);
