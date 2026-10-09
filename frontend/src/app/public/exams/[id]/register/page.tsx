@@ -24,8 +24,13 @@ function RegistrationForm() {
         // Automatically redirect to the exam system check and start page
         router.push(`/candidate/exams/${examId}/system-check`);
       }
-    } catch (err: unknown) {
-      setError((err as { response?: { data?: { message?: string } } })?.response?.data?.message || 'Failed to register for exam.');
+    } catch (err: any) {
+      if (err.response?.data?.errors?.length > 0) {
+        const issues = err.response.data.errors.map((e: any) => `${e.path.join('.')}: ${e.message}`).join(', ');
+        setError(`Validation error: ${issues}`);
+      } else {
+        setError(err.response?.data?.message || 'Failed to register for exam.');
+      }
     } finally {
       setLoading(false);
     }
