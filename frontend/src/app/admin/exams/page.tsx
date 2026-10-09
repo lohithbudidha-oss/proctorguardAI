@@ -155,13 +155,15 @@ export default function AdminExamsPage() {
                 >
                   <Eye className="w-4 h-4" />
                 </button>
-                <button
-                  onClick={() => handleEdit(exam)}
-                  className="p-2 text-white bg-amber-500 hover:bg-amber-600 rounded-lg shadow-sm transition"
-                  title="Edit Title"
-                >
-                  <Edit2 className="w-4 h-4" />
-                </button>
+                {exam.status === 'DRAFT' && (
+                  <button
+                    onClick={() => handleEdit(exam)}
+                    className="p-2 text-white bg-amber-500 hover:bg-amber-600 rounded-lg shadow-sm transition"
+                    title="Edit Title"
+                  >
+                    <Edit2 className="w-4 h-4" />
+                  </button>
+                )}
                 <button
                   onClick={() => handleDelete(exam._id)}
                   className="p-2 text-white bg-red-500 hover:bg-red-600 rounded-lg shadow-sm transition"
