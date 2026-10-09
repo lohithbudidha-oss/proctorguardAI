@@ -19,6 +19,7 @@ export const createExam = async (req: Request, res: Response, next: NextFunction
 export const getExams = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const exams = await Exam.find().sort({ createdAt: -1 });
+    console.log(`[getExams] Retrieved ${exams.length} exams. IDs:`, exams.map(e => e._id.toString()));
     res.status(200).json({ success: true, exams });
   } catch (err) {
     next(err);
@@ -62,7 +63,15 @@ export const updateExam = async (req: Request, res: Response, next: NextFunction
 export const deleteExam = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { id } = req.params;
+    console.log(`[deleteExam] Attempting to delete exam with ID: ${id}`);
+    
+    // Check if it exists first
+    const existing = await Exam.findById(id);
+    console.log(`[deleteExam] Found before delete?`, !!existing);
+    
     const exam = await Exam.findByIdAndDelete(id);
+    console.log(`[deleteExam] Deleted result:`, !!exam);
+    
     if (!exam) return res.status(404).json({ success: false, message: 'Exam not found' });
     
     // Cascade delete questions and assignments
@@ -71,6 +80,7 @@ export const deleteExam = async (req: Request, res: Response, next: NextFunction
 
     res.status(200).json({ success: true, message: 'Exam deleted successfully' });
   } catch (err) {
+    console.error(`[deleteExam] Error:`, err);
     next(err);
   }
 };

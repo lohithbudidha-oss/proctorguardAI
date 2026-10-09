@@ -14,7 +14,6 @@ function SystemCheckContent() {
   const [checks, setChecks] = useState({
     browser: { status: 'PENDING', message: 'Checking browser compatibility...' },
     camera: { status: 'PENDING', message: 'Requesting camera access...' },
-    microphone: { status: 'PENDING', message: 'Requesting microphone access...' },
     screen: { status: 'PENDING', message: 'Requesting screen share access...' },
     network: { status: 'PENDING', message: 'Checking network stability...' },
   });
@@ -66,24 +65,7 @@ function SystemCheckContent() {
       }
     }
 
-    // 4. Microphone Check
-    try {
-      const audioStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      if (audioStream.active) {
-        updateCheck('microphone', 'PASS', 'Microphone is working correctly.');
-        audioStream.getTracks().forEach(t => t.stop());
-      } else {
-        updateCheck('microphone', 'FAIL', 'Microphone is not active.');
-        allPassed = false;
-      }
-    } catch (err: any) {
-      if (err.name === 'NotFoundError' || err.message.includes('not found')) {
-        updateCheck('microphone', 'PASS', 'No microphone detected. (Demo Mode Fallback Active)');
-      } else {
-        updateCheck('microphone', 'FAIL', 'Microphone permission denied or unavailable.');
-        allPassed = false;
-      }
-    }
+
 
     updateCheck('screen', 'PENDING', 'Please test screen sharing manually.');
 
@@ -133,7 +115,7 @@ function SystemCheckContent() {
           <CheckItem icon={<Monitor />} title="Browser Support" check={checks.browser} />
           <CheckItem icon={<Wifi />} title="Network Connection" check={checks.network} />
           <CheckItem icon={<Camera />} title="Webcam" check={checks.camera} />
-          <CheckItem icon={<Mic />} title="Microphone" check={checks.microphone} />
+
           
           <div className="flex items-center justify-between p-4 bg-slate-50 rounded-lg border border-slate-200">
             <div className="flex items-center space-x-4">

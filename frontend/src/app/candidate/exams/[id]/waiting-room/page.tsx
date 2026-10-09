@@ -71,7 +71,7 @@ function WaitingRoomContent() {
     setStreamError('');
     try {
       // Ask for Camera & Mic
-      const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+      const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
       }

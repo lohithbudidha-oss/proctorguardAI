@@ -98,6 +98,7 @@ function AttemptContent() {
       // Only enforce fullscreen AFTER the media streams have successfully started
       if (!document.fullscreenElement && examStatus === 'IN_PROGRESS' && streamsStarted) {
         handleViolation('FULLSCREEN_EXIT', 'CRITICAL', 'Candidate exited fullscreen mode.');
+        submitExam('You have been terminated for exiting fullscreen mode. Redirecting to dashboard...', true);
       }
     };
 
@@ -199,7 +200,7 @@ function AttemptContent() {
       try {
         let stream: MediaStream;
         try {
-          stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+          stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
         } catch (err: any) {
           if (err.name === 'NotFoundError' || err.message.includes('not found') || err.message.includes('denied')) {
             // DEMO FALLBACK: Create dummy stream
@@ -213,7 +214,7 @@ function AttemptContent() {
                 ctx.fillRect(0, 0, 640, 480);
                 ctx.fillStyle = '#ffffff';
                 ctx.font = '24px Arial';
-                ctx.fillText('NO CAMERA/MIC (DEMO MODE)', 120, 240);
+                ctx.fillText('NO CAMERA (DEMO MODE)', 120, 240);
                 ctx.fillText(new Date().toLocaleTimeString(), 240, 280);
               }
             }, 1000);
@@ -227,12 +228,6 @@ function AttemptContent() {
         streamRef.current = stream;
         if (videoRef.current) {
           videoRef.current.srcObject = stream;
-        }
-        
-        // REM-07: Track Microphone
-        const audioTrack = stream.getAudioTracks()[0];
-        if (audioTrack) {
-          audioTrack.onended = () => handleViolation('MICROPHONE_STOPPED', 'HIGH', 'Microphone disconnected.');
         }
 
         // REM-03: Enforce Screen Share
@@ -386,36 +381,7 @@ function AttemptContent() {
     };
   }, [streamsStarted]);
 
-  // Audio Detection (Web Speech API)
-  useEffect(() => {
-    let recognition: any = null;
-    try {
-      const SpeechRecognitionConstructor = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-      if (SpeechRecognitionConstructor) {
-        recognition = new SpeechRecognitionConstructor();
-        recognition.continuous = true;
-        recognition.interimResults = true;
-        
-        recognition.onresult = (event: any) => {
-          // If we detect any speech, trigger violation
-          const transcript = event.results[event.results.length - 1][0].transcript.trim();
-          if (transcript.length > 0) {
-            handleViolation('EXTERNAL_VOICE', 'CRITICAL', `Voice detected: "${transcript}"`);
-            requestAdminReview('Unauthorized external voice detected in the environment');
-          }
-        };
-        
-        recognition.onerror = () => { /* ignore */ };
-        recognition.start();
-      }
-    } catch (err) {
-      console.warn('Speech recognition not supported in this browser');
-    }
-
-    return () => {
-      if (recognition) recognition.stop();
-    };
-  }, []);
+  // Audio Detection has been removed as per requirement
 
   // Browser Security Listeners (STRICT AUTO-TERMINATE)
   useEffect(() => {
@@ -437,6 +403,7 @@ function AttemptContent() {
       if (!document.fullscreenElement) {
         handleViolation('FULLSCREEN_EXIT', 'CRITICAL', 'You exited fullscreen mode.');
         requestAdminReview('You exited fullscreen mode');
+        submitExam('You have been terminated for exiting fullscreen mode. Redirecting to dashboard...', true);
       }
     };
 
@@ -536,7 +503,7 @@ function AttemptContent() {
     setMarkedForReview(prev => ({ ...prev, [qId]: !prev[qId] }));
   };
 
-  async function submitExam(reason?: string) {
+  async function submitExam(reason?: string, isTermination = false) {
     if (reason || confirm('Are you sure you want to submit? You cannot change your answers after submission.')) {
       try {
         if (cameraSessionId) stopRecording(cameraSessionId);
@@ -564,11 +531,12 @@ function AttemptContent() {
           alert('Examination Submitted Successfully');
         }
         
-        router.push(`/candidate/exams/${examId}/result/${attemptId}`);
+        // Redirect to dashboard instead of results page
+        router.push(`/candidate/dashboard`);
       } catch (err) {
         console.error('Submit failed', err);
         // Force routing even if API fails to prevent being stuck
-        router.push(`/candidate/exams/${examId}/result/${attemptId}`);
+        router.push(`/candidate/dashboard`);
       }
     }
   }
