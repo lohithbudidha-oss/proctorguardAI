@@ -44,8 +44,10 @@ router.post('/live/:attemptId/lock', lockAttempt);
 router.post('/live/:attemptId/unlock', unlockAttempt);
 router.post('/live/:attemptId/force-submit', forceSubmitAttempt);
 
-// Violations
-import { getViolations } from '../controllers/adminController';
+// Results and Violations
+import { getViolations, getResults, verifyResult } from '../controllers/adminController';
 router.get('/violations', getViolations);
+router.get('/results', getResults);
+router.patch('/results/:id/verify', verifyResult);
 
 export default router;

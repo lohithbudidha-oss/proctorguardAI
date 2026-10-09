@@ -143,3 +143,36 @@ export const getViolations = async (req: Request, res: Response, next: NextFunct
     next(err);
   }
 };
+import Result from '../models/Result';
+
+export const getResults = async (req: AuthRequest, res: Response, next: NextFunction) => {
+  try {
+    const results = await Result.find()
+      .populate('candidateId', 'name email')
+      .populate('examId', 'title')
+      .sort({ createdAt: -1 });
+    res.status(200).json({ success: true, results });
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const verifyResult = async (req: AuthRequest, res: Response, next: NextFunction) => {
+  try {
+    const { id } = req.params;
+    const { status } = req.body;
+    
+    if (!['APPROVED', 'REJECTED'].includes(status)) {
+      return res.status(400).json({ success: false, message: 'Invalid status' });
+    }
+
+    const result = await Result.findByIdAndUpdate(id, { status }, { new: true });
+    if (!result) {
+      return res.status(404).json({ success: false, message: 'Result not found' });
+    }
+
+    res.status(200).json({ success: true, result });
+  } catch (err) {
+    next(err);
+  }
+};

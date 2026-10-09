@@ -16,6 +16,7 @@ export interface IResult extends Document {
   timeTaken: number; // in seconds
   riskScore: number;
   violations: number;
+  status: 'PENDING' | 'APPROVED' | 'REJECTED';
   createdAt: Date;
 }
 
@@ -34,7 +35,8 @@ const ResultSchema: Schema = new Schema({
   pass: { type: Boolean, required: true },
   timeTaken: { type: Number, required: true },
   riskScore: { type: Number, default: 0 },
-  violations: { type: Number, default: 0 }
+  violations: { type: Number, default: 0 },
+  status: { type: String, enum: ['PENDING', 'APPROVED', 'REJECTED'], default: 'PENDING' }
 }, { timestamps: true });
 
 export default mongoose.model<IResult>('Result', ResultSchema);

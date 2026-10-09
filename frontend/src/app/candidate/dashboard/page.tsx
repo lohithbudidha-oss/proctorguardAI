@@ -11,7 +11,7 @@ export default function CandidateDashboard() {
   const [loading, setLoading] = useState(true);
   const [currentTime, setCurrentTime] = useState('');
 
-  const [exams, setExams] = useState<{ id: string; title: string; duration: number; status: string; scheduledFor: string }[]>([]);
+  const [exams, setExams] = useState<{ id: string; title: string; duration: number; status: string; scheduledFor: string; resultStatus?: string; attemptId?: string }[]>([]);
 
   useEffect(() => {
     // Check auth token
@@ -26,7 +26,7 @@ export default function CandidateDashboard() {
       setCurrentTime(new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' }));
     }, 0);
 
-    api.get('/candidate/exams').then((res: { data: { exams?: { id: string; title: string; duration: number; status: string; scheduledFor: string }[] } }) => {
+    api.get('/candidate/exams').then((res: { data: { exams?: { id: string; title: string; duration: number; status: string; scheduledFor: string; resultStatus?: string; attemptId?: string }[] } }) => {
       const fetchedExams = res.data?.exams || [];
       setExams(fetchedExams);
     }).catch(err => console.error('Error fetching exams:', err));
@@ -137,9 +137,22 @@ export default function CandidateDashboard() {
 
               <div className="p-4 border-t border-slate-100 bg-slate-50/50 rounded-b-2xl">
                 {exam.status === 'COMPLETED' ? (
-                  <div className="flex items-center justify-center w-full py-3.5 rounded-xl font-bold bg-slate-200 text-slate-500 cursor-not-allowed shadow-inner border border-slate-300">
-                    Exam Completed
-                  </div>
+                  exam.resultStatus === 'APPROVED' ? (
+                    <Link 
+                      href={`/candidate/exams/${exam.id}/result/${exam.attemptId}`}
+                      className="flex items-center justify-center w-full py-3.5 rounded-xl font-bold bg-emerald-600 text-white hover:bg-emerald-700 shadow-md transition-all"
+                    >
+                      View Results
+                    </Link>
+                  ) : exam.resultStatus === 'REJECTED' ? (
+                    <div className="flex items-center justify-center w-full py-3.5 rounded-xl font-bold bg-rose-100 text-rose-700 cursor-not-allowed shadow-inner border border-rose-200">
+                      Results Rejected
+                    </div>
+                  ) : (
+                    <div className="flex items-center justify-center w-full py-3.5 rounded-xl font-bold bg-amber-100 text-amber-700 cursor-not-allowed shadow-inner border border-amber-200">
+                      Pending Verification
+                    </div>
+                  )
                 ) : (
                   <Link 
                     href={`/candidate/exams/${exam.id}/system-check`}

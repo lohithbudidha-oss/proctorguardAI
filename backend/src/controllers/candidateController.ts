@@ -8,19 +8,32 @@ export const getAssignedExams = async (req: AuthRequest, res: Response, next: Ne
     const candidateId = req.user?.userId;
     const assignments = await Assignment.find({ candidateId }).populate('examId');
     
-    const formattedExams = assignments.map(a => {
+    const formattedExams = await Promise.all(assignments.map(async (a) => {
       const exam = a.examId as any;
       if (!exam) return null;
+      
+      let resultStatus = 'NONE';
+      let attemptId = null;
+      if (a.status === 'COMPLETED') {
+        const result = await Result.findOne({ examId: exam._id, candidateId }).sort({ createdAt: -1 });
+        if (result) {
+          resultStatus = result.status;
+          attemptId = result.attemptId;
+        }
+      }
+
       return {
         id: exam._id,
         title: exam.title,
         duration: exam.duration,
         scheduledFor: a.scheduledAt,
-        status: a.status === 'COMPLETED' ? 'COMPLETED' : exam.status === 'PUBLISHED' ? 'AVAILABLE' : 'PENDING'
+        status: a.status === 'COMPLETED' ? 'COMPLETED' : exam.status === 'PUBLISHED' ? 'AVAILABLE' : 'PENDING',
+        resultStatus,
+        attemptId
       };
-    }).filter(Boolean);
+    }));
 
-    res.status(200).json({ success: true, exams: formattedExams });
+    res.status(200).json({ success: true, exams: formattedExams.filter(Boolean) });
   } catch (err) {
     next(err);
   }
