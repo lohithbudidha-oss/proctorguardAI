@@ -84,7 +84,8 @@ export default function LiveMonitoringPage() {
       }
     });
 
-    const initSocket = io(process.env.NEXT_PUBLIC_WS_URL || 'http://localhost:5000', {
+    const wsUrl = process.env.NEXT_PUBLIC_WS_URL || (process.env.NEXT_PUBLIC_API_URL ? process.env.NEXT_PUBLIC_API_URL.replace(/\/api\/?$/, '') : 'http://localhost:5000');
+    const initSocket = io(wsUrl, {
       auth: { token: localStorage.getItem('token') }
     });
 
