@@ -20,7 +20,8 @@ import {
   ListChecks,
   X,
   ArrowLeft,
-  Loader2
+  Loader2,
+  Maximize2
 } from 'lucide-react';
 import { useRecordings } from '../../../../../../hooks/useRecordings';
 
@@ -49,11 +50,42 @@ function AttemptContent() {
   const [timeRemaining, setTimeRemaining] = useState(3600); // Updated dynamically with wall-clock time
   const expiresAtMsRef = useRef<number | null>(null);
 
+  const [exam, setExam] = useState<any>(null);
+  const [isFullscreenReady, setIsFullscreenReady] = useState(false);
+  const isFullscreenReadyRef = useRef(false);
+  const [timerStarted, setTimerStarted] = useState(false);
+  const timerStartedRef = useRef(false);
+
   const [streamsStarted, setStreamsStarted] = useState(false);
   const [aiStatus, setAiStatus] = useState('Initializing AI...');
   const [examStatus, setExamStatus] = useState<'IN_PROGRESS' | 'PAUSED' | 'TERMINATED' | 'SUBMITTED'>('IN_PROGRESS');
   const [violationReviewState, setViolationReviewState] = useState({ active: false, reason: '', reminders: 0 });
   const [resumeCountdown, setResumeCountdown] = useState<number | null>(null);
+
+  const startExamTimer = React.useCallback((forceRestored = false) => {
+    if (timerStartedRef.current) return;
+    timerStartedRef.current = true;
+    setTimerStarted(true);
+
+    if (forceRestored && expiresAtMsRef.current !== null) {
+      const remaining = Math.max(0, Math.floor((expiresAtMsRef.current - Date.now()) / 1000));
+      setTimeRemaining(remaining);
+      return;
+    }
+
+    const durationMinutes = (exam?.duration || 60);
+    const durationSeconds = durationMinutes * 60;
+    const nowMs = Date.now();
+    const expiryMs = nowMs + durationSeconds * 1000;
+
+    expiresAtMsRef.current = expiryMs;
+    setTimeRemaining(durationSeconds);
+
+    // Sync timer start with backend
+    api.post(`/candidate/attempts/${attemptId}/start-timer`).catch(err => {
+      console.warn('Could not sync timer start with backend (using local timer):', err);
+    });
+  }, [attemptId, exam]);
   
   const noFaceFrames = useRef(0);
   const multipleFaceFrames = useRef(0);
@@ -76,6 +108,7 @@ function AttemptContent() {
     // Fetch attempt details
     api.get(`/candidate/attempts/${attemptId}`).then((res: any) => {
       const { attempt, exam, questions, answers } = res.data;
+      setExam(exam);
       
       const mappedQuestions = questions.map((q: any) => ({
         id: q._id || q.id || '',
@@ -98,25 +131,30 @@ function AttemptContent() {
       setAnswers(restoredAnswers);
       setMarkedForReview(restoredMarks);
 
-      // Calculate exact wall-clock expiration timestamp
-      let expiryMs = 0;
-      if (attempt.expiresAt) {
-        expiryMs = new Date(attempt.expiresAt).getTime();
-      } else if (attempt.startedAt && exam?.duration) {
-        expiryMs = new Date(attempt.startedAt).getTime() + exam.duration * 60 * 1000;
+      const durationMinutes = exam?.duration || 60;
+      const durationSeconds = durationMinutes * 60;
+
+      // Check if this attempt was already started and ongoing previously (e.g. reload during exam)
+      const isRestoredAttempt = Boolean(
+        attempt.startedAt && 
+        attempt.expiresAt && 
+        (Date.now() - new Date(attempt.startedAt).getTime() > 20000)
+      );
+
+      if (isRestoredAttempt && attempt.expiresAt) {
+        const expiryMs = new Date(attempt.expiresAt).getTime();
+        expiresAtMsRef.current = expiryMs;
+        const remaining = Math.max(0, Math.floor((expiryMs - Date.now()) / 1000));
+        setTimeRemaining(remaining);
+
+        if (remaining <= 0 && !isSubmittedRef.current && attempt.status !== 'SUBMITTED' && attempt.status !== 'AUTO_SUBMITTED') {
+          submitExam('Exam timer has expired. Your exam has been automatically submitted.', false, true);
+        }
       } else {
-        expiryMs = Date.now() + ((exam?.duration || 60) * 60 * 1000);
+        // Pre-exam: hold initial timer display at full duration; timer starts strictly upon entering fullscreen
+        setTimeRemaining(durationSeconds);
       }
-      expiresAtMsRef.current = expiryMs;
-
-      const remaining = Math.max(0, Math.floor((expiryMs - Date.now()) / 1000));
-      setTimeRemaining(remaining);
       setIsLoading(false);
-
-      // If already expired on arrival, auto-submit immediately
-      if (remaining <= 0 && !isSubmittedRef.current && attempt.status !== 'SUBMITTED' && attempt.status !== 'AUTO_SUBMITTED') {
-        submitExam('Exam timer has expired. Your exam has been automatically submitted.', false, true);
-      }
     }).catch(err => {
       console.error('Failed to load attempt', err);
       setIsLoading(false);
@@ -138,11 +176,23 @@ function AttemptContent() {
 
   useEffect(() => {
     const handleFullscreenChange = () => {
+      const isCurrentlyFullscreen = Boolean(document.fullscreenElement);
+
+      // Before exam has officially started in fullscreen:
+      if (!isFullscreenReadyRef.current) {
+        if (isCurrentlyFullscreen && streamsStarted) {
+          isFullscreenReadyRef.current = true;
+          setIsFullscreenReady(true);
+          startExamTimer();
+        }
+        return;
+      }
+
       // Do not process fullscreen exit if exam is already submitted/terminating or streams not active
       if (isSubmittedRef.current || examStatus !== 'IN_PROGRESS' || !streamsStarted) {
         return;
       }
-      if (!document.fullscreenElement) {
+      if (!isCurrentlyFullscreen) {
         handleViolation('FULLSCREEN_EXIT', 'CRITICAL', 'Candidate exited fullscreen mode.');
         submitExam('You have been terminated for exiting fullscreen mode. Redirecting to dashboard...', true);
       }
@@ -152,7 +202,7 @@ function AttemptContent() {
     return () => {
       document.removeEventListener('fullscreenchange', handleFullscreenChange);
     };
-  }, [examStatus, attemptId, socket, streamsStarted]);
+  }, [examStatus, attemptId, socket, streamsStarted, startExamTimer]);
 
   const mediaInitialized = useRef(false);
 
@@ -322,16 +372,25 @@ function AttemptContent() {
         const scrSession = await startRecording('SCREEN', screenStream);
         if (scrSession) setScreenSessionId(scrSession);
 
-        // Re-enter full screen if the browser exited it during the permission prompts
-        if (!document.fullscreenElement) {
+        // Re-enter full screen if already permitted, or try to enter
+        if (document.fullscreenElement) {
+          isFullscreenReadyRef.current = true;
+          setIsFullscreenReady(true);
+          startExamTimer();
+        } else {
           try {
             await document.documentElement.requestFullscreen();
+            if (document.fullscreenElement) {
+              isFullscreenReadyRef.current = true;
+              setIsFullscreenReady(true);
+              startExamTimer();
+            }
           } catch (e) {
-            console.error('Failed to restore fullscreen', e);
+            console.warn('Fullscreen entry requires user gesture:', e);
           }
         }
 
-        setStreamsStarted(true); // Now we can safely attach security listeners
+        setStreamsStarted(true); // Now proctoring streams are active
 
         // Capture Candidate Identity Proof snapshot and sync to Google Drive
         setTimeout(() => {
@@ -667,8 +726,9 @@ function AttemptContent() {
   }, [streamsStarted]);
 
   // Timer (Wall-clock accurate; automatically submits wherever candidate is upon timer completion)
+  // Starts STRICTLY when the page enters into full screen mode
   useEffect(() => {
-    if (isLoading) return;
+    if (isLoading || !timerStarted) return;
 
     const timer = setInterval(() => {
       if (isSubmittedRef.current || examStatus === 'SUBMITTED' || examStatus === 'TERMINATED') {
@@ -688,7 +748,7 @@ function AttemptContent() {
     }, 1000);
 
     return () => clearInterval(timer);
-  }, [isLoading, examStatus]);
+  }, [isLoading, timerStarted, examStatus]);
 
   async function captureSnapshotAndReport(type: string, severity: string, message: string) {
     if (isSubmittedRef.current || examStatus === 'SUBMITTED' || examStatus === 'TERMINATED') {
@@ -978,6 +1038,58 @@ function AttemptContent() {
 
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col select-none">
+      {/* Fullscreen Entry Gate: Ensures exam timer and questions only activate after fullscreen is entered */}
+      {(!isFullscreenReady || !streamsStarted) && !isLoading && examStatus !== 'SUBMITTED' && examStatus !== 'TERMINATED' && (
+        <div className="fixed inset-0 bg-slate-900/95 backdrop-blur-md z-[90] flex items-center justify-center p-6 text-center">
+          <div className="max-w-md w-full bg-slate-800 border border-slate-700/80 rounded-2xl p-8 shadow-2xl flex flex-col items-center">
+            <div className="w-16 h-16 rounded-full bg-blue-500/10 border border-blue-500/30 flex items-center justify-center mb-5 text-blue-400">
+              <Maximize2 className="w-8 h-8 animate-pulse" />
+            </div>
+
+            <h2 className="text-2xl font-bold mb-2 text-white">
+              {!streamsStarted ? 'Initializing Proctoring...' : 'Enter Full Screen Mode'}
+            </h2>
+
+            <p className="text-sm text-slate-300 mb-6 leading-relaxed">
+              {!streamsStarted
+                ? 'Please permit camera and screen sharing when prompted. All devices must be connected before entering the exam.'
+                : 'Your camera and screen share have been connected. Click below to enter full screen mode to start your test.'}
+            </p>
+
+            {streamsStarted ? (
+              <button
+                onClick={async () => {
+                  try {
+                    await document.documentElement.requestFullscreen();
+                    if (document.fullscreenElement) {
+                      isFullscreenReadyRef.current = true;
+                      setIsFullscreenReady(true);
+                      startExamTimer();
+                    }
+                  } catch (err) {
+                    console.error('Fullscreen request error:', err);
+                    alert('Please allow full screen in your browser to proceed with the examination.');
+                  }
+                }}
+                className="w-full py-4 px-6 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-xl shadow-lg transition-all transform hover:scale-[1.02] active:scale-[0.98] cursor-pointer flex items-center justify-center text-base"
+              >
+                <Maximize2 className="w-5 h-5 mr-2" /> Enter Full Screen & Start Exam
+              </button>
+            ) : (
+              <div className="flex items-center text-sm text-blue-400 font-semibold bg-blue-950/60 px-4 py-2.5 rounded-lg border border-blue-800/50">
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                Connecting Camera & Screen Share...
+              </div>
+            )}
+
+            <div className="mt-6 pt-4 border-t border-slate-700/60 w-full flex items-center justify-between text-xs text-slate-400 font-medium">
+              <span>Duration: {exam?.duration || 60} mins</span>
+              <span className="text-emerald-400 font-semibold">Timer starts in full screen</span>
+            </div>
+          </div>
+        </div>
+      )}
+
       {examStatus === 'PAUSED' && (
         <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-md z-[100] flex items-center justify-center">
           <div className="bg-slate-800 p-8 rounded-2xl max-w-md text-center border border-slate-700 shadow-2xl">
@@ -1008,14 +1120,19 @@ function AttemptContent() {
             <span className="text-sm font-medium">Connected</span>
           </div>
           <div className={`flex items-center space-x-2 px-4 py-1.5 rounded-md font-mono text-lg font-bold transition-all ${
-            timeRemaining <= 60 
+            timerStarted && timeRemaining <= 60 
               ? 'text-red-400 bg-red-950/80 border border-red-500 animate-pulse' 
-              : timeRemaining <= 300
+              : timerStarted && timeRemaining <= 300
                 ? 'text-amber-400 bg-amber-950/60 border border-amber-600'
                 : 'text-rose-400 bg-slate-800'
           }`}>
-            <Clock className={`w-5 h-5 ${timeRemaining <= 60 ? 'text-red-400 animate-spin' : ''}`} />
+            <Clock className={`w-5 h-5 ${timerStarted && timeRemaining <= 60 ? 'text-red-400 animate-spin' : ''}`} />
             <span>{formatTime(timeRemaining)}</span>
+            {!timerStarted && (
+              <span className="text-[10px] uppercase tracking-wider bg-blue-500/20 text-blue-300 px-1.5 py-0.5 rounded font-sans ml-1">
+                Paused
+              </span>
+            )}
           </div>
         </div>
       </header>

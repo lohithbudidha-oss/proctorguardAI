@@ -605,3 +605,43 @@ export const recordCandidateProof = async (req: AuthRequest, res: Response, next
     next(err);
   }
 };
+
+export const startAttemptTimer = async (req: AuthRequest, res: Response, next: NextFunction) => {
+  try {
+    const { attemptId } = req.params;
+    const candidateId = req.user?.userId;
+
+    const attempt = await Attempt.findOne({ _id: attemptId, candidateId });
+    if (!attempt) {
+      return res.status(404).json({ success: false, message: 'Attempt not found' });
+    }
+
+    if (attempt.status !== AttemptStatus.IN_PROGRESS) {
+      return res.status(400).json({ success: false, message: 'Attempt is not in progress' });
+    }
+
+    const exam = await Exam.findById(attempt.examId);
+    const durationMinutes = exam?.duration || 60;
+    const now = new Date();
+
+    const existingStarted = attempt.startedAt ? new Date(attempt.startedAt).getTime() : 0;
+    const isRecentlyStarted = !existingStarted || (now.getTime() - existingStarted < 10 * 60 * 1000);
+
+    if (isRecentlyStarted) {
+      attempt.startedAt = now;
+      attempt.expiresAt = new Date(now.getTime() + durationMinutes * 60 * 1000);
+      attempt.durationSeconds = durationMinutes * 60;
+      await attempt.save();
+    }
+
+    res.status(200).json({
+      success: true,
+      startedAt: attempt.startedAt,
+      expiresAt: attempt.expiresAt,
+      durationSeconds: attempt.durationSeconds || durationMinutes * 60
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
