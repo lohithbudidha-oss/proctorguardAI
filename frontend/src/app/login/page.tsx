@@ -206,14 +206,27 @@ function LoginContent() {
               )}
             </button>
             
-            <div className="mt-8 pt-6 border-t border-slate-100 text-center">
-              <p className="text-sm text-slate-500 font-medium">
-                Don&apos;t have an account?{' '}
-                <Link href="/register" className="font-bold text-blue-600 hover:text-blue-500 transition-colors">
-                  Create an account
-                </Link>
-              </p>
-            </div>
+            {isAdminLogin ? (
+              <div className="mt-8 pt-6 border-t border-slate-100 text-center">
+                <p className="text-xs text-slate-400 font-medium">
+                  Administrative access is restricted to authorized personnel only.
+                </p>
+                <div className="mt-2">
+                  <Link href="/login" className="text-xs font-semibold text-blue-600 hover:text-blue-500 transition-colors">
+                    Candidate Sign In &rarr;
+                  </Link>
+                </div>
+              </div>
+            ) : (
+              <div className="mt-8 pt-6 border-t border-slate-100 text-center">
+                <p className="text-sm text-slate-500 font-medium">
+                  Don&apos;t have an account?{' '}
+                  <Link href="/register" className="font-bold text-blue-600 hover:text-blue-500 transition-colors">
+                    Sign up
+                  </Link>
+                </p>
+              </div>
+            )}
           </form>
         </div>
       </div>
