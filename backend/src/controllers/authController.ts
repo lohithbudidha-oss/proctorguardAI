@@ -14,30 +14,39 @@ if (!JWT_SECRET || JWT_SECRET === 'supersecretjwtkey_replace_in_production') {
   }
 }
 
+// Strict email format validator ensuring valid username, @ symbol, domain name, and at least 2-letter TLD
+const EMAIL_REGEX = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+
 const registerSchema = z.object({
-  name: z.string().min(2).max(100),
-  email: z.string().email(),
-  password: z.string().min(8).max(100),
+  name: z.string().trim().min(2, 'Name must be at least 2 characters').max(100),
+  email: z.string()
+    .trim()
+    .toLowerCase()
+    .email('Please enter a valid email address format')
+    .regex(EMAIL_REGEX, 'Please enter a valid email address with a valid domain extension (e.g. name@example.com)'),
+  password: z.string().min(8, 'Password must be at least 8 characters').max(100),
 });
 
 export const register = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const parsed = registerSchema.safeParse(req.body);
     if (!parsed.success) {
-      return res.status(400).json({ success: false, message: 'Invalid input', errors: parsed.error.issues });
+      const errorMsg = parsed.error.issues.map(i => i.message).join('. ');
+      return res.status(400).json({ success: false, message: errorMsg, errors: parsed.error.issues });
     }
     const { name, email, password } = parsed.data;
+    const normalizedEmail = email.trim().toLowerCase();
 
-    const existingUser = await User.findOne({ email });
+    const existingUser = await User.findOne({ email: normalizedEmail });
     if (existingUser) {
-      return res.status(409).json({ success: false, message: 'Email already in use' });
+      return res.status(409).json({ success: false, message: 'This email address is already registered. Please sign in instead.' });
     }
 
     const passwordHash = await bcrypt.hash(password, 12);
     const role = Role.CANDIDATE;
     const status = CandidateStatus.PENDING_VERIFICATION;
 
-    const user = new User({ name, email, passwordHash, role, status });
+    const user = new User({ name: name.trim(), email: normalizedEmail, passwordHash, role, status });
     await user.save();
 
     res.status(201).json({
@@ -129,8 +138,12 @@ export const logout = async (req: Request, res: Response, next: NextFunction) =>
 };
 
 const publicRegisterSchema = z.object({
-  name: z.string().min(2).max(100),
-  email: z.string().email(),
+  name: z.string().trim().min(2, 'Name must be at least 2 characters').max(100),
+  email: z.string()
+    .trim()
+    .toLowerCase()
+    .email('Please enter a valid email address format')
+    .regex(EMAIL_REGEX, 'Please enter a valid email address with a valid domain extension (e.g. name@example.com)'),
   phone: z.string().optional()
 });
 
@@ -139,22 +152,24 @@ export const publicExamRegister = async (req: Request, res: Response, next: Next
     const { examId } = req.params;
     const parsed = publicRegisterSchema.safeParse(req.body);
     if (!parsed.success) {
-      return res.status(400).json({ success: false, message: 'Invalid input', errors: parsed.error.issues });
+      const errorMsg = parsed.error.issues.map(i => i.message).join('. ');
+      return res.status(400).json({ success: false, message: errorMsg, errors: parsed.error.issues });
     }
     const { name, email, phone } = parsed.data;
+    const normalizedEmail = email.trim().toLowerCase();
 
     const exam = await Exam.findById(examId);
     if (!exam || exam.status !== 'PUBLISHED') {
       return res.status(404).json({ success: false, message: 'Exam not found or not published' });
     }
 
-    let user = await User.findOne({ email });
+    let user = await User.findOne({ email: normalizedEmail });
     if (user) {
-      return res.status(409).json({ success: false, message: 'Email already exists. Please log in to assign this exam.' });
+      return res.status(409).json({ success: false, message: 'This email address is already registered. Please log in to take this exam.' });
     }
 
     const passwordHash = await bcrypt.hash(Math.random().toString(36).slice(-10), 12);
-    user = new User({ name, email, passwordHash, role: Role.CANDIDATE, status: CandidateStatus.PENDING_VERIFICATION });
+    user = new User({ name: name.trim(), email: normalizedEmail, passwordHash, role: Role.CANDIDATE, status: CandidateStatus.PENDING_VERIFICATION });
     await user.save();
 
     let assignment = new Assignment({
