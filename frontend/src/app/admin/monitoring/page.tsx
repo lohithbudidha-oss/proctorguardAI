@@ -338,7 +338,7 @@ export default function CandidateExamRecordsPage() {
           <div className="bg-gradient-to-tr from-blue-600 to-indigo-600 p-2.5 rounded-xl shadow-md shadow-blue-500/20">
             <ShieldAlert className="w-5 h-5 text-white" />
           </div>
-          <span className="text-xl font-extrabold text-slate-900 tracking-tight">ProctorGuard AI</span>
+          <span className="text-xl font-extrabold text-slate-900 tracking-tight">ProctorGuardAI</span>
         </div>
 
         <div className="p-4 space-y-1.5">

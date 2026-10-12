@@ -64,7 +64,7 @@ function LoginContent() {
           <div className="bg-blue-600 p-2 rounded-xl">
             <ShieldCheck className="w-8 h-8 text-white" />
           </div>
-          <span className="text-2xl font-bold text-white tracking-tight">ProctorGuard AI</span>
+          <span className="text-2xl font-bold text-white tracking-tight">ProctorGuardAI</span>
         </div>
 
         <div className="relative z-10 max-w-lg mt-12">
@@ -97,7 +97,7 @@ function LoginContent() {
         </div>
 
         <div className="relative z-10 text-sm text-slate-500 font-medium">
-          &copy; 2026 ProctorGuard AI Technologies. All rights reserved.
+          &copy; 2026 ProctorGuardAI Technologies. All rights reserved.
         </div>
       </div>
 
@@ -118,7 +118,7 @@ function LoginContent() {
             <div className="bg-blue-600 p-2 rounded-xl">
               <ShieldCheck className="w-8 h-8 text-white" />
             </div>
-            <span className="text-2xl font-bold text-slate-900 tracking-tight">ProctorGuard AI</span>
+            <span className="text-2xl font-bold text-slate-900 tracking-tight">ProctorGuardAI</span>
           </div>
 
           {isAdminLogin && (

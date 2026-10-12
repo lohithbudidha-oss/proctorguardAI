@@ -50,7 +50,7 @@ export default function OrganizationsPage() {
       <header className="bg-white border-b border-slate-200 py-4 px-8 flex justify-between items-center shadow-xs sticky top-0 z-30">
         <Link href="/" className="flex items-center space-x-2 text-blue-700">
           <ShieldCheck className="w-8 h-8" />
-          <span className="text-xl font-bold tracking-tight">SecureAssess</span>
+          <span className="text-xl font-bold tracking-tight">ProctorGuardAI</span>
         </Link>
         <nav className="space-x-6 hidden md:block text-sm">
           <Link href="/about" className="text-slate-600 font-medium hover:text-blue-600 transition-colors">How it works</Link>
@@ -81,7 +81,7 @@ export default function OrganizationsPage() {
           </h1>
 
           <p className="text-lg sm:text-xl text-slate-600 max-w-3xl mx-auto leading-relaxed mb-10">
-            Scale high-stakes online examinations with confidence. SecureAssess empowers organizations to conduct fair, cheat-resistant examinations with automated AI supervision, live proctor dashboards, and auditable proof archiving.
+            Scale high-stakes online examinations with confidence. ProctorGuardAI empowers organizations to conduct fair, cheat-resistant examinations with automated AI supervision, live proctor dashboards, and auditable proof archiving.
           </p>
 
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
@@ -106,7 +106,7 @@ export default function OrganizationsPage() {
           <div className="max-w-6xl mx-auto px-6 sm:px-12">
             <div className="text-center mb-14">
               <h2 className="text-3xl font-extrabold text-slate-900 tracking-tight">Built for Mission-Critical Testing</h2>
-              <p className="text-slate-500 mt-2 text-base">Explore how different institutions utilize SecureAssess to maintain assessment credibility.</p>
+              <p className="text-slate-500 mt-2 text-base">Explore how different institutions utilize ProctorGuardAI to maintain assessment credibility.</p>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
@@ -246,7 +246,7 @@ export default function OrganizationsPage() {
       {/* Footer */}
       <footer className="bg-slate-900 text-slate-400 py-10 text-center border-t border-slate-800 text-xs">
         <div className="max-w-4xl mx-auto flex flex-col sm:flex-row items-center justify-between px-6 gap-4">
-          <p>© 2026 SecureAssess Platforms. Enterprise-grade assessment proctoring.</p>
+          <p>© 2026 ProctorGuardAI Platforms. Enterprise-grade assessment proctoring.</p>
           <div className="space-x-4">
             <Link href="/" className="hover:text-white transition">Home</Link>
             <Link href="/about" className="hover:text-white transition">How it works</Link>

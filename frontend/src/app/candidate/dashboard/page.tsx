@@ -107,7 +107,7 @@ export default function CandidateDashboard() {
             <div className="bg-gradient-to-tr from-blue-600 to-indigo-600 p-2 rounded-xl shadow-lg shadow-blue-600/20">
               <ShieldCheck className="w-6 h-6 text-white" />
             </div>
-            <span className="text-xl font-extrabold text-slate-900 tracking-tight">ProctorGuard <span className="text-blue-600">Candidate</span></span>
+            <span className="text-xl font-extrabold text-slate-900 tracking-tight">ProctorGuardAI</span>
           </div>
           
           <div className="flex items-center space-x-6">

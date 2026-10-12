@@ -8,7 +8,7 @@ export default function AboutPage() {
       <header className="bg-white border-b border-slate-200 py-4 px-8 flex justify-between items-center shadow-sm">
         <Link href="/" className="flex items-center space-x-2 text-blue-700">
           <ShieldCheck className="w-8 h-8" />
-          <span className="text-xl font-bold tracking-tight">SecureAssess</span>
+          <span className="text-xl font-bold tracking-tight">ProctorGuardAI</span>
         </Link>
         <nav className="space-x-6 hidden md:block text-sm">
           <Link href="/about" className="text-blue-600 font-bold">How it works</Link>
@@ -19,9 +19,9 @@ export default function AboutPage() {
       </header>
       
       <main className="flex-1 py-16 px-6 sm:px-12 max-w-4xl mx-auto">
-        <h1 className="text-4xl font-extrabold text-slate-900 mb-6">About SecureAssess</h1>
+        <h1 className="text-4xl font-extrabold text-slate-900 mb-6">About ProctorGuardAI</h1>
         <p className="text-lg text-slate-600 mb-8 leading-relaxed">
-          SecureAssess is a next-generation platform designed to maintain the highest levels of integrity for remote examinations. 
+          ProctorGuardAI is a next-generation platform designed to maintain the highest levels of integrity for remote examinations. 
           By combining AI-driven environmental monitoring, continuous face detection, and a locked-down browser environment, 
           we ensure that aptitude tests and academic assessments remain fair for everyone.
         </p>

@@ -1071,7 +1071,7 @@ export default function ResultsVerificationPage() {
               />
             </div>
             <div className="p-3 bg-slate-900/90 text-center text-xs text-slate-400 border-t border-slate-800">
-              Recorded by ProctorGuard AI Detection Engine • Saved in Google Drive Cloud Vault
+              Recorded by ProctorGuardAI Detection Engine • Saved in Google Drive Cloud Vault
             </div>
           </div>
         </div>

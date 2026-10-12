@@ -99,7 +99,7 @@ export default function RegisterPage() {
           <div className="bg-blue-600 p-2 rounded-xl">
             <ShieldCheck className="w-8 h-8 text-white" />
           </div>
-          <span className="text-2xl font-bold text-white tracking-tight">ProctorGuard AI</span>
+          <span className="text-2xl font-bold text-white tracking-tight">ProctorGuardAI</span>
         </div>
 
         <div className="relative z-10 max-w-lg mt-12">
@@ -132,7 +132,7 @@ export default function RegisterPage() {
         </div>
 
         <div className="relative z-10 text-sm text-slate-500 font-medium">
-          &copy; 2026 ProctorGuard AI Technologies. All rights reserved.
+          &copy; 2026 ProctorGuardAI Technologies. All rights reserved.
         </div>
       </div>
 
@@ -143,7 +143,7 @@ export default function RegisterPage() {
             <div className="bg-blue-600 p-2 rounded-xl">
               <ShieldCheck className="w-8 h-8 text-white" />
             </div>
-            <span className="text-2xl font-bold text-slate-900 tracking-tight">ProctorGuard AI</span>
+            <span className="text-2xl font-bold text-slate-900 tracking-tight">ProctorGuardAI</span>
           </div>
 
           <h2 className="text-3xl font-bold text-slate-900 mb-2">Create Account</h2>
