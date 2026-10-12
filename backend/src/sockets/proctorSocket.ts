@@ -82,7 +82,7 @@ export const setupSockets = (io: Server) => {
       
       try {
         const attempt = await Attempt.findOne({ _id: data.attemptId });
-        if (!attempt) {
+        if (!attempt || ['SUBMITTED', 'AUTO_SUBMITTED', 'FORCE_SUBMITTED', 'COMPLETED', 'TERMINATED', 'INVALIDATED'].includes(attempt.status)) {
           return;
         }
 
@@ -145,7 +145,7 @@ export const setupSockets = (io: Server) => {
       
       try {
         const attempt = await Attempt.findOne({ _id: data.attemptId });
-        if (!attempt) return;
+        if (!attempt || ['SUBMITTED', 'AUTO_SUBMITTED', 'FORCE_SUBMITTED', 'COMPLETED', 'TERMINATED', 'INVALIDATED'].includes(attempt.status)) return;
 
         // If a recent violation exists without screenshot, attach this screenshot to it
         if (data.image) {

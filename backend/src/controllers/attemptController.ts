@@ -441,6 +441,11 @@ export const recordViolation = async (req: AuthRequest, res: Response, next: Nex
       return res.status(404).json({ success: false, message: 'Attempt not found' });
     }
 
+    // Do not record violations once the exam is submitted, completed, or terminated
+    if (['SUBMITTED', 'AUTO_SUBMITTED', 'FORCE_SUBMITTED', 'COMPLETED', 'TERMINATED', 'INVALIDATED'].includes(attempt.status)) {
+      return res.status(200).json({ success: false, message: 'Exam attempt finalized. Violation detection is closed.' });
+    }
+
     let driveUrl = '';
     const driveFolderUrl = `https://drive.google.com/drive/folders/1P_3yKzFloiMrF8Pe1XFl9Lh-nqvPTit1?usp=sharing`;
 

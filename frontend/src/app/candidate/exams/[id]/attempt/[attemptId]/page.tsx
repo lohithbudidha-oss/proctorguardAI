@@ -46,6 +46,7 @@ function AttemptContent() {
   
   const noFaceFrames = useRef(0);
   const multipleFaceFrames = useRef(0);
+  const isSubmittedRef = useRef(false);
   
   const [questions, setQuestions] = useState<{ id: string; text: string; type: string; options: string[]; marks: number; negativeMarks: number; correctAnswer: string }[]>([]);
   const [currentQuestionIdx, setCurrentQuestionIdx] = useState(0);
@@ -112,8 +113,11 @@ function AttemptContent() {
 
   useEffect(() => {
     const handleFullscreenChange = () => {
-      // Only enforce fullscreen AFTER the media streams have successfully started
-      if (!document.fullscreenElement && examStatus === 'IN_PROGRESS' && streamsStarted) {
+      // Do not process fullscreen exit if exam is already submitted/terminating or streams not active
+      if (isSubmittedRef.current || examStatus !== 'IN_PROGRESS' || !streamsStarted) {
+        return;
+      }
+      if (!document.fullscreenElement) {
         handleViolation('FULLSCREEN_EXIT', 'CRITICAL', 'Candidate exited fullscreen mode.');
         submitExam('You have been terminated for exiting fullscreen mode. Redirecting to dashboard...', true);
       }
@@ -278,6 +282,7 @@ function AttemptContent() {
         const screenTrack = screenStream.getVideoTracks()[0];
         if (screenTrack) {
           screenTrack.onended = () => {
+            if (isSubmittedRef.current || examStatus !== 'IN_PROGRESS') return;
             handleViolation('SCREEN_SHARE_STOPPED', 'CRITICAL', 'Screen sharing was stopped.');
           };
         }
@@ -387,7 +392,7 @@ function AttemptContent() {
     };
 
     const detectFaces = async () => {
-      if (!isRunning) return;
+      if (!isRunning || isSubmittedRef.current || examStatus !== 'IN_PROGRESS') return;
       const now = performance.now();
 
       if (videoRef.current && faceDetector && (now - lastDetect >= 250)) {
@@ -451,12 +456,14 @@ function AttemptContent() {
     if (!streamsStarted) return; // Do not attach until after screen share popup is resolved
 
     const handleVisibilityChange = () => {
+      if (isSubmittedRef.current || examStatus !== 'IN_PROGRESS') return;
       if (document.visibilityState === 'hidden') {
         handleViolation('TAB_SWITCH', 'CRITICAL', 'You switched away from the exam tab.');
       }
     };
 
     const handleFocusLoss = () => {
+      if (isSubmittedRef.current || examStatus !== 'IN_PROGRESS') return;
       handleViolation('WINDOW_FOCUS_LOST', 'CRITICAL', 'Exam window lost focus.');
     };
 
@@ -497,6 +504,9 @@ function AttemptContent() {
   }, []);
 
   async function captureSnapshotAndReport(type: string, severity: string, message: string) {
+    if (isSubmittedRef.current || examStatus === 'SUBMITTED' || examStatus === 'TERMINATED') {
+      return;
+    }
     let screenshot = '';
 
     try {
@@ -644,6 +654,9 @@ function AttemptContent() {
   }
 
   function handleViolation(type: string, severity: string, message: string) {
+    if (isSubmittedRef.current || examStatus === 'SUBMITTED' || examStatus === 'TERMINATED') {
+      return;
+    }
     captureSnapshotAndReport(type, severity, message);
   }
 
@@ -667,14 +680,44 @@ function AttemptContent() {
   };
 
   async function submitExam(reason?: string, isTermination = false) {
-    if (examStatus === 'SUBMITTED' || examStatus === 'TERMINATED') return;
-    
+    if (isSubmittedRef.current || examStatus === 'SUBMITTED' || examStatus === 'TERMINATED') return;
+    isSubmittedRef.current = true;
     setExamStatus(isTermination ? 'TERMINATED' : 'SUBMITTED');
     setShowReviewCatalogModal(false);
+
+    // 1. Immediately shut down camera tracks and clear video source
+    try {
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach(track => {
+          try { track.stop(); } catch(e) {}
+        });
+        streamRef.current = null;
+      }
+      if (videoRef.current) {
+        videoRef.current.srcObject = null;
+      }
+    } catch(e) {}
+
+    // 2. Immediately stop recording sessions
     try {
       if (cameraSessionId) stopRecording(cameraSessionId);
       if (screenSessionId) stopRecording(screenSessionId);
-      
+      stopAllRecordings();
+    } catch(e) {}
+
+    // 3. Disconnect socket to prevent any further events
+    try {
+      if (socket) {
+        socket.disconnect();
+      }
+    } catch(e) {}
+
+    // 4. Safely exit fullscreen
+    if (document.fullscreenElement) {
+      document.exitFullscreen().catch(()=>{});
+    }
+
+    try {
       await api.post(`/candidate/attempts/${attemptId}/submit`);
       
       // Record local completion for dashboard state
@@ -687,10 +730,6 @@ function AttemptContent() {
         }
       } catch(e) {}
 
-      if (document.fullscreenElement) {
-        document.exitFullscreen().catch(()=>{});
-      }
-      
       if (reason) {
         alert(reason);
       } else {
