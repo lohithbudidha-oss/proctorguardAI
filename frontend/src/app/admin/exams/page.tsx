@@ -48,6 +48,7 @@ export default function AdminExamsPage() {
   const [createDuration, setCreateDuration] = useState<number>(60);
   const [createDescription, setCreateDescription] = useState('');
   const [createInstructions, setCreateInstructions] = useState('');
+  const [createErrors, setCreateErrors] = useState<{ title?: string; description?: string; instructions?: string }>({});
   const [isCreating, setIsCreating] = useState(false);
 
   // Edit Exam Modal State
@@ -57,6 +58,7 @@ export default function AdminExamsPage() {
   const [editDuration, setEditDuration] = useState<number>(60);
   const [editDescription, setEditDescription] = useState('');
   const [editInstructions, setEditInstructions] = useState('');
+  const [editErrors, setEditErrors] = useState<{ title?: string; description?: string; instructions?: string }>({});
   const [isSavingEdit, setIsSavingEdit] = useState(false);
 
   const fetchExams = () => {
@@ -89,18 +91,36 @@ export default function AdminExamsPage() {
     setCreateDuration(60);
     setCreateDescription('');
     setCreateInstructions('');
+    setCreateErrors({});
     setIsCreateModalOpen(true);
   };
 
   const handleConfirmCreate = async (e: React.FormEvent) => {
     e.preventDefault();
+    const errors: { title?: string; description?: string; instructions?: string } = {};
+
     if (!createTitle.trim()) {
-      alert('Please enter an exam title.');
-      return;
+      errors.title = 'Please enter an exam title.';
+    } else if (createTitle.trim().length > 250) {
+      errors.title = `Exam title cannot exceed 250 characters (currently ${createTitle.trim().length}).`;
     }
+
+    if (createDescription.trim().length > 250) {
+      errors.description = `Description cannot exceed 250 characters (currently ${createDescription.trim().length}).`;
+    }
+
+    if (createInstructions.trim().length > 250) {
+      errors.instructions = `Exam guidelines & instructions cannot exceed 250 characters (currently ${createInstructions.trim().length}).`;
+    }
+
     const durationNum = Number(createDuration);
     if (!durationNum || durationNum <= 0) {
       alert('Please assign a valid exam duration (minimum 1 minute).');
+      return;
+    }
+
+    if (Object.keys(errors).length > 0) {
+      setCreateErrors(errors);
       return;
     }
 
@@ -115,9 +135,9 @@ export default function AdminExamsPage() {
       });
       setIsCreateModalOpen(false);
       router.push(`/admin/exams/${res.data.exam._id}/questions`);
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
-      alert('Failed to create exam. Please check backend connection.');
+      alert(err?.response?.data?.message || 'Failed to create exam. Please check backend connection.');
     } finally {
       setIsCreating(false);
     }
@@ -129,19 +149,38 @@ export default function AdminExamsPage() {
     setEditDuration(exam.duration || 60);
     setEditDescription(exam.description || '');
     setEditInstructions(exam.instructions || '');
+    setEditErrors({});
     setIsEditModalOpen(true);
   };
 
   const handleConfirmEdit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingExam) return;
+
+    const errors: { title?: string; description?: string; instructions?: string } = {};
+
     if (!editTitle.trim()) {
-      alert('Please enter an exam title.');
-      return;
+      errors.title = 'Please enter an exam title.';
+    } else if (editTitle.trim().length > 250) {
+      errors.title = `Exam title cannot exceed 250 characters (currently ${editTitle.trim().length}).`;
     }
+
+    if (editDescription.trim().length > 250) {
+      errors.description = `Description cannot exceed 250 characters (currently ${editDescription.trim().length}).`;
+    }
+
+    if (editInstructions.trim().length > 250) {
+      errors.instructions = `Exam guidelines & instructions cannot exceed 250 characters (currently ${editInstructions.trim().length}).`;
+    }
+
     const durationNum = Number(editDuration);
     if (!durationNum || durationNum <= 0) {
       alert('Please assign a valid exam duration (minimum 1 minute).');
+      return;
+    }
+
+    if (Object.keys(errors).length > 0) {
+      setEditErrors(errors);
       return;
     }
 
@@ -155,9 +194,9 @@ export default function AdminExamsPage() {
       });
       setIsEditModalOpen(false);
       fetchExams();
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
-      alert('Failed to update exam. Ensure it is still in DRAFT status.');
+      alert(err?.response?.data?.message || 'Failed to update exam. Ensure it is still in DRAFT status.');
     } finally {
       setIsSavingEdit(false);
     }
@@ -338,17 +377,42 @@ export default function AdminExamsPage() {
 
             <form onSubmit={handleConfirmCreate} className="p-6 overflow-y-auto space-y-5">
               <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
-                  Exam Title <span className="text-rose-500">*</span>
-                </label>
+                <div className="flex justify-between items-center mb-1.5">
+                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-700">
+                    Exam Title <span className="text-rose-500">*</span>
+                  </label>
+                  <span className={`text-[11px] font-bold ${
+                    createTitle.length > 250 
+                      ? 'text-rose-600' 
+                      : createTitle.length >= 220 
+                      ? 'text-amber-600' 
+                      : 'text-slate-500'
+                  }`}>
+                    {createTitle.length}/250 chars (250 chars suggested)
+                  </span>
+                </div>
                 <input
                   type="text"
                   required
+                  maxLength={250}
                   placeholder="e.g., Software Engineering Aptitude & Logic Assessment"
                   value={createTitle}
-                  onChange={e => setCreateTitle(e.target.value)}
-                  className="w-full px-4 py-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-slate-900 text-sm font-medium outline-none transition"
+                  onChange={e => {
+                    setCreateTitle(e.target.value);
+                    if (createErrors.title) setCreateErrors(prev => ({ ...prev, title: undefined }));
+                  }}
+                  className={`w-full px-4 py-2.5 border rounded-xl focus:ring-2 focus:ring-blue-500 text-slate-900 text-sm font-medium outline-none transition ${
+                    createErrors.title ? 'border-rose-400 bg-rose-50/20' : 'border-slate-300 focus:border-blue-500'
+                  }`}
                 />
+                {createErrors.title && (
+                  <p className="text-xs text-rose-600 font-semibold mt-1 flex items-center">
+                    <AlertCircle className="w-3.5 h-3.5 mr-1 shrink-0" /> {createErrors.title}
+                  </p>
+                )}
+                <p className="text-[11px] text-slate-500 mt-1">
+                  Suggestion: Up to 250 characters suggested for a clear assessment title.
+                </p>
               </div>
 
               {/* TIME ASSIGNMENT SECTION */}
@@ -404,29 +468,79 @@ export default function AdminExamsPage() {
               </div>
 
               <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
-                  Description (Optional)
-                </label>
+                <div className="flex justify-between items-center mb-1.5">
+                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-700">
+                    Description (Optional)
+                  </label>
+                  <span className={`text-[11px] font-bold ${
+                    createDescription.length > 250 
+                      ? 'text-rose-600' 
+                      : createDescription.length >= 220 
+                      ? 'text-amber-600' 
+                      : 'text-slate-500'
+                  }`}>
+                    {createDescription.length}/250 chars (250 chars suggested)
+                  </span>
+                </div>
                 <textarea
                   rows={2}
-                  placeholder="Provide a brief overview of the exam syllabus or purpose..."
+                  maxLength={250}
+                  placeholder="Provide a brief overview of syllabus or purpose (max 250 chars suggested)..."
                   value={createDescription}
-                  onChange={e => setCreateDescription(e.target.value)}
-                  className="w-full px-4 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-slate-900 text-sm outline-none transition resize-none"
+                  onChange={e => {
+                    setCreateDescription(e.target.value);
+                    if (createErrors.description) setCreateErrors(prev => ({ ...prev, description: undefined }));
+                  }}
+                  className={`w-full px-4 py-2 border rounded-xl focus:ring-2 focus:ring-blue-500 text-slate-900 text-sm outline-none transition resize-none ${
+                    createErrors.description ? 'border-rose-400 bg-rose-50/20' : 'border-slate-300 focus:border-blue-500'
+                  }`}
                 />
+                {createErrors.description && (
+                  <p className="text-xs text-rose-600 font-semibold mt-1 flex items-center">
+                    <AlertCircle className="w-3.5 h-3.5 mr-1 shrink-0" /> {createErrors.description}
+                  </p>
+                )}
+                <p className="text-[11px] text-slate-500 mt-1">
+                  Suggestion: Up to 250 characters suggested for syllabus summary & assessment objective.
+                </p>
               </div>
 
               <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
-                  Exam Guidelines & Instructions (Optional)
-                </label>
+                <div className="flex justify-between items-center mb-1.5">
+                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-700">
+                    Exam Guidelines & Instructions (Optional)
+                  </label>
+                  <span className={`text-[11px] font-bold ${
+                    createInstructions.length > 250 
+                      ? 'text-rose-600' 
+                      : createInstructions.length >= 220 
+                      ? 'text-amber-600' 
+                      : 'text-slate-500'
+                  }`}>
+                    {createInstructions.length}/250 chars (250 chars suggested)
+                  </span>
+                </div>
                 <textarea
                   rows={2}
-                  placeholder="e.g. Scientific calculators allowed, each question carries equal weightage..."
+                  maxLength={250}
+                  placeholder="e.g. Scientific calculators allowed, each question carries equal weightage (max 250 chars suggested)..."
                   value={createInstructions}
-                  onChange={e => setCreateInstructions(e.target.value)}
-                  className="w-full px-4 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-slate-900 text-sm outline-none transition resize-none"
+                  onChange={e => {
+                    setCreateInstructions(e.target.value);
+                    if (createErrors.instructions) setCreateErrors(prev => ({ ...prev, instructions: undefined }));
+                  }}
+                  className={`w-full px-4 py-2 border rounded-xl focus:ring-2 focus:ring-blue-500 text-slate-900 text-sm outline-none transition resize-none ${
+                    createErrors.instructions ? 'border-rose-400 bg-rose-50/20' : 'border-slate-300 focus:border-blue-500'
+                  }`}
                 />
+                {createErrors.instructions && (
+                  <p className="text-xs text-rose-600 font-semibold mt-1 flex items-center">
+                    <AlertCircle className="w-3.5 h-3.5 mr-1 shrink-0" /> {createErrors.instructions}
+                  </p>
+                )}
+                <p className="text-[11px] text-slate-500 mt-1">
+                  Suggestion: Up to 250 characters suggested for exam rules, calculator policies & instructions.
+                </p>
               </div>
 
               <div className="pt-2 border-t border-slate-100 flex items-center justify-end space-x-3">
@@ -475,16 +589,41 @@ export default function AdminExamsPage() {
 
             <form onSubmit={handleConfirmEdit} className="p-6 overflow-y-auto space-y-5">
               <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
-                  Exam Title <span className="text-rose-500">*</span>
-                </label>
+                <div className="flex justify-between items-center mb-1.5">
+                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-700">
+                    Exam Title <span className="text-rose-500">*</span>
+                  </label>
+                  <span className={`text-[11px] font-bold ${
+                    editTitle.length > 250 
+                      ? 'text-rose-600' 
+                      : editTitle.length >= 220 
+                      ? 'text-amber-600' 
+                      : 'text-slate-500'
+                  }`}>
+                    {editTitle.length}/250 chars (250 chars suggested)
+                  </span>
+                </div>
                 <input
                   type="text"
                   required
+                  maxLength={250}
                   value={editTitle}
-                  onChange={e => setEditTitle(e.target.value)}
-                  className="w-full px-4 py-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-slate-900 text-sm font-medium outline-none transition"
+                  onChange={e => {
+                    setEditTitle(e.target.value);
+                    if (editErrors.title) setEditErrors(prev => ({ ...prev, title: undefined }));
+                  }}
+                  className={`w-full px-4 py-2.5 border rounded-xl focus:ring-2 focus:ring-blue-500 text-slate-900 text-sm font-medium outline-none transition ${
+                    editErrors.title ? 'border-rose-400 bg-rose-50/20' : 'border-slate-300 focus:border-blue-500'
+                  }`}
                 />
+                {editErrors.title && (
+                  <p className="text-xs text-rose-600 font-semibold mt-1 flex items-center">
+                    <AlertCircle className="w-3.5 h-3.5 mr-1 shrink-0" /> {editErrors.title}
+                  </p>
+                )}
+                <p className="text-[11px] text-slate-500 mt-1">
+                  Suggestion: Up to 250 characters suggested for a clear assessment title.
+                </p>
               </div>
 
               {/* TIME ASSIGNMENT SECTION */}
@@ -535,27 +674,79 @@ export default function AdminExamsPage() {
               </div>
 
               <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
-                  Description
-                </label>
+                <div className="flex justify-between items-center mb-1.5">
+                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-700">
+                    Description
+                  </label>
+                  <span className={`text-[11px] font-bold ${
+                    editDescription.length > 250 
+                      ? 'text-rose-600' 
+                      : editDescription.length >= 220 
+                      ? 'text-amber-600' 
+                      : 'text-slate-500'
+                  }`}>
+                    {editDescription.length}/250 chars (250 chars suggested)
+                  </span>
+                </div>
                 <textarea
                   rows={2}
+                  maxLength={250}
+                  placeholder="Provide a brief overview of syllabus or purpose (max 250 chars suggested)..."
                   value={editDescription}
-                  onChange={e => setEditDescription(e.target.value)}
-                  className="w-full px-4 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-slate-900 text-sm outline-none transition resize-none"
+                  onChange={e => {
+                    setEditDescription(e.target.value);
+                    if (editErrors.description) setEditErrors(prev => ({ ...prev, description: undefined }));
+                  }}
+                  className={`w-full px-4 py-2 border rounded-xl focus:ring-2 focus:ring-blue-500 text-slate-900 text-sm outline-none transition resize-none ${
+                    editErrors.description ? 'border-rose-400 bg-rose-50/20' : 'border-slate-300 focus:border-blue-500'
+                  }`}
                 />
+                {editErrors.description && (
+                  <p className="text-xs text-rose-600 font-semibold mt-1 flex items-center">
+                    <AlertCircle className="w-3.5 h-3.5 mr-1 shrink-0" /> {editErrors.description}
+                  </p>
+                )}
+                <p className="text-[11px] text-slate-500 mt-1">
+                  Suggestion: Up to 250 characters suggested for syllabus summary & assessment objective.
+                </p>
               </div>
 
               <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
-                  Instructions
-                </label>
+                <div className="flex justify-between items-center mb-1.5">
+                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-700">
+                    Exam Guidelines & Instructions
+                  </label>
+                  <span className={`text-[11px] font-bold ${
+                    editInstructions.length > 250 
+                      ? 'text-rose-600' 
+                      : editInstructions.length >= 220 
+                      ? 'text-amber-600' 
+                      : 'text-slate-500'
+                  }`}>
+                    {editInstructions.length}/250 chars (250 chars suggested)
+                  </span>
+                </div>
                 <textarea
                   rows={2}
+                  maxLength={250}
+                  placeholder="e.g. Scientific calculators allowed, each question carries equal weightage (max 250 chars suggested)..."
                   value={editInstructions}
-                  onChange={e => setEditInstructions(e.target.value)}
-                  className="w-full px-4 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-slate-900 text-sm outline-none transition resize-none"
+                  onChange={e => {
+                    setEditInstructions(e.target.value);
+                    if (editErrors.instructions) setEditErrors(prev => ({ ...prev, instructions: undefined }));
+                  }}
+                  className={`w-full px-4 py-2 border rounded-xl focus:ring-2 focus:ring-blue-500 text-slate-900 text-sm outline-none transition resize-none ${
+                    editErrors.instructions ? 'border-rose-400 bg-rose-50/20' : 'border-slate-300 focus:border-blue-500'
+                  }`}
                 />
+                {editErrors.instructions && (
+                  <p className="text-xs text-rose-600 font-semibold mt-1 flex items-center">
+                    <AlertCircle className="w-3.5 h-3.5 mr-1 shrink-0" /> {editErrors.instructions}
+                  </p>
+                )}
+                <p className="text-[11px] text-slate-500 mt-1">
+                  Suggestion: Up to 250 characters suggested for exam rules, calculator policies & instructions.
+                </p>
               </div>
 
               <div className="pt-2 border-t border-slate-100 flex items-center justify-end space-x-3">

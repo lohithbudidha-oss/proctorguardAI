@@ -43,9 +43,9 @@ export interface IExam extends Document {
 }
 
 const ExamSchema: Schema = new Schema({
-  title: { type: String, required: true },
-  description: { type: String },
-  instructions: { type: String },
+  title: { type: String, required: true, maxlength: 250 },
+  description: { type: String, maxlength: 250 },
+  instructions: { type: String, maxlength: 250 },
   duration: { type: Number, required: true },
   startAt: { type: Date },
   endAt: { type: Date },

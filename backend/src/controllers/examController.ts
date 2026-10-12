@@ -4,10 +4,28 @@ import Exam, { ExamStatus } from '../models/Exam';
 
 export const createExam = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const examData = req.body;
+    const { title, description, instructions, duration, ...rest } = req.body;
     
-    // In a real app, apply thorough validation here
-    const exam = new Exam(examData);
+    if (!title || typeof title !== 'string' || !title.trim()) {
+      return res.status(400).json({ success: false, message: 'Exam title is required.' });
+    }
+    if (title.trim().length > 250) {
+      return res.status(400).json({ success: false, message: 'Exam title cannot exceed 250 characters.' });
+    }
+    if (description && typeof description === 'string' && description.trim().length > 250) {
+      return res.status(400).json({ success: false, message: 'Exam description cannot exceed 250 characters.' });
+    }
+    if (instructions && typeof instructions === 'string' && instructions.trim().length > 250) {
+      return res.status(400).json({ success: false, message: 'Exam guidelines & instructions cannot exceed 250 characters.' });
+    }
+
+    const exam = new Exam({
+      title: title.trim(),
+      description: description ? description.trim() : '',
+      instructions: instructions ? instructions.trim() : '',
+      duration,
+      ...rest
+    });
     await exam.save();
 
     res.status(201).json({ success: true, message: 'Exam created successfully', exam });
@@ -49,6 +67,30 @@ export const updateExam = async (req: Request, res: Response, next: NextFunction
 
     if (exam.status !== ExamStatus.DRAFT) {
       return res.status(400).json({ success: false, message: 'Only draft exams can be freely edited' });
+    }
+
+    if (updateData.title !== undefined) {
+      if (!updateData.title || typeof updateData.title !== 'string' || !updateData.title.trim()) {
+        return res.status(400).json({ success: false, message: 'Exam title is required.' });
+      }
+      if (updateData.title.trim().length > 250) {
+        return res.status(400).json({ success: false, message: 'Exam title cannot exceed 250 characters.' });
+      }
+      updateData.title = updateData.title.trim();
+    }
+
+    if (updateData.description !== undefined && typeof updateData.description === 'string') {
+      if (updateData.description.trim().length > 250) {
+        return res.status(400).json({ success: false, message: 'Exam description cannot exceed 250 characters.' });
+      }
+      updateData.description = updateData.description.trim();
+    }
+
+    if (updateData.instructions !== undefined && typeof updateData.instructions === 'string') {
+      if (updateData.instructions.trim().length > 250) {
+        return res.status(400).json({ success: false, message: 'Exam guidelines & instructions cannot exceed 250 characters.' });
+      }
+      updateData.instructions = updateData.instructions.trim();
     }
 
     Object.assign(exam, updateData);

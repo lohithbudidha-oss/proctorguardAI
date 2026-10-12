@@ -131,6 +131,11 @@ function WaitingRoomContent() {
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-6">
             <div>
               <h2 className="text-2xl font-bold text-slate-800">{exam.title}</h2>
+              {exam.description && (
+                <p className="text-sm text-slate-600 mt-1 max-w-lg leading-relaxed font-medium">
+                  {exam.description}
+                </p>
+              )}
               <div className="flex items-center text-slate-500 mt-2 space-x-4">
                 <span className="flex items-center"><Clock className="w-4 h-4 mr-1" /> {exam.duration} Minutes</span>
                 <span className="flex items-center"><MonitorPlay className="w-4 h-4 mr-1" /> {exam.questions ? exam.questions.length : exam.totalPoints || 0} Points</span>
@@ -149,13 +154,19 @@ function WaitingRoomContent() {
             <div className="bg-blue-50 border border-blue-100 rounded-lg p-5 flex flex-col h-full">
               <div className="flex items-start space-x-4 mb-4">
                 <AlertTriangle className="w-6 h-6 text-blue-600 flex-shrink-0 mt-0.5" />
-                <div className="text-sm text-blue-800">
+                <div className="text-sm text-blue-800 w-full">
                   <p className="font-bold mb-1">Important Rules:</p>
                   <ul className="list-disc pl-4 space-y-1">
                     <li>Do not navigate away from this tab or exit fullscreen once the exam starts.</li>
                     <li>Your camera, microphone, and screen will be continuously recorded and monitored by AI and human proctors.</li>
                     <li>Any suspicious activity (e.g. mobile phone usage, looking away) will be flagged.</li>
                   </ul>
+                  {exam.instructions && (
+                    <div className="mt-3 pt-3 border-t border-blue-200/80">
+                      <p className="font-bold mb-1 text-blue-950">Exam Guidelines & Instructions:</p>
+                      <p className="text-xs text-blue-900 whitespace-pre-wrap leading-relaxed">{exam.instructions}</p>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
