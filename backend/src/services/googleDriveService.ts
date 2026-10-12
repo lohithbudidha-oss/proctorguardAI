@@ -20,6 +20,8 @@ export class GoogleDriveService {
   private serviceAccountEmail: string = '';
   private localVaultPath: string = path.join(__dirname, '../../temp_storage/google_drive_vault');
 
+  private oauth2Client: any = null;
+
   constructor() {
     this.folderId = process.env.GOOGLE_DRIVE_FOLDER_ID || '1P_3yKzFloiMrF8Pe1XFl9Lh-nqvPTit1';
     this.initAuth();
@@ -81,6 +83,25 @@ export class GoogleDriveService {
         this.isConfigured = true;
         this.serviceAccountEmail = credentials.client_email || 'Service Account';
         console.log(`[GoogleDrive] Initialized Drive client with account: ${this.serviceAccountEmail}. Target folder: ${this.folderId}`);
+      } 
+      // 4. Check OAuth 2.0 Client ID & Secret
+      else if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
+        const redirectUri = process.env.GOOGLE_REDIRECT_URI || 'http://localhost:5000/api/auth/google/callback';
+        this.oauth2Client = new google.auth.OAuth2(
+          process.env.GOOGLE_CLIENT_ID,
+          process.env.GOOGLE_CLIENT_SECRET,
+          redirectUri
+        );
+
+        const refreshToken = process.env.GOOGLE_REFRESH_TOKEN;
+        if (refreshToken) {
+          this.oauth2Client.setCredentials({ refresh_token: refreshToken });
+          this.drive = google.drive({ version: 'v3', auth: this.oauth2Client });
+          this.isConfigured = true;
+          console.log(`[GoogleDrive] Initialized Drive client via OAuth2 Client ID: ${process.env.GOOGLE_CLIENT_ID.substring(0, 15)}... Target folder: ${this.folderId}`);
+        } else {
+          console.info(`[GoogleDrive] OAuth2 Client ID & Secret configured. To authorize Drive access, visit /api/auth/google/drive-auth`);
+        }
       } else {
         console.info(`[GoogleDrive] Linked target folder: ${this.folderId}. Cloud credentials not provided yet - fallback local sync vault active.`);
       }
@@ -90,12 +111,48 @@ export class GoogleDriveService {
     }
   }
 
+  public getAuthUrl(): string {
+    if (!this.oauth2Client) {
+      const redirectUri = process.env.GOOGLE_REDIRECT_URI || 'http://localhost:5000/api/auth/google/callback';
+      this.oauth2Client = new google.auth.OAuth2(
+        process.env.GOOGLE_CLIENT_ID,
+        process.env.GOOGLE_CLIENT_SECRET,
+        redirectUri
+      );
+    }
+    return this.oauth2Client.generateAuthUrl({
+      access_type: 'offline',
+      prompt: 'consent',
+      scope: [
+        'https://www.googleapis.com/auth/drive',
+        'https://www.googleapis.com/auth/drive.file'
+      ]
+    });
+  }
+
+  public async setAuthCode(code: string): Promise<any> {
+    if (!this.oauth2Client) {
+      const redirectUri = process.env.GOOGLE_REDIRECT_URI || 'http://localhost:5000/api/auth/google/callback';
+      this.oauth2Client = new google.auth.OAuth2(
+        process.env.GOOGLE_CLIENT_ID,
+        process.env.GOOGLE_CLIENT_SECRET,
+        redirectUri
+      );
+    }
+    const { tokens } = await this.oauth2Client.getToken(code);
+    this.oauth2Client.setCredentials(tokens);
+    this.drive = google.drive({ version: 'v3', auth: this.oauth2Client });
+    this.isConfigured = true;
+    return tokens;
+  }
+
   public getDriveStatus() {
     return {
       linkedFolderId: this.folderId,
       folderUrl: `https://drive.google.com/drive/folders/${this.folderId}?usp=sharing`,
       isConfigured: this.isConfigured,
       serviceAccountEmail: this.serviceAccountEmail || null,
+      oauthClientConfigured: Boolean(process.env.GOOGLE_CLIENT_ID),
       localVaultActive: true,
       localVaultPath: this.localVaultPath,
     };
