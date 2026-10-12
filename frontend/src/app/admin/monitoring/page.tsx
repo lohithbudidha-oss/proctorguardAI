@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import io from 'socket.io-client';
 import { 
@@ -243,20 +243,57 @@ export default function CandidateExamRecordsPage() {
     return ['SUBMITTED', 'COMPLETED', 'AUTO_SUBMITTED', 'FORCE_SUBMITTED'].includes(status);
   };
 
-  const filteredCandidates = candidates.filter(c => {
-    const query = searchQuery.toLowerCase();
-    const matchesQuery = 
-      c.name.toLowerCase().includes(query) ||
-      (c.email && c.email.toLowerCase().includes(query)) ||
-      c.examName.toLowerCase().includes(query);
+  const filteredCandidates = useMemo(() => {
+    const tokens = searchQuery.trim().toLowerCase().split(/\s+/).filter(Boolean);
 
-    const matchesStatus = 
-      statusFilter === 'ALL' ||
-      (statusFilter === 'COMPLETED' && isCompletedStatus(c.status)) ||
-      (statusFilter === 'IN_PROGRESS' && !isCompletedStatus(c.status));
+    return candidates.filter(c => {
+      const matchesStatus = 
+        statusFilter === 'ALL' ||
+        (statusFilter === 'COMPLETED' && isCompletedStatus(c.status)) ||
+        (statusFilter === 'IN_PROGRESS' && !isCompletedStatus(c.status));
 
-    return matchesQuery && matchesStatus;
-  });
+      if (!matchesStatus) return false;
+      if (tokens.length === 0) return true;
+
+      // Build complete searchable text across candidate name, email, exam, status, scores, and violations
+      const searchParts: string[] = [
+        c.name || '',
+        c.email || '',
+        c.examName || '',
+        c.id || '',
+        c.attemptId || '',
+        c.status || '',
+        (c.status || '').replace(/_/g, ' '),
+        isCompletedStatus(c.status) ? 'completed submitted written finished' : 'in progress active taking ongoing',
+        c.resultStatus || '',
+        c.resultStatus === 'PASS' ? 'pass passed qualified' : '',
+        c.resultStatus === 'FAIL' ? 'fail failed disqualified' : '',
+        `${c.score} marks`,
+        `${Math.round(c.percentage)}%`,
+        `score ${c.score}`,
+        `risk ${c.riskScore}`,
+        c.riskScore >= 40 ? 'critical risk high risk danger flagged' : c.riskScore > 0 ? 'risk flagged low risk' : 'clean clean attempt zero risk'
+      ];
+
+      if (c.violations && c.violations.length > 0) {
+        searchParts.push('violation violations flagged infractions');
+        c.violations.forEach(v => {
+          searchParts.push(v.type || '');
+          searchParts.push((v.type || '').replace(/_/g, ' '));
+          searchParts.push(v.severity || '');
+          searchParts.push(v.description || '');
+          const info = getViolationInfo(v.type, v.description);
+          searchParts.push(info.title);
+          searchParts.push(info.actionDone);
+          searchParts.push(info.ruleBreached);
+          searchParts.push(info.categoryLabel);
+        });
+      }
+
+      const candidateBlob = searchParts.join(' ').toLowerCase();
+      return tokens.every(token => candidateBlob.includes(token));
+    });
+  }, [candidates, searchQuery, statusFilter]);
 
   const totalCandidatesCount = candidates.length;
   const completedCandidatesCount = candidates.filter(c => isCompletedStatus(c.status)).length;
@@ -368,15 +405,24 @@ export default function CandidateExamRecordsPage() {
 
         {/* Filter and Search Bar */}
         <div className="px-8 pt-6 pb-2 z-10 flex flex-col sm:flex-row gap-4 justify-between items-center">
-          <div className="relative w-full sm:w-80">
+          <div className="relative w-full sm:w-96">
             <Search className="w-4 h-4 absolute left-3 top-3 text-slate-400" />
             <input 
               type="text" 
-              placeholder="Search candidate name, email, exam..." 
+              placeholder="Search candidate name, email, exam, status, violation..." 
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full bg-white border border-slate-200 rounded-xl pl-9 pr-4 py-2 text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition shadow-sm"
+              className="w-full bg-white border border-slate-200 rounded-xl pl-9 pr-9 py-2 text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition shadow-sm"
             />
+            {searchQuery && (
+              <button 
+                onClick={() => setSearchQuery('')}
+                className="absolute right-3 top-2.5 text-slate-400 hover:text-slate-600 transition-colors p-0.5 rounded-full hover:bg-slate-100"
+                title="Clear search"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            )}
           </div>
 
           <div className="flex items-center space-x-1 bg-white p-1 rounded-xl border border-slate-200 text-xs font-semibold shadow-sm w-full sm:w-auto">
@@ -432,7 +478,7 @@ export default function CandidateExamRecordsPage() {
             </div>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-5">
-              {filteredCandidates.map(cand => {
+              {filteredCandidates.map((cand: CandidateExamRecord) => {
                 const isCompleted = isCompletedStatus(cand.status);
                 const isSelected = selectedCandidate?.id === cand.id;
 
@@ -527,12 +573,12 @@ export default function CandidateExamRecordsPage() {
                             <span className="whitespace-nowrap">{cand.violations.length} Flags</span>
                           </span>
 
-                          {cand.violations.some(v => v.screenshot || v.snapshotImage) && (
+                          {cand.violations.some((v: ViolationSummary) => v.screenshot || v.snapshotImage) && (
                             <button
                               type="button"
                               onClick={(e) => {
                                 e.stopPropagation();
-                                const vWithProof = cand.violations.find(v => v.screenshot || v.snapshotImage);
+                                const vWithProof = cand.violations.find((v: ViolationSummary) => v.screenshot || v.snapshotImage);
                                 if (vWithProof) {
                                   setSelectedProofModal({
                                     image: vWithProof.screenshot || vWithProof.snapshotImage || '',

@@ -296,20 +296,44 @@ export default function ViolationQueuePage() {
 
   // Filter groups according to search query and severity
   const filteredGroups = useMemo(() => {
-    return candidateGroups.filter((g) => {
-      const q = searchQuery.toLowerCase().trim();
-      const matchesSearch =
-        !q ||
-        g.candidateName.toLowerCase().includes(q) ||
-        g.candidateEmail.toLowerCase().includes(q) ||
-        g.examTitle.toLowerCase().includes(q) ||
-        g.uniqueTypes.some((t) => t.toLowerCase().includes(q) || t.replace(/_/g, ' ').toLowerCase().includes(q));
+    const rawQuery = searchQuery.trim().toLowerCase();
+    const queryTokens = rawQuery.split(/\s+/).filter(Boolean);
 
+    return candidateGroups.filter((g) => {
+      // 1. Severity Filter
       const matchesSeverity =
         severityFilter === 'ALL' ||
         g.violations.some((v) => v.severity === severityFilter);
 
-      return matchesSearch && matchesSeverity;
+      if (!matchesSeverity) return false;
+      if (queryTokens.length === 0) return true;
+
+      // 2. Build rich searchable blob for this candidate
+      const searchParts: string[] = [
+        g.candidateName || '',
+        g.candidateEmail || '',
+        g.examTitle || '',
+        g.highestSeverity || '',
+        g.key || '',
+        `${g.totalViolations} violations`,
+        g.proofCount > 0 ? `${g.proofCount} proofs screenshots images snapshots` : 'no snapshots'
+      ];
+
+      g.violations.forEach((v) => {
+        searchParts.push(v.type || '');
+        searchParts.push((v.type || '').replace(/_/g, ' '));
+        searchParts.push(v.severity || '');
+        searchParts.push(v.description || '');
+        searchParts.push(v.actionTaken || '');
+        const info = getViolationInfo(v.type, v.description);
+        searchParts.push(info.title);
+        searchParts.push(info.actionDone);
+        searchParts.push(info.ruleBreached);
+        searchParts.push(info.categoryLabel);
+      });
+
+      const groupBlob = searchParts.join(' ').toLowerCase();
+      return queryTokens.every((token) => groupBlob.includes(token));
     });
   }, [candidateGroups, searchQuery, severityFilter]);
 
@@ -438,8 +462,17 @@ export default function ViolationQueuePage() {
               placeholder="Search candidate name, email, exam, or violation..." 
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full bg-slate-50 border border-slate-300 rounded-xl pl-9 pr-4 py-2 text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition font-medium"
+              className="w-full bg-slate-50 border border-slate-300 rounded-xl pl-9 pr-9 py-2 text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition font-medium"
             />
+            {searchQuery && (
+              <button 
+                onClick={() => setSearchQuery('')}
+                className="absolute right-3 top-2.5 text-slate-400 hover:text-slate-600 transition-colors p-0.5 rounded-full hover:bg-slate-200"
+                title="Clear search"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            )}
           </div>
 
           <div className="flex items-center space-x-3 w-full md:w-auto">

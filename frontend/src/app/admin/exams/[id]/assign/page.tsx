@@ -1,9 +1,9 @@
 'use client';
 
-import React, { useEffect, useState, Suspense, Key } from 'react';
+import React, { useEffect, useState, useMemo, Suspense, Key } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowLeft, UserPlus, CheckCircle, Search } from 'lucide-react';
+import { ArrowLeft, UserPlus, CheckCircle, Search, X } from 'lucide-react';
 import api from '@/lib/api';
 
 function CandidateAssignmentContent() {
@@ -16,7 +16,17 @@ function CandidateAssignmentContent() {
     candidateId: any; userId: { _id?: string; id?: string }; status: string
   }[]>([]);
   const [allUsers, setAllUsers] = useState<{ id: string; _id: string; name: string; email: string; role: string; status: string }[]>([]);
+  const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(true);
+
+  const filteredUsers = useMemo(() => {
+    const tokens = searchQuery.trim().toLowerCase().split(/\s+/).filter(Boolean);
+    if (tokens.length === 0) return allUsers;
+    return allUsers.filter(u => {
+      const blob = `${u.name || ''} ${u.email || ''}`.toLowerCase();
+      return tokens.every(token => blob.includes(token));
+    });
+  }, [allUsers, searchQuery]);
 
   async function fetchData() {
     try {
@@ -121,31 +131,51 @@ function CandidateAssignmentContent() {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
           {/* Available Users List */}
           <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden flex flex-col">
-            <div className="p-4 border-b border-slate-200 bg-slate-50 font-bold text-slate-700 flex justify-between items-center">
-              Available Candidates
+            <div className="p-4 border-b border-slate-200 bg-slate-50 font-bold text-slate-700 flex justify-between items-center gap-3">
+              <span>Available Candidates</span>
               <div className="relative">
                 <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
-                <input type="text" placeholder="Search..." className="pl-9 pr-4 py-2 text-sm border border-slate-300 rounded-md focus:ring-blue-500 outline-none" />
+                <input 
+                  type="text" 
+                  placeholder="Search name or email..." 
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="pl-9 pr-8 py-1.5 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none w-56 font-normal" 
+                />
+                {searchQuery && (
+                  <button 
+                    onClick={() => setSearchQuery('')}
+                    className="absolute right-2.5 top-2 text-slate-400 hover:text-slate-600 transition-colors"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                )}
               </div>
             </div>
             <div className="overflow-y-auto max-h-[500px]">
-              {allUsers.map(user => (
-                <div key={user._id} className="flex items-center justify-between p-4 border-b border-slate-100 hover:bg-slate-50">
-                  <div>
-                    <p className="font-bold text-slate-800">{user.name}</p>
-                    <p className="text-sm text-slate-500">{user.email}</p>
-                  </div>
-                  {isAssigned(user._id) ? (
-                    <span className="flex items-center text-sm font-bold text-emerald-600 bg-emerald-50 px-3 py-1 rounded-full">
-                      <CheckCircle className="w-4 h-4 mr-1" /> Assigned
-                    </span>
-                  ) : (
-                    <button onClick={() => handleAssign(user._id)} className="px-3 py-1.5 text-sm bg-blue-600 text-white font-semibold rounded hover:bg-blue-700 transition flex items-center">
-                      <UserPlus className="w-4 h-4 mr-1" /> Assign
-                    </button>
-                  )}
+              {filteredUsers.length === 0 ? (
+                <div className="p-10 text-center text-slate-400 text-sm">
+                  {searchQuery ? `No candidates matching "${searchQuery}"` : 'No candidates available.'}
                 </div>
-              ))}
+              ) : (
+                filteredUsers.map(user => (
+                  <div key={user._id} className="flex items-center justify-between p-4 border-b border-slate-100 hover:bg-slate-50">
+                    <div>
+                      <p className="font-bold text-slate-800">{user.name}</p>
+                      <p className="text-sm text-slate-500">{user.email}</p>
+                    </div>
+                    {isAssigned(user._id) ? (
+                      <span className="flex items-center text-sm font-bold text-emerald-600 bg-emerald-50 px-3 py-1 rounded-full">
+                        <CheckCircle className="w-4 h-4 mr-1" /> Assigned
+                      </span>
+                    ) : (
+                      <button onClick={() => handleAssign(user._id)} className="px-3 py-1.5 text-sm bg-blue-600 text-white font-semibold rounded hover:bg-blue-700 transition flex items-center">
+                        <UserPlus className="w-4 h-4 mr-1" /> Assign
+                      </button>
+                    )}
+                  </div>
+                ))
+              )}
             </div>
           </div>
 

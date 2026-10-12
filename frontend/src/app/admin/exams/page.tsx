@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { 
@@ -16,7 +16,8 @@ import {
   Edit2, 
   X, 
   Clock, 
-  AlertCircle 
+  AlertCircle,
+  Search
 } from 'lucide-react';
 import api from '@/lib/api';
 
@@ -36,6 +37,8 @@ export default function AdminExamsPage() {
   const router = useRouter();
   const [exams, setExams] = useState<Exam[]>([]);
   const [loading, setLoading] = useState(true);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState<'ALL' | 'PUBLISHED' | 'DRAFT'>('ALL');
   
   // View Details Modal State
   const [selectedExam, setSelectedExam] = useState<Exam | null>(null);
@@ -85,6 +88,23 @@ export default function AdminExamsPage() {
     if (hours > 0) return `${hours} hr${hours > 1 ? 's' : ''} (${mins} Mins)`;
     return `${mins} Mins`;
   };
+
+  const filteredExams = useMemo(() => {
+    const tokens = searchQuery.trim().toLowerCase().split(/\s+/).filter(Boolean);
+
+    return exams.filter(e => {
+      const matchesStatus = 
+        statusFilter === 'ALL' ||
+        e.status === statusFilter;
+
+      if (!matchesStatus) return false;
+      if (tokens.length === 0) return true;
+
+      const durationStr = `${e.duration} min mins minutes ${Math.floor(e.duration / 60)} hour hours`;
+      const blob = `${e.title || ''} ${e.status || ''} ${e.description || ''} ${e.instructions || ''} ${durationStr}`.toLowerCase();
+      return tokens.every(t => blob.includes(t));
+    });
+  }, [exams, searchQuery, statusFilter]);
 
   const handleOpenCreateModal = () => {
     setCreateTitle('');
@@ -249,7 +269,7 @@ export default function AdminExamsPage() {
         <Link href="/admin/monitoring" className="text-blue-600 font-bold flex items-center mb-6 hover:underline">
           <ArrowLeft className="w-4 h-4 mr-2" /> Back to Monitoring
         </Link>
-        <div className="flex justify-between items-center mb-10">
+        <div className="flex justify-between items-center mb-8">
           <div>
             <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight">Exam Management</h1>
             <p className="text-slate-500 mt-2">Create assessments, configure test timers, and manage question sets.</p>
@@ -270,8 +290,47 @@ export default function AdminExamsPage() {
           </div>
         </div>
 
+        {/* Search and Filter Bar */}
+        <div className="mb-6 flex flex-col sm:flex-row gap-4 justify-between items-center bg-white p-4 rounded-xl border border-slate-200 shadow-xs">
+          <div className="relative w-full sm:w-96">
+            <Search className="w-4 h-4 absolute left-3 top-3 text-slate-400" />
+            <input 
+              type="text" 
+              placeholder="Search exam title, duration, status, description..." 
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-9 pr-9 py-2 text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition shadow-xs"
+            />
+            {searchQuery && (
+              <button 
+                onClick={() => setSearchQuery('')}
+                className="absolute right-3 top-2.5 text-slate-400 hover:text-slate-600 transition-colors p-0.5 rounded-full hover:bg-slate-200"
+                title="Clear search"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            )}
+          </div>
+
+          <div className="flex items-center space-x-1 bg-slate-100 p-1 rounded-xl text-xs font-semibold w-full sm:w-auto">
+            {(['ALL', 'PUBLISHED', 'DRAFT'] as const).map(tab => (
+              <button
+                key={tab}
+                onClick={() => setStatusFilter(tab)}
+                className={`px-3.5 py-1.5 rounded-lg transition-all ${
+                  statusFilter === tab 
+                    ? 'bg-white text-slate-900 shadow-xs font-bold' 
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                {tab === 'ALL' ? `All Exams (${exams.length})` : tab}
+              </button>
+            ))}
+          </div>
+        </div>
+
         <div className="grid grid-cols-1 gap-6">
-          {exams.map(exam => (
+          {filteredExams.map(exam => (
             <div key={exam._id} className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 flex items-center justify-between group hover:border-blue-300 transition-colors">
               <div className="flex items-center space-x-6">
                 <div className={`w-14 h-14 rounded-xl flex items-center justify-center ${exam.status === 'PUBLISHED' ? 'bg-emerald-100 text-emerald-600' : 'bg-slate-100 text-slate-500'}`}>
@@ -338,7 +397,7 @@ export default function AdminExamsPage() {
               </div>
             </div>
           ))}
-          {exams.length === 0 && (
+          {exams.length === 0 ? (
             <div className="text-center py-20 bg-white rounded-2xl border border-dashed border-slate-300">
               <FileText className="w-12 h-12 text-slate-300 mx-auto mb-3" />
               <p className="text-slate-500 font-medium">No exams created yet.</p>
@@ -349,7 +408,19 @@ export default function AdminExamsPage() {
                 Create Your First Exam
               </button>
             </div>
-          )}
+          ) : filteredExams.length === 0 ? (
+            <div className="text-center py-16 bg-white rounded-2xl border border-dashed border-slate-200">
+              <Search className="w-12 h-12 text-slate-300 mx-auto mb-3" />
+              <p className="text-slate-700 font-bold text-lg">No examinations match &quot;{searchQuery}&quot;</p>
+              <p className="text-slate-400 text-sm mt-1">Try searching by title, duration, status, or description.</p>
+              <button
+                onClick={() => { setSearchQuery(''); setStatusFilter('ALL'); }}
+                className="mt-4 px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold rounded-lg text-xs transition"
+              >
+                Clear Search & Filters
+              </button>
+            </div>
+          ) : null}
         </div>
       </div>
 

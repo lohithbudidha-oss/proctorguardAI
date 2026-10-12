@@ -1,9 +1,9 @@
 'use client';
 
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef, useMemo } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { ShieldCheck, FileText, CheckCircle2, Clock, Calendar, ArrowRight, Bell, UserCircle, LogOut, X } from 'lucide-react';
+import { ShieldCheck, FileText, CheckCircle2, Clock, Calendar, ArrowRight, Bell, UserCircle, LogOut, X, Search } from 'lucide-react';
 import api from '@/lib/api';
 
 export default function CandidateDashboard() {
@@ -12,9 +12,19 @@ export default function CandidateDashboard() {
   const [currentTime, setCurrentTime] = useState('');
   const [showNotifications, setShowNotifications] = useState(false);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
   const notificationRef = useRef<HTMLDivElement>(null);
 
   const [exams, setExams] = useState<{ id: string; title: string; duration: number; status: string; scheduledFor: string; resultStatus?: string; attemptId?: string }[]>([]);
+
+  const filteredExams = useMemo(() => {
+    const tokens = searchQuery.trim().toLowerCase().split(/\s+/).filter(Boolean);
+    if (tokens.length === 0) return exams;
+    return exams.filter(e => {
+      const blob = `${e.title || ''} ${e.status || ''} ${e.duration} min mins minutes`.toLowerCase();
+      return tokens.every(t => blob.includes(t));
+    });
+  }, [exams, searchQuery]);
 
   const notifications = exams.flatMap(exam => {
     const notifs = [];
@@ -168,20 +178,41 @@ export default function CandidateDashboard() {
 
       {/* Main Dashboard Area */}
       <main className="flex-1 max-w-7xl mx-auto w-full px-6 py-12">
-        <div className="mb-10 flex flex-col md:flex-row md:items-end justify-between gap-4">
+        <div className="mb-8 flex flex-col md:flex-row md:items-end justify-between gap-4">
           <div>
             <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight">Welcome back!</h1>
             <p className="text-slate-500 mt-2 text-lg">You have <span className="font-bold text-blue-600">{exams.filter(e => e.status === 'AVAILABLE').length}</span> assessment ready to take.</p>
           </div>
-          <div className="bg-white px-5 py-3 rounded-xl border border-slate-200 shadow-sm flex items-center space-x-3">
-            <ShieldCheck className="w-5 h-5 text-emerald-500" />
-            <span className="text-sm font-semibold text-slate-700">System security active</span>
+          <div className="flex flex-col sm:flex-row items-center gap-3">
+            <div className="relative w-full sm:w-72">
+              <Search className="w-4 h-4 absolute left-3 top-3 text-slate-400" />
+              <input 
+                type="text" 
+                placeholder="Search assessments..." 
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full bg-white border border-slate-200 rounded-xl pl-9 pr-9 py-2 text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition shadow-xs"
+              />
+              {searchQuery && (
+                <button 
+                  onClick={() => setSearchQuery('')}
+                  className="absolute right-3 top-2.5 text-slate-400 hover:text-slate-600 transition-colors p-0.5 rounded-full hover:bg-slate-100"
+                  title="Clear search"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              )}
+            </div>
+            <div className="bg-white px-4 py-2 rounded-xl border border-slate-200 shadow-xs flex items-center space-x-2 shrink-0">
+              <ShieldCheck className="w-4 h-4 text-emerald-500" />
+              <span className="text-xs font-semibold text-slate-700">Security active</span>
+            </div>
           </div>
         </div>
         
         {/* Assessment Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {exams.map((exam) => (
+          {filteredExams.map((exam) => (
             <div 
               key={exam.id} 
               className={`bg-white rounded-2xl border transition-all duration-300 flex flex-col group ${
@@ -263,6 +294,28 @@ export default function CandidateDashboard() {
             </div>
           ))}
         </div>
+
+        {exams.length === 0 && (
+          <div className="py-20 text-center bg-white rounded-2xl border border-dashed border-slate-300">
+            <FileText className="w-12 h-12 text-slate-300 mx-auto mb-3" />
+            <h3 className="text-lg font-bold text-slate-700">No Assessments Assigned</h3>
+            <p className="text-slate-400 text-sm mt-1">You do not have any active examinations assigned right now.</p>
+          </div>
+        )}
+
+        {exams.length > 0 && filteredExams.length === 0 && (
+          <div className="py-16 text-center bg-white rounded-2xl border border-dashed border-slate-200">
+            <Search className="w-12 h-12 text-slate-300 mx-auto mb-3" />
+            <h3 className="text-lg font-bold text-slate-700">No Assessments Found</h3>
+            <p className="text-slate-400 text-sm mt-1">No assessments match your search &quot;{searchQuery}&quot;.</p>
+            <button
+              onClick={() => setSearchQuery('')}
+              className="mt-4 px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold rounded-lg text-xs transition"
+            >
+              Clear Search
+            </button>
+          </div>
+        )}
       </main>
 
       {/* Sign Out Confirmation Modal */}
