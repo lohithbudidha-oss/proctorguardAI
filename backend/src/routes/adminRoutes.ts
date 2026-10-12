@@ -47,9 +47,21 @@ router.post('/live/:attemptId/unlock', unlockAttempt);
 router.post('/live/:attemptId/force-submit', forceSubmitAttempt);
 
 // Results and Violations
-import { getViolations, getResults, verifyResult, getDriveStatus } from '../controllers/adminController';
+import { 
+  getViolations, 
+  getResults, 
+  verifyResult, 
+  getDriveStatus, 
+  getCandidateAnswers, 
+  getCandidateReportHtml 
+} from '../controllers/adminController';
+
 router.get('/violations', getViolations);
 router.get('/results', getResults);
+router.get('/results/:id/answers', getCandidateAnswers);
+router.get('/results/:id/report-html', getCandidateReportHtml);
+router.get('/attempts/:id/answers', getCandidateAnswers);
+router.get('/attempts/:id/report-html', getCandidateReportHtml);
 router.patch('/results/:id/verify', verifyResult);
 router.get('/drive/status', getDriveStatus);
 

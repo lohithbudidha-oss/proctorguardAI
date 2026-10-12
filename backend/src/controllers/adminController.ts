@@ -40,6 +40,10 @@ export const approveCandidate = async (req: Request, res: Response, next: NextFu
 
 import Result from '../models/Result';
 import ViolationEvent from '../models/ViolationEvent';
+import Question from '../models/Question';
+import Answer from '../models/Answer';
+import Exam from '../models/Exam';
+import { googleDriveService } from '../services/googleDriveService';
 
 export const getLiveCandidates = async (req: Request, res: Response, next: NextFunction) => {
   try {
@@ -214,9 +218,194 @@ export const verifyResult = async (req: Request, res: Response, next: NextFuncti
 
 export const getDriveStatus = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const { googleDriveService } = require('../services/googleDriveService');
     const status = googleDriveService.getDriveStatus();
     res.status(200).json({ success: true, ...status });
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const getCandidateAnswers = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { id } = req.params;
+
+    // Support lookup by Result ID, Attempt ID, or candidate ID
+    let result = await Result.findById(id)
+      .populate('candidateId', 'name email status role')
+      .populate('examId', 'title duration description totalMarks');
+
+    if (!result) {
+      result = await Result.findOne({ attemptId: id })
+        .populate('candidateId', 'name email status role')
+        .populate('examId', 'title duration description totalMarks');
+    }
+
+    if (!result) {
+      return res.status(404).json({ success: false, message: 'Candidate examination result not found' });
+    }
+
+    const attempt = await Attempt.findById(result.attemptId);
+    const candidate: any = result.candidateId;
+    const exam: any = result.examId;
+
+    const questions = await Question.find({ examId: result.examId }).sort({ order: 1, createdAt: 1 });
+    const answers = await Answer.find({ attemptId: result.attemptId });
+    const violations = await ViolationEvent.find({ attemptId: result.attemptId }).sort({ detectedAt: -1 });
+
+    const answersBreakdown = questions.map((q: any, idx: number) => {
+      const ans = answers.find(a => String(a.questionId) === String(q._id));
+      const candidateSelectedAnswer = ans ? ans.selectedAnswer : null;
+      const isAttempted = Boolean(ans && ans.selectedAnswer !== undefined && ans.selectedAnswer !== null && ans.selectedAnswer !== '');
+      const isCorrect = ans ? (ans.isCorrect ?? (JSON.stringify(ans.selectedAnswer) === JSON.stringify(q.correctAnswer))) : false;
+
+      return {
+        questionNumber: idx + 1,
+        questionId: q._id,
+        questionText: q.questionText || q.text || `Question ${idx + 1}`,
+        type: q.type || 'MCQ',
+        options: q.options || [],
+        marks: q.marks || 1,
+        negativeMarks: q.negativeMarks || 0,
+        marksAwarded: ans?.marksAwarded ?? (isCorrect ? (q.marks || 1) : 0),
+        candidateSelectedAnswer,
+        correctAnswer: q.correctAnswer,
+        isCorrect,
+        isAttempted,
+        isMarkedForReview: ans?.isMarkedForReview || false,
+        answeredAt: ans?.savedAt || ans?.createdAt || null
+      };
+    });
+
+    const driveReportUrl = result.driveReportUrl || attempt?.driveReportUrl || 'https://drive.google.com/drive/folders/1P_3yKzFloiMrF8Pe1XFl9Lh-nqvPTit1?usp=sharing';
+    const driveFolderUrl = result.driveFolderUrl || attempt?.driveFolderUrl || 'https://drive.google.com/drive/folders/1P_3yKzFloiMrF8Pe1XFl9Lh-nqvPTit1?usp=sharing';
+
+    res.status(200).json({
+      success: true,
+      candidate: {
+        id: candidate?._id,
+        name: candidate?.name || 'Unknown Candidate',
+        email: candidate?.email || 'N/A'
+      },
+      exam: {
+        id: exam?._id,
+        title: exam?.title || 'Examination',
+        duration: exam?.duration || 0,
+        totalMarks: result.totalMarks || exam?.totalMarks || 100
+      },
+      result: {
+        id: result._id,
+        attemptId: result.attemptId,
+        obtainedMarks: result.obtainedMarks,
+        totalMarks: result.totalMarks,
+        percentage: result.percentage,
+        pass: result.pass,
+        correct: result.correct,
+        wrong: result.wrong,
+        unanswered: result.unanswered,
+        totalQuestions: result.totalQuestions,
+        riskScore: result.riskScore,
+        violations: result.violations,
+        timeTaken: result.timeTaken,
+        status: result.status,
+        driveReportUrl,
+        driveFolderUrl,
+        createdAt: result.createdAt
+      },
+      answers: answersBreakdown,
+      violations: violations.map((v: any) => ({
+        id: v._id,
+        type: v.type,
+        severity: v.severity,
+        description: v.description,
+        screenshot: v.screenshot || v.snapshotImage || v.image || '',
+        detectedAt: v.detectedAt || v.createdAt
+      }))
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const getCandidateReportHtml = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { id } = req.params;
+
+    let result = await Result.findById(id)
+      .populate('candidateId', 'name email')
+      .populate('examId', 'title duration totalMarks');
+
+    if (!result) {
+      result = await Result.findOne({ attemptId: id })
+        .populate('candidateId', 'name email')
+        .populate('examId', 'title duration totalMarks');
+    }
+
+    if (!result) {
+      return res.status(404).send('<h1>Examination Result Not Found</h1>');
+    }
+
+    const candidate: any = result.candidateId;
+    const exam: any = result.examId;
+    const questions = await Question.find({ examId: result.examId }).sort({ order: 1, createdAt: 1 });
+    const answers = await Answer.find({ attemptId: result.attemptId });
+    const violations = await ViolationEvent.find({ attemptId: result.attemptId }).sort({ detectedAt: -1 });
+
+    const answersBreakdown = questions.map((q: any, idx: number) => {
+      const ans = answers.find(a => String(a.questionId) === String(q._id));
+      const candidateSelectedAnswer = ans ? ans.selectedAnswer : null;
+      const isCorrect = ans ? (ans.isCorrect ?? (JSON.stringify(ans.selectedAnswer) === JSON.stringify(q.correctAnswer))) : false;
+
+      return {
+        questionNumber: idx + 1,
+        questionId: q._id,
+        questionText: q.questionText || q.text || `Question ${idx + 1}`,
+        options: q.options || [],
+        marks: q.marks || 1,
+        candidateSelectedAnswer,
+        correctAnswer: q.correctAnswer,
+        isCorrect,
+        answeredAt: ans?.savedAt || null
+      };
+    });
+
+    const reportData = {
+      candidate: {
+        id: candidate?._id,
+        name: candidate?.name || 'Candidate',
+        email: candidate?.email || 'N/A'
+      },
+      examination: {
+        id: exam?._id,
+        title: exam?.title || 'Exam',
+        duration: exam?.duration,
+        totalMarks: result.totalMarks || exam?.totalMarks
+      },
+      evaluation: {
+        totalQuestions: result.totalQuestions,
+        attempted: result.attempted,
+        correct: result.correct,
+        wrong: result.wrong,
+        unanswered: result.unanswered,
+        obtainedMarks: result.obtainedMarks,
+        percentage: result.percentage,
+        passed: result.pass,
+        timeTakenSeconds: result.timeTaken,
+        riskScore: result.riskScore,
+        violationsCount: result.violations
+      },
+      proctoringViolations: violations.map((v: any) => ({
+        type: v.type,
+        severity: v.severity,
+        detectedAt: v.detectedAt || v.createdAt,
+        description: v.description,
+        screenshotUrl: v.screenshot || v.snapshotImage || null
+      })),
+      answersBreakdown
+    };
+
+    const html = googleDriveService.generateHtmlReport(reportData);
+    res.setHeader('Content-Type', 'text/html; charset=utf-8');
+    res.send(html);
   } catch (err) {
     next(err);
   }

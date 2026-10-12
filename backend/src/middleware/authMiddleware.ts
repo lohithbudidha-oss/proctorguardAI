@@ -15,12 +15,17 @@ export interface AuthRequest extends Request {
 import Session from '../models/Session';
 
 export const authenticate = async (req: AuthRequest, res: Response, next: NextFunction) => {
+  let token: string | undefined;
   const authHeader = req.headers.authorization;
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    return res.status(401).json({ success: false, message: 'Unauthorized. Token missing.' });
+  if (authHeader && authHeader.startsWith('Bearer ')) {
+    token = authHeader.split(' ')[1];
+  } else if (typeof req.query.token === 'string') {
+    token = req.query.token;
   }
 
-  const token = authHeader.split(' ')[1];
+  if (!token) {
+    return res.status(401).json({ success: false, message: 'Unauthorized. Token missing.' });
+  }
 
   try {
     const secret = JWT_SECRET || 'dev_secret';

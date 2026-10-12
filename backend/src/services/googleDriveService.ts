@@ -434,7 +434,7 @@ export class GoogleDriveService {
   /**
    * Generate styled HTML evaluation report
    */
-  private generateHtmlReport(data: any): string {
+  public generateHtmlReport(data: any): string {
     const { candidate, examination, evaluation, answersBreakdown, proctoringViolations } = data;
     const passStatus = evaluation.passed ? 'PASSED' : 'FAILED';
     const statusColor = evaluation.passed ? '#059669' : '#dc2626';

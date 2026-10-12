@@ -2,7 +2,25 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
-import { ArrowLeft, CheckCircle2, FileText, Check, X, ShieldAlert, ExternalLink, HardDrive, Search } from 'lucide-react';
+import { 
+  ArrowLeft, 
+  CheckCircle2, 
+  FileText, 
+  Check, 
+  X, 
+  ShieldAlert, 
+  ExternalLink, 
+  HardDrive, 
+  Search,
+  Eye,
+  Clock,
+  Award,
+  AlertTriangle,
+  Printer,
+  ChevronRight,
+  HelpCircle,
+  Camera
+} from 'lucide-react';
 import api from '@/lib/api';
 
 export default function ResultsVerificationPage() {
@@ -10,6 +28,11 @@ export default function ResultsVerificationPage() {
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<'ALL' | 'PENDING' | 'APPROVED' | 'REJECTED'>('ALL');
+
+  // Candidate Answers Modal State
+  const [selectedAnswersData, setSelectedAnswersData] = useState<any | null>(null);
+  const [loadingAnswers, setLoadingAnswers] = useState(false);
+  const [answersQuestionFilter, setAnswersQuestionFilter] = useState<'ALL' | 'CORRECT' | 'WRONG' | 'UNANSWERED'>('ALL');
 
   useEffect(() => {
     fetchResults();
@@ -26,10 +49,45 @@ export default function ResultsVerificationPage() {
     }
   };
 
+  const openCandidateAnswers = async (resultItem: any) => {
+    setLoadingAnswers(true);
+    setSelectedAnswersData({
+      loading: true,
+      resultId: resultItem._id,
+      candidate: resultItem.candidateId,
+      exam: resultItem.examId,
+      result: resultItem,
+      answers: []
+    });
+    setAnswersQuestionFilter('ALL');
+
+    try {
+      const res = await api.get(`/admin/results/${resultItem._id}/answers`);
+      setSelectedAnswersData(res.data);
+    } catch (err) {
+      console.error('Failed to fetch candidate answers', err);
+      setSelectedAnswersData({
+        candidate: resultItem.candidateId,
+        exam: resultItem.examId,
+        result: resultItem,
+        answers: [],
+        error: 'Unable to load individual question answers from server.'
+      });
+    } finally {
+      setLoadingAnswers(false);
+    }
+  };
+
   const verifyResult = async (id: string, status: 'APPROVED' | 'REJECTED') => {
     try {
       await api.patch(`/admin/results/${id}/verify`, { status });
       fetchResults();
+      if (selectedAnswersData && (selectedAnswersData.result?._id === id || selectedAnswersData.result?.id === id)) {
+        setSelectedAnswersData((prev: any) => ({
+          ...prev,
+          result: { ...prev?.result, status }
+        }));
+      }
     } catch (error) {
       console.error('Failed to verify result', error);
     }
@@ -198,17 +256,15 @@ export default function ResultsVerificationPage() {
                         </span>
                       </td>
                       <td className="p-4 text-right space-x-2 whitespace-nowrap">
-                        <a
-                          href={r.driveReportUrl || r.driveFolderUrl || 'https://drive.google.com/drive/folders/1P_3yKzFloiMrF8Pe1XFl9Lh-nqvPTit1?usp=sharing'}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="px-3 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded-lg text-xs font-semibold inline-flex items-center transition-colors"
-                          title="View candidate answers sheet and proctoring report on Google Drive"
+                        <button
+                          onClick={() => openCandidateAnswers(r)}
+                          className="px-3.5 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded-lg text-xs font-bold inline-flex items-center transition-colors shadow-2xs hover:border-blue-300 cursor-pointer"
+                          title="View candidate answers sheet, questions evaluation, and Google Drive links"
                         >
-                          <FileText className="w-3.5 h-3.5 mr-1 text-blue-600" />
+                          <FileText className="w-3.5 h-3.5 mr-1.5 text-blue-600" />
                           Answers (Drive)
-                          <ExternalLink className="w-3 h-3 ml-1 opacity-70" />
-                        </a>
+                          <Eye className="w-3.5 h-3.5 ml-1.5 text-blue-500 opacity-80" />
+                        </button>
                         {r.status === 'PENDING' && (
                           <>
                             <button 
@@ -234,6 +290,329 @@ export default function ResultsVerificationPage() {
           )}
         </div>
       </div>
+
+      {/* Candidate Answers Review Modal */}
+      {selectedAnswersData && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 animate-in fade-in duration-150">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[92vh] flex flex-col overflow-hidden border border-slate-200 animate-in zoom-in-95 duration-150">
+            {/* Modal Header */}
+            <div className="p-6 border-b border-slate-200 bg-slate-50/90 flex justify-between items-start sticky top-0 z-10 backdrop-blur-sm">
+              <div className="flex items-center space-x-3.5">
+                <div className="w-12 h-12 rounded-xl bg-blue-100 text-blue-700 border border-blue-200 flex items-center justify-center font-black text-xl shrink-0">
+                  {selectedAnswersData.candidate?.name?.charAt(0)?.toUpperCase() || 'C'}
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h2 className="text-xl font-extrabold text-slate-900">
+                      {selectedAnswersData.candidate?.name || 'Candidate Answers'}
+                    </h2>
+                    <span className={`text-xs font-bold px-2.5 py-0.5 rounded-full border ${
+                      selectedAnswersData.result?.pass
+                        ? 'bg-emerald-100 text-emerald-800 border-emerald-200'
+                        : 'bg-rose-100 text-rose-800 border-rose-200'
+                    }`}>
+                      {selectedAnswersData.result?.pass ? 'PASSED' : 'FAILED'} ({(selectedAnswersData.result?.percentage ?? 0).toFixed(1)}%)
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    Exam: <strong className="text-slate-700">{selectedAnswersData.exam?.title || 'Assessment'}</strong> • {selectedAnswersData.candidate?.email || 'N/A'}
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center space-x-2">
+                <a
+                  href={`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api'}/admin/results/${selectedAnswersData.result?._id || selectedAnswersData.result?.id || selectedAnswersData.resultId}/report-html?token=${typeof window !== 'undefined' ? localStorage.getItem('token') || '' : ''}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="px-3 py-1.5 bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 rounded-lg text-xs font-semibold inline-flex items-center transition shadow-2xs"
+                  title="Open full printable HTML answer sheet report in new tab"
+                >
+                  <Printer className="w-3.5 h-3.5 mr-1 text-slate-500" />
+                  Printable Sheet
+                  <ExternalLink className="w-3 h-3 ml-1 opacity-70" />
+                </a>
+
+                <a
+                  href={selectedAnswersData.result?.driveReportUrl || selectedAnswersData.result?.driveFolderUrl || 'https://drive.google.com/drive/folders/1P_3yKzFloiMrF8Pe1XFl9Lh-nqvPTit1?usp=sharing'}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold inline-flex items-center transition shadow-2xs"
+                  title="Open Google Drive folder or uploaded files"
+                >
+                  <HardDrive className="w-3.5 h-3.5 mr-1" />
+                  Google Drive
+                  <ExternalLink className="w-3 h-3 ml-1 opacity-80" />
+                </a>
+
+                <button
+                  onClick={() => setSelectedAnswersData(null)}
+                  className="p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-200/60 rounded-lg transition ml-2 cursor-pointer"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-6 overflow-y-auto space-y-6 flex-1">
+              {/* Scorecard Overview Grid */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                <div className="bg-slate-50 border border-slate-200 p-3.5 rounded-xl">
+                  <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">Score</span>
+                  <div className="text-xl font-black text-slate-900 mt-1">
+                    {selectedAnswersData.result?.obtainedMarks ?? 0} <span className="text-xs text-slate-400 font-normal">/ {selectedAnswersData.result?.totalMarks ?? 100} Marks</span>
+                  </div>
+                </div>
+
+                <div className="bg-emerald-50 border border-emerald-200 p-3.5 rounded-xl">
+                  <span className="text-[11px] font-bold text-emerald-700 uppercase tracking-wider block">Correct</span>
+                  <div className="text-xl font-black text-emerald-700 mt-1">
+                    {selectedAnswersData.result?.correct ?? 0} Questions
+                  </div>
+                </div>
+
+                <div className="bg-rose-50 border border-rose-200 p-3.5 rounded-xl">
+                  <span className="text-[11px] font-bold text-rose-700 uppercase tracking-wider block">Wrong</span>
+                  <div className="text-xl font-black text-rose-700 mt-1">
+                    {selectedAnswersData.result?.wrong ?? 0} Questions
+                  </div>
+                </div>
+
+                <div className="bg-slate-50 border border-slate-200 p-3.5 rounded-xl">
+                  <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">Skipped</span>
+                  <div className="text-xl font-black text-slate-700 mt-1">
+                    {selectedAnswersData.result?.unanswered ?? 0} Questions
+                  </div>
+                </div>
+              </div>
+
+              {/* Filter Tabs for Answers */}
+              <div className="flex items-center justify-between border-b border-slate-200 pb-3">
+                <h3 className="text-sm font-extrabold text-slate-800 flex items-center">
+                  <FileText className="w-4 h-4 mr-1.5 text-blue-600" />
+                  Candidate Response Details ({selectedAnswersData.answers?.length ?? 0} Questions)
+                </h3>
+
+                <div className="flex items-center space-x-1 bg-slate-100 p-1 rounded-lg text-xs font-semibold">
+                  {(['ALL', 'CORRECT', 'WRONG', 'UNANSWERED'] as const).map(tab => (
+                    <button
+                      key={tab}
+                      onClick={() => setAnswersQuestionFilter(tab)}
+                      className={`px-3 py-1 rounded-md transition cursor-pointer ${
+                        answersQuestionFilter === tab
+                          ? 'bg-white text-slate-900 font-bold shadow-xs'
+                          : 'text-slate-600 hover:text-slate-900'
+                      }`}
+                    >
+                      {tab === 'ALL' ? 'All' : tab.charAt(0) + tab.slice(1).toLowerCase()}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {loadingAnswers ? (
+                <div className="py-16 text-center text-slate-400 font-semibold animate-pulse">
+                  Loading candidate responses and questions...
+                </div>
+              ) : selectedAnswersData.answers?.length === 0 ? (
+                <div className="py-12 text-center text-slate-500">
+                  <HelpCircle className="w-10 h-10 text-slate-300 mx-auto mb-2" />
+                  <p className="font-semibold">No individual answer responses recorded for this attempt.</p>
+                  <p className="text-xs text-slate-400 mt-1">Exam evaluation summary marks are displayed above.</p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {selectedAnswersData.answers
+                    .filter((q: any) => {
+                      if (answersQuestionFilter === 'CORRECT') return q.isCorrect;
+                      if (answersQuestionFilter === 'WRONG') return q.isAttempted && !q.isCorrect;
+                      if (answersQuestionFilter === 'UNANSWERED') return !q.isAttempted;
+                      return true;
+                    })
+                    .map((q: any) => {
+                      const isUnanswered = !q.isAttempted;
+                      const isCorrect = q.isCorrect;
+                      const hasOptions = Array.isArray(q.options) && q.options.length > 0;
+
+                      return (
+                        <div
+                          key={q.questionId || q.questionNumber}
+                          className={`p-4 rounded-xl border transition-all ${
+                            isUnanswered
+                              ? 'border-slate-200 bg-slate-50/60'
+                              : isCorrect
+                              ? 'border-emerald-200 bg-emerald-50/20'
+                              : 'border-rose-200 bg-rose-50/20'
+                          }`}
+                        >
+                          <div className="flex items-start justify-between gap-3 mb-2.5">
+                            <span className="font-bold text-sm text-slate-900">
+                              Q{q.questionNumber}. {q.questionText}
+                            </span>
+                            <span className={`text-[11px] font-extrabold px-2.5 py-0.5 rounded-full shrink-0 border ${
+                              isUnanswered
+                                ? 'bg-slate-100 text-slate-600 border-slate-200'
+                                : isCorrect
+                                ? 'bg-emerald-100 text-emerald-800 border-emerald-200'
+                                : 'bg-rose-100 text-rose-800 border-rose-200'
+                            }`}>
+                              {isUnanswered ? 'Not Answered' : isCorrect ? `Correct (+${q.marks})` : `Wrong (${q.negativeMarks ? `-${q.negativeMarks}` : '0'})`}
+                            </span>
+                          </div>
+
+                          {/* Options if Multiple Choice */}
+                          {hasOptions ? (
+                            <div className="space-y-1.5 mt-3">
+                              {q.options.map((opt: any, optIdx: number) => {
+                                const optVal = typeof opt === 'object' ? opt.text || opt.value || optIdx : opt;
+                                const isSelected = JSON.stringify(q.candidateSelectedAnswer) === JSON.stringify(optVal) ||
+                                                   String(q.candidateSelectedAnswer) === String(optVal) ||
+                                                   String(q.candidateSelectedAnswer) === String(optIdx);
+                                const isCorrectChoice = JSON.stringify(q.correctAnswer) === JSON.stringify(optVal) ||
+                                                        String(q.correctAnswer) === String(optVal) ||
+                                                        String(q.correctAnswer) === String(optIdx);
+
+                                return (
+                                  <div
+                                    key={optIdx}
+                                    className={`p-2.5 rounded-lg text-xs font-medium flex items-center justify-between border ${
+                                      isSelected && isCorrect
+                                        ? 'bg-emerald-100/60 border-emerald-300 text-emerald-950 font-semibold'
+                                        : isSelected && !isCorrect
+                                        ? 'bg-rose-100/60 border-rose-300 text-rose-950 font-semibold'
+                                        : isCorrectChoice
+                                        ? 'bg-emerald-50/50 border-emerald-200 text-emerald-800'
+                                        : 'bg-white border-slate-200 text-slate-700'
+                                    }`}
+                                  >
+                                    <div className="flex items-center space-x-2">
+                                      <span className="w-5 h-5 rounded-full border flex items-center justify-center text-[10px] font-bold bg-white text-slate-600 shrink-0">
+                                        {String.fromCharCode(65 + optIdx)}
+                                      </span>
+                                      <span>{typeof opt === 'object' ? opt.text || JSON.stringify(opt) : opt}</span>
+                                    </div>
+
+                                    {isSelected && (
+                                      <span className={`text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-md ${
+                                        isCorrect ? 'bg-emerald-200 text-emerald-900' : 'bg-rose-200 text-rose-900'
+                                      }`}>
+                                        Candidate Choice {isCorrect ? '(Correct)' : '(Incorrect)'}
+                                      </span>
+                                    )}
+                                    {!isSelected && isCorrectChoice && (
+                                      <span className="text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-800">
+                                        Correct Answer
+                                      </span>
+                                    )}
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          ) : (
+                            /* Non-MCQ or Direct Answer display */
+                            <div className="mt-2.5 p-3 bg-white rounded-lg border border-slate-200 text-xs space-y-1.5">
+                              <div>
+                                <span className="font-bold text-slate-500">Candidate Answer: </span>
+                                <span className={isCorrect ? 'text-emerald-700 font-bold' : 'text-rose-700 font-bold'}>
+                                  {q.candidateSelectedAnswer !== null && q.candidateSelectedAnswer !== undefined
+                                    ? JSON.stringify(q.candidateSelectedAnswer)
+                                    : 'None'}
+                                </span>
+                              </div>
+                              <div>
+                                <span className="font-bold text-slate-500">Correct Answer: </span>
+                                <span className="text-emerald-700 font-bold">
+                                  {JSON.stringify(q.correctAnswer)}
+                                </span>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                </div>
+              )}
+
+              {/* Proctoring Violations Log if any */}
+              {selectedAnswersData.violations && selectedAnswersData.violations.length > 0 && (
+                <div className="mt-6 pt-5 border-t border-slate-200">
+                  <h4 className="text-xs font-extrabold text-slate-700 uppercase tracking-wider mb-3 flex items-center">
+                    <ShieldAlert className="w-4 h-4 mr-1.5 text-rose-600" />
+                    Proctoring Violations Logged During Exam ({selectedAnswersData.violations.length})
+                  </h4>
+                  <div className="space-y-2">
+                    {selectedAnswersData.violations.map((v: any, idx: number) => (
+                      <div key={v.id || idx} className="p-3 bg-rose-50/40 rounded-xl border border-rose-200 text-xs flex items-center justify-between">
+                        <div className="flex items-center space-x-2">
+                          <span className="px-2 py-0.5 rounded bg-rose-100 text-rose-700 font-bold text-[10px] uppercase">
+                            {v.type}
+                          </span>
+                          <span className="text-slate-800 font-medium">{v.description || 'Proctoring violation detected'}</span>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <span className="text-slate-400 font-mono text-[10px]">
+                            {new Date(v.detectedAt).toLocaleTimeString()}
+                          </span>
+                          {v.screenshot && (
+                            <a 
+                              href={v.screenshot} 
+                              target="_blank" 
+                              rel="noopener noreferrer" 
+                              className="text-blue-600 hover:underline font-bold flex items-center text-[11px]"
+                            >
+                              <Camera className="w-3 h-3 mr-0.5" /> Proof
+                            </a>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Modal Footer */}
+            <div className="p-4 px-6 border-t border-slate-200 bg-slate-50 flex items-center justify-between">
+              <div className="flex items-center space-x-2">
+                <span className="text-xs text-slate-500 font-medium">Verification Status:</span>
+                <span className={`text-xs font-bold px-2.5 py-0.5 rounded-full border ${
+                  selectedAnswersData.result?.status === 'APPROVED' ? 'bg-emerald-100 text-emerald-800 border-emerald-200' :
+                  selectedAnswersData.result?.status === 'REJECTED' ? 'bg-rose-100 text-rose-800 border-rose-200' :
+                  'bg-amber-100 text-amber-800 border-amber-200'
+                }`}>
+                  {selectedAnswersData.result?.status || 'PENDING'}
+                </span>
+              </div>
+
+              <div className="flex items-center space-x-2">
+                {selectedAnswersData.result?.status === 'PENDING' && (
+                  <>
+                    <button
+                      onClick={() => verifyResult(selectedAnswersData.result?._id || selectedAnswersData.result?.id, 'APPROVED')}
+                      className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold transition flex items-center shadow-xs cursor-pointer"
+                    >
+                      <Check className="w-3.5 h-3.5 mr-1" /> Approve
+                    </button>
+                    <button
+                      onClick={() => verifyResult(selectedAnswersData.result?._id || selectedAnswersData.result?.id, 'REJECTED')}
+                      className="px-3.5 py-1.5 bg-rose-600 hover:bg-rose-700 text-white rounded-lg text-xs font-bold transition flex items-center shadow-xs cursor-pointer"
+                    >
+                      <X className="w-3.5 h-3.5 mr-1" /> Reject
+                    </button>
+                  </>
+                )}
+                <button
+                  onClick={() => setSelectedAnswersData(null)}
+                  className="px-4 py-1.5 bg-white border border-slate-200 hover:bg-slate-100 text-slate-700 rounded-lg text-xs font-semibold transition cursor-pointer"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
