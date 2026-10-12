@@ -77,7 +77,17 @@ export const getAttemptResult = async (req: AuthRequest, res: Response, next: Ne
     const { attemptId } = req.params;
     const candidateId = req.user?.userId;
 
-    const result = await Result.findOne({ attemptId, candidateId }).populate('examId', 'title duration');
+    let result = await Result.findOne({ attemptId, candidateId }).populate('examId', 'title duration');
+    if (!result || (result.attempted > 0 && result.correct === 0)) {
+      try {
+        const { evaluateAttempt } = require('./attemptController');
+        await evaluateAttempt(attemptId, candidateId as string);
+        result = await Result.findOne({ attemptId, candidateId }).populate('examId', 'title duration');
+      } catch (e) {
+        console.warn('[Candidate] Auto-evaluate attempt error:', e);
+      }
+    }
+
     if (!result) {
       return res.status(404).json({ success: false, message: 'Result not found' });
     }

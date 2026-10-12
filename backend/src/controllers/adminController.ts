@@ -54,7 +54,19 @@ export const getLiveCandidates = async (req: Request, res: Response, next: NextF
         .map(async (doc: any) => {
           const candidate = doc.candidateId;
           const exam = doc.examId;
-          const result = await Result.findOne({ attemptId: doc._id });
+          let result = await Result.findOne({ attemptId: doc._id });
+
+          // Auto-evaluate any completed or submitted attempt that doesn't have a result yet or had 0 correct despite attempting
+          const isFinished = ['SUBMITTED', 'AUTO_SUBMITTED', 'FORCE_SUBMITTED', 'COMPLETED', 'TERMINATED'].includes(doc.status);
+          if (isFinished && (!result || (result.attempted > 0 && result.correct === 0))) {
+            try {
+              const { evaluateAttempt } = require('./attemptController');
+              result = await evaluateAttempt(doc._id.toString(), candidate._id.toString());
+            } catch (evalErr) {
+              console.warn('[Admin] Auto-evaluate attempt error:', evalErr);
+            }
+          }
+
           const violations = await ViolationEvent.find({ attemptId: doc._id }).sort({ detectedAt: -1 });
 
           const riskScore = violations.reduce((acc, v) => acc + (v.severity === 'CRITICAL' ? 40 : v.severity === 'HIGH' ? 20 : 5), 0);
