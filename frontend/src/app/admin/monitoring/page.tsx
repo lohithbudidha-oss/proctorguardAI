@@ -157,7 +157,7 @@ export default function CandidateExamRecordsPage() {
   useEffect(() => {
     fetchCandidateRecords();
 
-    const wsUrl = process.env.NEXT_PUBLIC_WS_URL || (process.env.NEXT_PUBLIC_API_URL ? process.env.NEXT_PUBLIC_API_URL.replace(/\/api\/?$/, '') : 'http://localhost:5000');
+    const wsUrl = process.env.NEXT_PUBLIC_WS_URL || (process.env.NEXT_PUBLIC_API_URL ? process.env.NEXT_PUBLIC_API_URL.replace(/\/api\/?$/, '') : 'https://proctorguardai.onrender.com');
     const initSocket = io(wsUrl, {
       auth: { token: typeof window !== 'undefined' ? localStorage.getItem('token') : '' }
     });

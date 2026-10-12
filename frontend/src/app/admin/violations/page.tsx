@@ -130,7 +130,7 @@ export default function ViolationQueuePage() {
     };
     window.addEventListener('message', handleWindowMsg);
 
-    const wsUrl = process.env.NEXT_PUBLIC_WS_URL || (process.env.NEXT_PUBLIC_API_URL ? process.env.NEXT_PUBLIC_API_URL.replace(/\/api\/?$/, '') : 'http://localhost:5000');
+    const wsUrl = process.env.NEXT_PUBLIC_WS_URL || (process.env.NEXT_PUBLIC_API_URL ? process.env.NEXT_PUBLIC_API_URL.replace(/\/api\/?$/, '') : 'https://proctorguardai.onrender.com');
     const socket = io(wsUrl, {
       auth: { token: typeof window !== 'undefined' ? localStorage.getItem('token') : '' }
     });
@@ -633,7 +633,7 @@ export default function ViolationQueuePage() {
             </span>
           ) : (
             <a
-              href={`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'}/api/auth/google/drive-auth`}
+              href={`${(process.env.NEXT_PUBLIC_API_URL || 'https://proctorguardai.onrender.com/api').replace(/\/api\/?$/, '')}/api/auth/google/drive-auth`}
               target="_blank"
               rel="noopener noreferrer"
               className="px-3.5 py-1.5 bg-amber-500 hover:bg-amber-600 text-white rounded-lg text-xs font-bold shadow-xs inline-flex items-center transition cursor-pointer"
