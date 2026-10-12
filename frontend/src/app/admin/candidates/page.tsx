@@ -130,44 +130,50 @@ export default function CandidatesPage() {
             <table className="w-full text-left">
               <thead className="bg-slate-50 border-b border-slate-200">
                 <tr>
-                  <th className="px-6 py-4 text-sm font-semibold text-slate-600 uppercase tracking-wider">Name</th>
-                  <th className="px-6 py-4 text-sm font-semibold text-slate-600 uppercase tracking-wider">Email</th>
-                  <th className="px-6 py-4 text-sm font-semibold text-slate-600 uppercase tracking-wider">Status</th>
-                  <th className="px-6 py-4 text-sm font-semibold text-slate-600 uppercase tracking-wider text-right">Actions</th>
+                  <th className="px-6 py-4 text-sm font-semibold text-slate-600 uppercase tracking-wider align-middle text-left">Name</th>
+                  <th className="px-6 py-4 text-sm font-semibold text-slate-600 uppercase tracking-wider align-middle text-left">Email</th>
+                  <th className="px-6 py-4 text-sm font-semibold text-slate-600 uppercase tracking-wider align-middle text-center">Status</th>
+                  <th className="px-6 py-4 text-sm font-semibold text-slate-600 uppercase tracking-wider align-middle text-center">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {filteredCandidates.length > 0 ? filteredCandidates.map((candidate) => (
                   <tr key={candidate._id} className="hover:bg-slate-50 transition">
-                    <td className="px-6 py-4">
+                    <td className="px-6 py-4 align-middle text-left">
                       <div className="flex items-center">
-                        <div className="w-10 h-10 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center font-bold mr-3">
+                        <div className="w-10 h-10 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center font-bold mr-3 shrink-0">
                           {candidate.name.charAt(0).toUpperCase()}
                         </div>
                         <span className="font-semibold text-slate-800">{candidate.name}</span>
                       </div>
                     </td>
-                    <td className="px-6 py-4 text-slate-600">{candidate.email}</td>
-                    <td className="px-6 py-4">
-                      <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold uppercase tracking-wide
-                        ${candidate.status === 'APPROVED' ? 'bg-emerald-100 text-emerald-700' : 
-                          candidate.status === 'PENDING_VERIFICATION' ? 'bg-amber-100 text-amber-700' : 
-                          'bg-slate-100 text-slate-600'}`}>
-                        {candidate.status === 'APPROVED' && <CheckCircle2 className="w-3.5 h-3.5 mr-1" />}
-                        {candidate.status === 'PENDING_VERIFICATION' && <Clock className="w-3.5 h-3.5 mr-1" />}
-                        {candidate.status === 'PENDING_VERIFICATION' ? 'PENDING' : candidate.status}
-                      </span>
+                    <td className="px-6 py-4 align-middle text-left text-slate-600">{candidate.email}</td>
+                    <td className="px-6 py-4 align-middle text-center">
+                      <div className="inline-flex items-center justify-center">
+                        <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold uppercase tracking-wide
+                          ${candidate.status === 'APPROVED' ? 'bg-emerald-100 text-emerald-700' : 
+                            candidate.status === 'PENDING_VERIFICATION' ? 'bg-amber-100 text-amber-700' : 
+                            'bg-slate-100 text-slate-600'}`}>
+                          {candidate.status === 'APPROVED' && <CheckCircle2 className="w-3.5 h-3.5 mr-1" />}
+                          {candidate.status === 'PENDING_VERIFICATION' && <Clock className="w-3.5 h-3.5 mr-1" />}
+                          {candidate.status === 'PENDING_VERIFICATION' ? 'PENDING' : candidate.status}
+                        </span>
+                      </div>
                     </td>
-                    <td className="px-6 py-4 text-right">
-                      {candidate.status !== 'APPROVED' && (
-                        <button
-                          onClick={() => handleApprove(candidate._id as string)}
-                          className="inline-flex items-center px-3 py-1.5 bg-emerald-600 text-white text-sm font-medium rounded-lg hover:bg-emerald-700 transition"
-                        >
-                          <UserCheck className="w-4 h-4 mr-1.5" />
-                          Approve
-                        </button>
-                      )}
+                    <td className="px-6 py-4 align-middle text-center">
+                      <div className="inline-flex items-center justify-center">
+                        {candidate.status !== 'APPROVED' ? (
+                          <button
+                            onClick={() => handleApprove(candidate._id as string)}
+                            className="inline-flex items-center px-3 py-1.5 bg-emerald-600 text-white text-sm font-medium rounded-lg hover:bg-emerald-700 transition cursor-pointer"
+                          >
+                            <UserCheck className="w-4 h-4 mr-1.5" />
+                            Approve
+                          </button>
+                        ) : (
+                          <span className="text-xs text-slate-400 font-medium">No actions</span>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 )) : (

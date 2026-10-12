@@ -269,79 +269,87 @@ export default function ResultsVerificationPage() {
               <table className="w-full text-left border-collapse">
                 <thead>
                   <tr className="bg-slate-50 border-b border-slate-200 text-slate-600 text-sm uppercase tracking-wider">
-                    <th className="p-4 font-semibold">Date</th>
-                    <th className="p-4 font-semibold">Candidate</th>
-                    <th className="p-4 font-semibold">Exam</th>
-                    <th className="p-4 font-semibold">Score</th>
-                    <th className="p-4 font-semibold">Violations</th>
-                    <th className="p-4 font-semibold">Status</th>
-                    <th className="p-4 font-semibold text-right">Actions</th>
+                    <th className="p-4 font-semibold align-middle text-center">Date</th>
+                    <th className="p-4 font-semibold align-middle text-left">Candidate</th>
+                    <th className="p-4 font-semibold align-middle text-left">Exam</th>
+                    <th className="p-4 font-semibold align-middle text-center">Score</th>
+                    <th className="p-4 font-semibold align-middle text-center">Violations</th>
+                    <th className="p-4 font-semibold align-middle text-center">Status</th>
+                    <th className="p-4 font-semibold align-middle text-center">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
                   {filteredResults.map((r) => (
                     <tr key={r._id} className="hover:bg-slate-50 transition-colors">
-                      <td className="p-4 text-sm text-slate-600 whitespace-nowrap">
+                      <td className="p-4 align-middle text-center text-sm text-slate-600 whitespace-nowrap">
                         {new Date(r.createdAt).toLocaleDateString()}
                       </td>
-                      <td className="p-4">
+                      <td className="p-4 align-middle text-left">
                         <div className="font-semibold text-slate-800">{r.candidateId?.name || 'Unknown'}</div>
                         <div className="text-xs text-slate-500">{r.candidateId?.email || 'N/A'}</div>
                       </td>
-                      <td className="p-4 text-sm font-medium text-slate-700">
+                      <td className="p-4 align-middle text-left text-sm font-medium text-slate-700">
                         {r.examId?.title || 'Unknown Exam'}
                       </td>
-                      <td className="p-4">
-                        <span className={`font-bold ${r.pass ? 'text-emerald-600' : 'text-rose-600'}`}>
-                          {r.percentage.toFixed(1)}%
-                        </span>
-                        <div className="text-xs text-slate-500">{r.obtainedMarks}/{r.totalMarks} Marks</div>
+                      <td className="p-4 align-middle text-center">
+                        <div className="inline-flex flex-col items-center justify-center">
+                          <span className={`font-bold ${r.pass ? 'text-emerald-600' : 'text-rose-600'}`}>
+                            {r.percentage.toFixed(1)}%
+                          </span>
+                          <div className="text-xs text-slate-500">{r.obtainedMarks}/{r.totalMarks} Marks</div>
+                        </div>
                       </td>
-                      <td className="p-4">
-                        {r.violations > 0 ? (
-                          <div className="flex items-center text-rose-600 font-bold">
-                            <ShieldAlert className="w-4 h-4 mr-1" />
-                            {r.violations}
-                          </div>
-                        ) : (
-                          <span className="text-slate-400">0</span>
-                        )}
+                      <td className="p-4 align-middle text-center">
+                        <div className="inline-flex items-center justify-center">
+                          {r.violations > 0 ? (
+                            <span className="inline-flex items-center text-rose-600 font-bold bg-rose-50 px-2 py-0.5 rounded border border-rose-200 text-xs">
+                              <ShieldAlert className="w-3.5 h-3.5 mr-1" />
+                              {r.violations}
+                            </span>
+                          ) : (
+                            <span className="text-slate-400 font-bold text-xs">0</span>
+                          )}
+                        </div>
                       </td>
-                      <td className="p-4">
-                        <span className={`text-xs font-bold px-3 py-1 rounded-full border ${
-                          r.status === 'APPROVED' ? 'bg-emerald-100 text-emerald-700 border-emerald-200' :
-                          r.status === 'REJECTED' ? 'bg-rose-100 text-rose-700 border-rose-200' :
-                          'bg-amber-100 text-amber-700 border-amber-200'
-                        }`}>
-                          {r.status}
-                        </span>
+                      <td className="p-4 align-middle text-center">
+                        <div className="inline-flex items-center justify-center">
+                          <span className={`text-xs font-bold px-3 py-1 rounded-full border ${
+                            r.status === 'APPROVED' ? 'bg-emerald-100 text-emerald-700 border-emerald-200' :
+                            r.status === 'REJECTED' ? 'bg-rose-100 text-rose-700 border-rose-200' :
+                            'bg-amber-100 text-amber-700 border-amber-200'
+                          }`}>
+                            {r.status}
+                          </span>
+                        </div>
                       </td>
-                      <td className="p-4 text-right space-x-2 whitespace-nowrap">
-                        <button
-                          onClick={() => openCandidateAnswers(r)}
-                          className="px-3.5 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded-lg text-xs font-bold inline-flex items-center transition-colors shadow-2xs hover:border-blue-300 cursor-pointer"
-                          title="View candidate answers sheet, questions evaluation, and Google Drive links"
-                        >
-                          <FileText className="w-3.5 h-3.5 mr-1.5 text-blue-600" />
-                          Answers (Drive)
-                          <Eye className="w-3.5 h-3.5 ml-1.5 text-blue-500 opacity-80" />
-                        </button>
-                        {r.status === 'PENDING' && (
-                          <>
-                            <button 
-                              onClick={() => verifyResult(r._id, 'APPROVED')}
-                              className="px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 rounded-lg text-sm font-medium transition-colors inline-flex items-center ml-2"
-                            >
-                              <Check className="w-4 h-4 mr-1" /> Approve
-                            </button>
-                            <button 
-                              onClick={() => verifyResult(r._id, 'REJECTED')}
-                              className="px-3 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-lg text-sm font-medium transition-colors inline-flex items-center ml-2"
-                            >
-                              <X className="w-4 h-4 mr-1" /> Reject
-                            </button>
-                          </>
-                        )}
+                      <td className="p-4 align-middle text-center whitespace-nowrap">
+                        <div className="inline-flex items-center justify-center space-x-2">
+                          <button
+                            onClick={() => openCandidateAnswers(r)}
+                            className="px-3.5 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded-lg text-xs font-bold inline-flex items-center transition-colors shadow-2xs hover:border-blue-300 cursor-pointer"
+                            title="View candidate answers sheet, questions evaluation, and Google Drive links"
+                          >
+                            <FileText className="w-3.5 h-3.5 mr-1.5 text-blue-600" />
+                            Answers (Drive)
+                            <Eye className="w-3.5 h-3.5 ml-1.5 text-blue-500 opacity-80" />
+                          </button>
+                          {r.status === 'PENDING' && (
+                            <>
+                              <button 
+                                onClick={() => verifyResult(r._id, 'APPROVED')}
+                                className="px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 rounded-lg text-xs font-bold transition-colors inline-flex items-center cursor-pointer"
+                              >
+                                <Check className="w-3.5 h-3.5 mr-1" /> Approve
+                              </button>
+                              <button 
+                                onClick={() => verifyResult(r._id, 'REJECTED')}
+                                className="px-3 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-lg text-xs font-bold transition-colors inline-flex items-center cursor-pointer"
+                              >
+                                <X className="w-3.5 h-3.5 mr-1" /> Reject
+                              </button>
+                            </>
+                          )}
+                        </div>
                       </td>
                     </tr>
                   ))}

@@ -779,13 +779,13 @@ export default function ViolationQueuePage() {
               <table className="w-full text-left border-collapse">
                 <thead>
                   <tr className="bg-slate-50/80 border-b border-slate-200 text-slate-500 text-xs font-extrabold uppercase tracking-wider">
-                    <th className="p-4">Candidate</th>
-                    <th className="p-4">Exams Written</th>
-                    <th className="p-4">Violations Committed</th>
-                    <th className="p-4">Highest Severity</th>
-                    <th className="p-4">Evidence Proofs</th>
-                    <th className="p-4">Latest Infraction</th>
-                    <th className="p-4 text-right">Action</th>
+                    <th className="p-4 align-middle text-left">Candidate</th>
+                    <th className="p-4 align-middle text-left">Exams Written</th>
+                    <th className="p-4 align-middle text-center">Violations Committed</th>
+                    <th className="p-4 align-middle text-center">Highest Severity</th>
+                    <th className="p-4 align-middle text-center">Evidence Proofs</th>
+                    <th className="p-4 align-middle text-center">Latest Infraction</th>
+                    <th className="p-4 align-middle text-center">Action</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 text-sm">
@@ -807,7 +807,7 @@ export default function ViolationQueuePage() {
                         className="hover:bg-rose-50/30 transition-colors group cursor-pointer"
                       >
                         {/* Candidate Column */}
-                        <td className="p-4">
+                        <td className="p-4 align-middle text-left">
                           <div className="flex items-center space-x-3.5">
                             <div className="w-10 h-10 rounded-full bg-rose-50 text-rose-700 border border-rose-200 flex items-center justify-center font-extrabold text-sm shrink-0 shadow-2xs group-hover:scale-105 transition-transform">
                               {initials}
@@ -827,7 +827,7 @@ export default function ViolationQueuePage() {
                         </td>
 
                         {/* Exams Written by Candidate */}
-                        <td className="p-4">
+                        <td className="p-4 align-middle text-left">
                           <div className="flex flex-col gap-1.5 max-w-xs">
                             <div className="flex items-center space-x-2">
                               <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-black bg-blue-50 text-blue-700 border border-blue-200 shadow-2xs">
@@ -835,8 +835,8 @@ export default function ViolationQueuePage() {
                                 {group.examsWrittenCount} {group.examsWrittenCount === 1 ? 'Exam Written' : 'Exams Written'}
                               </span>
                             </div>
-                            {/* Exam pills */}
-                            <div className="flex flex-wrap gap-1">
+                            {/* Exam pills with compact scroll to maintain clean row height */}
+                            <div className="flex flex-wrap gap-1 max-h-24 overflow-y-auto pr-1">
                               {group.exams.map((ex, idx) => (
                                 <button
                                   key={ex.attemptId || ex.examId || idx}
@@ -866,10 +866,10 @@ export default function ViolationQueuePage() {
                         </td>
 
                         {/* Violations Summary */}
-                        <td className="p-4">
-                          <div className="flex flex-col gap-1.5">
-                            <div className="flex items-center space-x-2">
-                              <span className="font-black text-xs text-rose-700 bg-rose-50 px-2 py-0.5 rounded-md border border-rose-200">
+                        <td className="p-4 align-middle text-center">
+                          <div className="flex flex-col items-center justify-center gap-1.5">
+                            <div className="flex items-center justify-center space-x-2">
+                              <span className="font-black text-xs text-rose-700 bg-rose-50 px-2.5 py-0.5 rounded-md border border-rose-200">
                                 {group.totalViolations} Violations
                               </span>
                               {group.criticalCount > 0 && (
@@ -879,7 +879,7 @@ export default function ViolationQueuePage() {
                               )}
                             </div>
                             {/* Type tags */}
-                            <div className="flex flex-wrap gap-1 max-w-xs">
+                            <div className="flex flex-wrap justify-center gap-1 max-w-xs">
                               {group.uniqueTypes.slice(0, 2).map((t) => (
                                 <span 
                                   key={t}
@@ -898,61 +898,69 @@ export default function ViolationQueuePage() {
                         </td>
 
                         {/* Highest Severity Badge */}
-                        <td className="p-4">
-                          <span className={`text-xs font-extrabold px-3 py-1 rounded-full border inline-block ${getSeverityBadge(group.highestSeverity)}`}>
-                            {group.highestSeverity}
-                          </span>
+                        <td className="p-4 align-middle text-center">
+                          <div className="flex items-center justify-center">
+                            <span className={`text-xs font-extrabold px-3 py-1 rounded-full border inline-block ${getSeverityBadge(group.highestSeverity)}`}>
+                              {group.highestSeverity}
+                            </span>
+                          </div>
                         </td>
 
                         {/* Evidence Proofs Column */}
-                        <td className="p-4">
-                          {group.latestScreenshot ? (
-                            <div className="flex items-center space-x-2.5">
-                              <div className="relative w-12 h-10 rounded-lg overflow-hidden border border-slate-200 bg-slate-900 shrink-0 shadow-2xs">
-                                <img 
-                                  src={group.latestScreenshot} 
-                                  alt="Proof thumbnail" 
-                                  className="w-full h-full object-cover"
-                                />
+                        <td className="p-4 align-middle text-center">
+                          <div className="flex items-center justify-center">
+                            {group.latestScreenshot ? (
+                              <div className="flex items-center space-x-2.5 text-left">
+                                <div className="relative w-12 h-10 rounded-lg overflow-hidden border border-slate-200 bg-slate-900 shrink-0 shadow-2xs">
+                                  <img 
+                                    src={group.latestScreenshot} 
+                                    alt="Proof thumbnail" 
+                                    className="w-full h-full object-cover"
+                                  />
+                                </div>
+                                <div>
+                                  <span className="inline-flex items-center text-xs font-bold text-indigo-700">
+                                    <Camera className="w-3.5 h-3.5 mr-1" />
+                                    {group.proofCount} Proof {group.proofCount === 1 ? 'Image' : 'Images'}
+                                  </span>
+                                  <span className="text-[10px] text-slate-400 block">Available</span>
+                                </div>
                               </div>
-                              <div>
-                                <span className="inline-flex items-center text-xs font-bold text-indigo-700">
-                                  <Camera className="w-3.5 h-3.5 mr-1" />
-                                  {group.proofCount} Proof {group.proofCount === 1 ? 'Image' : 'Images'}
-                                </span>
-                                <span className="text-[10px] text-slate-400 block">Available</span>
-                              </div>
-                            </div>
-                          ) : (
-                            <span className="text-xs text-slate-400 italic flex items-center">
-                              <Camera className="w-3.5 h-3.5 mr-1 opacity-40" /> No snapshots
-                            </span>
-                          )}
+                            ) : (
+                              <span className="text-xs text-slate-400 italic inline-flex items-center justify-center">
+                                <Camera className="w-3.5 h-3.5 mr-1 opacity-40" /> No snapshots
+                              </span>
+                            )}
+                          </div>
                         </td>
 
                         {/* Latest Infraction */}
-                        <td className="p-4 text-xs font-mono text-slate-500 whitespace-nowrap">
-                          <div className="text-slate-800 font-bold">
-                            {new Date(group.latestViolation.detectedAt).toLocaleDateString()}
-                          </div>
-                          <div className="text-slate-400 mt-0.5">
-                            {new Date(group.latestViolation.detectedAt).toLocaleTimeString()}
+                        <td className="p-4 align-middle text-center text-xs font-mono text-slate-500 whitespace-nowrap">
+                          <div className="inline-flex flex-col items-center justify-center">
+                            <div className="text-slate-800 font-bold">
+                              {new Date(group.latestViolation.detectedAt).toLocaleDateString()}
+                            </div>
+                            <div className="text-slate-400 mt-0.5">
+                              {new Date(group.latestViolation.detectedAt).toLocaleTimeString()}
+                            </div>
                           </div>
                         </td>
 
                         {/* Action Column */}
-                        <td className="p-4 text-right">
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setSelectedCandidateKey(group.key);
-                              setSelectedExamKey('ALL');
-                            }}
-                            className="inline-flex items-center px-3.5 py-1.5 bg-rose-50 text-rose-700 font-bold text-xs rounded-xl border border-rose-200 shadow-2xs group-hover:bg-rose-600 group-hover:text-white group-hover:border-rose-600 hover:!bg-rose-700 hover:!text-white hover:!border-rose-700 transition-all cursor-pointer active:scale-95"
-                          >
-                            View Violations ({group.totalViolations})
-                            <ChevronRight className="w-3.5 h-3.5 ml-1" />
-                          </button>
+                        <td className="p-4 align-middle text-center">
+                          <div className="flex items-center justify-center">
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setSelectedCandidateKey(group.key);
+                                setSelectedExamKey('ALL');
+                              }}
+                              className="inline-flex items-center justify-center px-3.5 py-1.5 bg-rose-50 text-rose-700 font-bold text-xs rounded-xl border border-rose-200 shadow-2xs group-hover:bg-rose-600 group-hover:text-white group-hover:border-rose-600 hover:!bg-rose-700 hover:!text-white hover:!border-rose-700 transition-all cursor-pointer active:scale-95"
+                            >
+                              View Violations ({group.totalViolations})
+                              <ChevronRight className="w-3.5 h-3.5 ml-1" />
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     );
