@@ -1,8 +1,36 @@
+'use client';
+
 import React from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { ShieldCheck, UserCheck, MonitorPlay, Lock } from 'lucide-react';
 
 export default function LandingPage() {
+  const router = useRouter();
+
+  const handleAdminPortalClick = (e: React.MouseEvent) => {
+    e.preventDefault();
+    const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+    let isAdmin = false;
+    if (token) {
+      try {
+        const parts = token.split('.');
+        if (parts.length >= 2) {
+          const payload = JSON.parse(atob(parts[1]));
+          if (payload.role === 'ADMIN' || payload.role === 'PROCTOR') {
+            isAdmin = !payload.exp || (payload.exp * 1000 > Date.now());
+          }
+        }
+      } catch (err) {}
+    }
+
+    if (isAdmin) {
+      router.push('/admin/monitoring');
+    } else {
+      router.push('/login?role=admin');
+    }
+  };
+
   return (
     <div className="min-h-screen flex flex-col font-sans bg-slate-50">
       <header className="bg-white border-b border-slate-200 py-4 px-8 flex justify-between items-center shadow-sm">
@@ -34,9 +62,12 @@ export default function LandingPage() {
             <Link href="/login" className="w-full sm:w-auto px-8 py-4 bg-blue-600 text-white rounded-xl font-bold text-lg hover:bg-blue-700 shadow-lg hover:shadow-xl transition-all transform hover:-translate-y-0.5">
               Candidate Login
             </Link>
-            <Link href="/admin/monitoring" className="w-full sm:w-auto px-8 py-4 bg-white text-slate-800 border-2 border-slate-200 rounded-xl font-bold text-lg hover:border-blue-300 hover:bg-slate-50 shadow-sm transition-all flex items-center justify-center">
+            <button 
+              onClick={handleAdminPortalClick} 
+              className="w-full sm:w-auto px-8 py-4 bg-white text-slate-800 border-2 border-slate-200 rounded-xl font-bold text-lg hover:border-blue-300 hover:bg-slate-50 shadow-sm transition-all flex items-center justify-center cursor-pointer"
+            >
               <Lock className="w-5 h-5 mr-2 text-slate-500" /> Admin Portal
-            </Link>
+            </button>
           </div>
         </div>
 

@@ -20,10 +20,13 @@ api.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response?.status === 401) {
-      if (typeof window !== 'undefined') {
+      const isAuthEndpoint = error.config?.url?.includes('/auth/');
+      if (!isAuthEndpoint && typeof window !== 'undefined') {
         localStorage.removeItem('token');
-        // Use replace to avoid back-button loop after logout
-        window.location.replace('/login');
+        localStorage.removeItem('user');
+        if (!window.location.pathname.startsWith('/login') && !window.location.pathname.startsWith('/register')) {
+          window.location.replace('/login');
+        }
       }
     }
     return Promise.reject(error);

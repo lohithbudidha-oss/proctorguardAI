@@ -1,13 +1,17 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, Suspense } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
-import { ShieldCheck, Mail, Lock, ArrowRight, Fingerprint, Activity, Eye, EyeOff } from 'lucide-react';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { ShieldCheck, Mail, Lock, ArrowRight, ArrowLeft, Fingerprint, Activity, Eye, EyeOff } from 'lucide-react';
 import api from '@/lib/api';
 
-export default function LoginPage() {
+function LoginContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const roleParam = searchParams.get('role');
+  const isAdminLogin = roleParam === 'admin';
+
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -24,6 +28,7 @@ export default function LoginPage() {
       const { token, user } = res.data;
       
       localStorage.setItem('token', token);
+      localStorage.setItem('user', JSON.stringify(user));
       
       if (user.role === 'CANDIDATE') {
         router.push('/candidate/dashboard');
@@ -90,15 +95,36 @@ export default function LoginPage() {
       {/* Right Side - Login Form */}
       <div className="w-full lg:w-1/2 flex items-center justify-center bg-white p-8 sm:p-12 lg:p-24 relative">
         <div className="w-full max-w-md">
-          <div className="lg:hidden flex items-center space-x-3 mb-10">
+          <div className="mb-6">
+            <Link 
+              href="/" 
+              className="inline-flex items-center text-sm font-semibold text-slate-500 hover:text-slate-800 transition-colors group"
+            >
+              <ArrowLeft className="w-4 h-4 mr-1.5 group-hover:-translate-x-1 transition-transform" /> 
+              Back to Home
+            </Link>
+          </div>
+
+          <div className="lg:hidden flex items-center space-x-3 mb-8">
             <div className="bg-blue-600 p-2 rounded-xl">
               <ShieldCheck className="w-8 h-8 text-white" />
             </div>
             <span className="text-2xl font-bold text-slate-900 tracking-tight">ProctorGuard AI</span>
           </div>
 
-          <h2 className="text-3xl font-bold text-slate-900 mb-2">Welcome back</h2>
-          <p className="text-slate-500 mb-8 font-medium">Sign in to your account to continue</p>
+          {isAdminLogin && (
+            <div className="inline-flex items-center space-x-1.5 px-3 py-1 bg-blue-50 text-blue-700 border border-blue-200 rounded-full text-xs font-bold mb-3 shadow-xs">
+              <Lock className="w-3.5 h-3.5 text-blue-600" />
+              <span>Admin & Proctor Portal</span>
+            </div>
+          )}
+
+          <h2 className="text-3xl font-bold text-slate-900 mb-2">
+            {isAdminLogin ? 'Admin Sign In' : 'Welcome back'}
+          </h2>
+          <p className="text-slate-500 mb-8 font-medium">
+            {isAdminLogin ? 'Sign in with your administrative credentials' : 'Sign in to your account to continue'}
+          </p>
 
           <form onSubmit={handleLogin} className="space-y-6">
             {error && (
@@ -119,7 +145,7 @@ export default function LoginPage() {
                   value={email}
                   onChange={e => setEmail(e.target.value)}
                   className="block w-full pl-10 pr-3 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all bg-slate-50 hover:bg-slate-100 focus:bg-white text-slate-900 font-medium placeholder:font-normal"
-                  placeholder="admin@example.com"
+                  placeholder={isAdminLogin ? "admin@proctorguard.ai" : "user@example.com"}
                   suppressHydrationWarning
                 />
               </div>
@@ -183,5 +209,17 @@ export default function LoginPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-[#0B0F19] flex items-center justify-center">
+        <div className="w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
+      </div>
+    }>
+      <LoginContent />
+    </Suspense>
   );
 }

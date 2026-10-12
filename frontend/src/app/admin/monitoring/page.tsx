@@ -125,7 +125,7 @@ export default function CandidateExamRecordsPage() {
       console.error('Failed fetching candidate records', err);
       setLoading(false);
       if (err.response && (err.response.status === 401 || err.response.status === 403)) {
-        router.push('/login?error=unauthorized');
+        router.replace('/login?role=admin');
       }
     });
   };
