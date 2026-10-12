@@ -62,7 +62,7 @@ function EvidenceContent() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {chunks.map((c, i) => (
                   <div key={i} className="rounded-lg overflow-hidden border border-slate-200">
-                    <div className="bg-slate-800 text-slate-300 text-xs p-2 flex justify-between">
+                    <div className="bg-slate-100 text-slate-700 font-semibold border-b border-slate-200 text-xs p-2 flex justify-between">
                       <span>Chunk #{c.chunkIndex}</span>
                       <span>{new Date(c.createdAt).toLocaleTimeString()}</span>
                     </div>

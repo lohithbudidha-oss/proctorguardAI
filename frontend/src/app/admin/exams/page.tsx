@@ -219,7 +219,7 @@ export default function AdminExamsPage() {
             <Link href="/admin/candidates" className="px-5 py-2.5 bg-indigo-600 text-white font-semibold rounded-lg hover:bg-indigo-700 transition shadow-sm">
               Candidates
             </Link>
-            <Link href="/admin/monitoring" className="px-5 py-2.5 bg-slate-800 text-white font-semibold rounded-lg hover:bg-slate-700 transition shadow-sm">
+            <Link href="/admin/monitoring" className="px-5 py-2.5 bg-white text-slate-700 border border-slate-200 font-semibold rounded-lg hover:bg-slate-50 transition shadow-xs">
               Exam Candidates
             </Link>
             <button 
@@ -632,7 +632,7 @@ export default function AdminExamsPage() {
             <div className="px-6 py-4 border-t border-slate-100 bg-slate-50 flex justify-end">
               <button 
                 onClick={() => setIsViewModalOpen(false)}
-                className="px-6 py-2 bg-slate-800 text-white font-semibold rounded-lg hover:bg-slate-700 transition"
+                className="px-6 py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold rounded-xl transition border border-slate-200"
               >
                 Close
               </button>
