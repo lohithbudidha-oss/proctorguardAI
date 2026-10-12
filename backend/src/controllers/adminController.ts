@@ -174,11 +174,27 @@ export const getViolations = async (req: Request, res: Response, next: NextFunct
   try {
     const violations = await ViolationEvent.find()
       .populate('candidateId', 'name email')
-      .populate({ path: 'attemptId', populate: { path: 'examId', select: 'title' } })
+      .populate({ path: 'attemptId', populate: { path: 'examId', select: 'title description duration totalMarks passPercentage' } })
       .sort({ detectedAt: -1 })
-      .limit(100);
+      .limit(200);
+
+    // Fetch all exams/attempts written by the flagged candidates
+    const candidateIds = Array.from(
+      new Set(
+        violations
+          .map((v: any) => v.candidateId?._id?.toString() || v.candidateId?.toString())
+          .filter(Boolean)
+      )
+    );
+
+    let candidateAttempts: any[] = [];
+    if (candidateIds.length > 0) {
+      candidateAttempts = await Attempt.find({ candidateId: { $in: candidateIds } })
+        .populate('examId', 'title description duration totalMarks passPercentage')
+        .sort({ createdAt: -1 });
+    }
       
-    res.status(200).json({ success: true, violations });
+    res.status(200).json({ success: true, violations, candidateAttempts });
   } catch (err) {
     next(err);
   }

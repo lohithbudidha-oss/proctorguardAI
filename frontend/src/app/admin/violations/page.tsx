@@ -57,6 +57,26 @@ interface ViolationItem {
   driveFolderUrl?: string;
 }
 
+export interface CandidateExamSummary {
+  examId: string;
+  attemptId: string;
+  examTitle: string;
+  attemptStatus?: string;
+  startedAt?: string;
+  submittedAt?: string;
+  duration?: number;
+  score?: number;
+  percentage?: number;
+  violations: ViolationItem[];
+  totalViolations: number;
+  criticalCount: number;
+  highCount: number;
+  mediumCount: number;
+  lowCount: number;
+  proofCount: number;
+  latestScreenshot?: string;
+}
+
 interface CandidateViolationGroup {
   key: string;
   candidateId?: {
@@ -80,14 +100,18 @@ interface CandidateViolationGroup {
   uniqueTypes: string[];
   latestScreenshot?: string;
   driveUrl?: string;
+  examsWrittenCount: number;
+  exams: CandidateExamSummary[];
 }
 
 export default function ViolationQueuePage() {
   const [violations, setViolations] = useState<ViolationItem[]>([]);
+  const [candidateAttempts, setCandidateAttempts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [severityFilter, setSeverityFilter] = useState<string>('ALL');
   const [selectedCandidateKey, setSelectedCandidateKey] = useState<string | null>(null);
+  const [selectedExamKey, setSelectedExamKey] = useState<string>('ALL');
   const [selectedProof, setSelectedProof] = useState<ViolationItem | null>(null);
   const [activeRealtimeAlert, setActiveRealtimeAlert] = useState<ViolationItem | null>(null);
   const [driveStatus, setDriveStatus] = useState<any>(null);
@@ -195,6 +219,7 @@ export default function ViolationQueuePage() {
         screenshot: v.screenshot || v.snapshotImage || v.image,
         snapshotImage: v.screenshot || v.snapshotImage || v.image
       }));
+      setCandidateAttempts(res.data.candidateAttempts || []);
 
       // Merge client-cached evidence screenshots for complete zero-loss guarantee
       try {
@@ -259,7 +284,7 @@ export default function ViolationQueuePage() {
     }
   };
 
-  // Group violations by candidate
+  // Group violations by candidate, then by exams written by each candidate
   const candidateGroups = useMemo<CandidateViolationGroup[]>(() => {
     const map = new Map<string, CandidateViolationGroup>();
 
@@ -293,7 +318,9 @@ export default function ViolationQueuePage() {
           highestSeverity: v.severity,
           uniqueTypes: [v.type],
           latestScreenshot: v.screenshot,
-          driveUrl: v.driveUrl || v.driveFolderUrl
+          driveUrl: v.driveUrl || v.driveFolderUrl,
+          examsWrittenCount: 0,
+          exams: []
         });
       } else {
         const group = map.get(candidateKey)!;
@@ -315,7 +342,6 @@ export default function ViolationQueuePage() {
           group.driveUrl = v.driveUrl || v.driveFolderUrl;
         }
 
-        // Check if this violation is newer than the recorded latest
         if (new Date(v.detectedAt).getTime() > new Date(group.latestViolation.detectedAt).getTime()) {
           group.latestViolation = v;
           if (v.screenshot) {
@@ -323,7 +349,6 @@ export default function ViolationQueuePage() {
           }
         }
 
-        // Rank highest severity
         const rank: Record<string, number> = { CRITICAL: 4, HIGH: 3, MEDIUM: 2, LOW: 1 };
         if ((rank[v.severity] || 0) > (rank[group.highestSeverity] || 0)) {
           group.highestSeverity = v.severity;
@@ -335,11 +360,109 @@ export default function ViolationQueuePage() {
       }
     });
 
+    // Populate all exams written by each candidate
+    map.forEach((group) => {
+      const examMap = new Map<string, CandidateExamSummary>();
+      const candIdStr = group.candidateId?._id?.toString();
+      const candEmailStr = group.candidateEmail?.toLowerCase().trim();
+
+      // 1. Process all attempts belonging to this candidate
+      candidateAttempts.forEach((att: any) => {
+        const attCandId = (att.candidateId?._id || att.candidateId)?.toString();
+        const attCandEmail = att.candidateId?.email?.toLowerCase().trim();
+        const matches = (candIdStr && attCandId === candIdStr) || (candEmailStr && attCandEmail === candEmailStr);
+
+        if (matches) {
+          const attemptId = att._id?.toString() || '';
+          const examId = (att.examId?._id || att.examId)?.toString() || attemptId;
+          const examKey = attemptId || examId;
+          const exTitle = att.examId?.title || 'Examination Assessment';
+
+          examMap.set(examKey, {
+            examId,
+            attemptId,
+            examTitle: exTitle,
+            attemptStatus: att.status,
+            startedAt: att.startedAt || att.createdAt,
+            submittedAt: att.submittedAt,
+            duration: att.examId?.duration,
+            score: att.score,
+            percentage: att.percentage,
+            violations: [],
+            totalViolations: 0,
+            criticalCount: 0,
+            highCount: 0,
+            mediumCount: 0,
+            lowCount: 0,
+            proofCount: 0
+          });
+        }
+      });
+
+      // 2. Associate violations to exams, and insert any exams from violations that were missing
+      group.violations.forEach((v) => {
+        const vAttemptId = v.attemptId?._id?.toString() || (v.attemptId as any)?.toString() || '';
+        const vExamId = v.attemptId?.examId?._id?.toString() || (v.attemptId?.examId as any)?.toString() || '';
+        const vExamTitle = v.attemptId?.examId?.title || 'Examination Assessment';
+
+        let existingEx: CandidateExamSummary | undefined = undefined;
+        if (vAttemptId && examMap.has(vAttemptId)) {
+          existingEx = examMap.get(vAttemptId);
+        } else if (vExamId && examMap.has(vExamId)) {
+          existingEx = examMap.get(vExamId);
+        } else {
+          existingEx = Array.from(examMap.values()).find(
+            (ex) => (vAttemptId && ex.attemptId === vAttemptId) || (vExamId && ex.examId === vExamId)
+          );
+        }
+
+        let targetKey = existingEx ? (existingEx.attemptId || existingEx.examId) : (vAttemptId || vExamId || ('general_exam_' + group.key));
+
+        if (!existingEx) {
+          existingEx = {
+            examId: vExamId || targetKey,
+            attemptId: vAttemptId || targetKey,
+            examTitle: vExamTitle,
+            startedAt: v.detectedAt,
+            violations: [],
+            totalViolations: 0,
+            criticalCount: 0,
+            highCount: 0,
+            mediumCount: 0,
+            lowCount: 0,
+            proofCount: 0
+          };
+          examMap.set(targetKey, existingEx);
+        }
+
+        existingEx.violations.push(v);
+        existingEx.totalViolations += 1;
+        if (v.severity === 'CRITICAL') existingEx.criticalCount += 1;
+        if (v.severity === 'HIGH') existingEx.highCount += 1;
+        if (v.severity === 'MEDIUM') existingEx.mediumCount += 1;
+        if (v.severity === 'LOW') existingEx.lowCount += 1;
+        if (v.screenshot) {
+          existingEx.proofCount += 1;
+          if (!existingEx.latestScreenshot) {
+            existingEx.latestScreenshot = v.screenshot;
+          }
+        }
+      });
+
+      // Sort candidate's exams: exams with violations first, then by date desc
+      const sortedExams = Array.from(examMap.values()).sort(
+        (a, b) => b.totalViolations - a.totalViolations || new Date(b.startedAt || 0).getTime() - new Date(a.startedAt || 0).getTime()
+      );
+
+      group.exams = sortedExams;
+      group.examsWrittenCount = sortedExams.length;
+    });
+
     // Sort candidate groups by latest detected violation descending
     return Array.from(map.values()).sort(
       (a, b) => new Date(b.latestViolation.detectedAt).getTime() - new Date(a.latestViolation.detectedAt).getTime()
     );
-  }, [violations]);
+  }, [violations, candidateAttempts]);
 
   // Filter groups according to search query and severity
   const filteredGroups = useMemo(() => {
@@ -355,16 +478,22 @@ export default function ViolationQueuePage() {
       if (!matchesSeverity) return false;
       if (queryTokens.length === 0) return true;
 
-      // 2. Build rich searchable blob for this candidate
+      // 2. Build rich searchable blob for this candidate including all exams written
       const searchParts: string[] = [
         g.candidateName || '',
         g.candidateEmail || '',
-        g.examTitle || '',
         g.highestSeverity || '',
         g.key || '',
         `${g.totalViolations} violations`,
+        `${g.examsWrittenCount} exams written`,
         g.proofCount > 0 ? `${g.proofCount} proofs screenshots images snapshots` : 'no snapshots'
       ];
+
+      // Index all exams written by this candidate
+      g.exams.forEach((ex) => {
+        searchParts.push(ex.examTitle || '');
+        searchParts.push(ex.attemptStatus || '');
+      });
 
       g.violations.forEach((v) => {
         searchParts.push(v.type || '');
@@ -395,6 +524,33 @@ export default function ViolationQueuePage() {
     if (!selectedCandidateKey) return null;
     return candidateGroups.find((g) => g.key === selectedCandidateKey) || null;
   }, [selectedCandidateKey, candidateGroups]);
+
+  // Selected exam within the candidate modal
+  const selectedExam = useMemo(() => {
+    if (!activeCandidateGroup || selectedExamKey === 'ALL') return null;
+    return (
+      activeCandidateGroup.exams.find(
+        (ex) =>
+          (ex.attemptId && ex.attemptId === selectedExamKey) ||
+          (ex.examId && ex.examId === selectedExamKey)
+      ) || null
+    );
+  }, [activeCandidateGroup, selectedExamKey]);
+
+  // Violations filtered by chosen exam
+  const displayedViolations = useMemo(() => {
+    if (!activeCandidateGroup) return [];
+    if (selectedExamKey === 'ALL') return activeCandidateGroup.violations;
+
+    if (selectedExam) {
+      return selectedExam.violations;
+    }
+    return activeCandidateGroup.violations.filter((v) => {
+      const aId = v.attemptId?._id?.toString() || (v.attemptId as any)?.toString();
+      const eId = v.attemptId?.examId?._id?.toString() || (v.attemptId?.examId as any)?.toString();
+      return aId === selectedExamKey || eId === selectedExamKey;
+    });
+  }, [activeCandidateGroup, selectedExamKey, selectedExam]);
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-800 flex flex-col font-sans selection:bg-rose-500/20">
@@ -595,7 +751,7 @@ export default function ViolationQueuePage() {
                 <thead>
                   <tr className="bg-slate-50/80 border-b border-slate-200 text-slate-500 text-xs font-extrabold uppercase tracking-wider">
                     <th className="p-4">Candidate</th>
-                    <th className="p-4">Exam Assessment</th>
+                    <th className="p-4">Exams Written</th>
                     <th className="p-4">Violations Committed</th>
                     <th className="p-4">Highest Severity</th>
                     <th className="p-4">Evidence Proofs</th>
@@ -615,7 +771,10 @@ export default function ViolationQueuePage() {
                     return (
                       <tr 
                         key={group.key} 
-                        onClick={() => setSelectedCandidateKey(group.key)}
+                        onClick={() => {
+                          setSelectedCandidateKey(group.key);
+                          setSelectedExamKey('ALL');
+                        }}
                         className="hover:bg-rose-50/30 transition-colors group cursor-pointer"
                       >
                         {/* Candidate Column */}
@@ -638,13 +797,42 @@ export default function ViolationQueuePage() {
                           </div>
                         </td>
 
-                        {/* Exam Assessment */}
+                        {/* Exams Written by Candidate */}
                         <td className="p-4">
-                          <div className="flex items-center text-slate-800 font-bold">
-                            <BookOpen className="w-4 h-4 text-blue-500 mr-2 shrink-0" />
-                            <span className="truncate max-w-[200px]" title={group.examTitle}>
-                              {group.examTitle}
-                            </span>
+                          <div className="flex flex-col gap-1.5 max-w-xs">
+                            <div className="flex items-center space-x-2">
+                              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-black bg-blue-50 text-blue-700 border border-blue-200 shadow-2xs">
+                                <BookOpen className="w-3.5 h-3.5 mr-1.5 text-blue-500" />
+                                {group.examsWrittenCount} {group.examsWrittenCount === 1 ? 'Exam Written' : 'Exams Written'}
+                              </span>
+                            </div>
+                            {/* Exam pills */}
+                            <div className="flex flex-wrap gap-1">
+                              {group.exams.map((ex, idx) => (
+                                <button
+                                  key={ex.attemptId || ex.examId || idx}
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setSelectedCandidateKey(group.key);
+                                    setSelectedExamKey(ex.attemptId || ex.examId);
+                                  }}
+                                  title={`Click to check violations for "${ex.examTitle}"`}
+                                  className="inline-flex items-center text-[11px] font-bold px-2 py-0.5 rounded-lg border bg-slate-50 hover:bg-rose-50 hover:border-rose-300 text-slate-700 hover:text-rose-700 transition max-w-[210px]"
+                                >
+                                  <span className="truncate mr-1.5">{ex.examTitle}</span>
+                                  {ex.totalViolations > 0 ? (
+                                    <span className="shrink-0 text-[10px] font-black px-1.5 py-0.2 rounded bg-rose-100 text-rose-700 border border-rose-200">
+                                      {ex.totalViolations}
+                                    </span>
+                                  ) : (
+                                    <span className="shrink-0 text-[10px] font-semibold px-1 py-0.2 rounded bg-emerald-100 text-emerald-700 border border-emerald-200">
+                                      ✓ Clean
+                                    </span>
+                                  )}
+                                </button>
+                              ))}
+                            </div>
                           </div>
                         </td>
 
@@ -729,6 +917,7 @@ export default function ViolationQueuePage() {
                             onClick={(e) => {
                               e.stopPropagation();
                               setSelectedCandidateKey(group.key);
+                              setSelectedExamKey('ALL');
                             }}
                             className="inline-flex items-center px-3.5 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 font-bold text-xs rounded-xl border border-rose-200 transition-colors shadow-2xs group-hover:bg-rose-600 group-hover:text-white group-hover:border-rose-600"
                           >
@@ -766,6 +955,9 @@ export default function ViolationQueuePage() {
                     <h2 className="text-lg font-black text-slate-900">
                       {activeCandidateGroup.candidateName}
                     </h2>
+                    <span className="text-xs px-2.5 py-0.5 rounded-full font-extrabold bg-blue-50 text-blue-700 border border-blue-200">
+                      {activeCandidateGroup.examsWrittenCount} {activeCandidateGroup.examsWrittenCount === 1 ? 'Exam Written' : 'Exams Written'}
+                    </span>
                     <span className="text-xs px-2.5 py-0.5 rounded-full font-extrabold bg-rose-50 text-rose-700 border border-rose-200">
                       {activeCandidateGroup.totalViolations} {activeCandidateGroup.totalViolations === 1 ? 'Violation' : 'Violations'} Recorded
                     </span>
@@ -775,11 +967,6 @@ export default function ViolationQueuePage() {
                   </div>
                   <div className="flex items-center space-x-4 text-xs text-slate-500 font-mono mt-1">
                     <span>{activeCandidateGroup.candidateEmail}</span>
-                    <span>&bull;</span>
-                    <span className="font-bold text-slate-700 flex items-center">
-                      <BookOpen className="w-3.5 h-3.5 mr-1 text-blue-500" />
-                      {activeCandidateGroup.examTitle}
-                    </span>
                   </div>
                 </div>
               </div>
@@ -807,6 +994,10 @@ export default function ViolationQueuePage() {
             {/* Quick Metrics Bar for this Candidate */}
             <div className="bg-slate-100/70 border-b border-slate-200 px-6 py-3 flex items-center justify-between flex-wrap gap-2 text-xs font-bold text-slate-600">
               <div className="flex items-center space-x-4">
+                <span className="flex items-center text-blue-700">
+                  <BookOpen className="w-3.5 h-3.5 mr-1 text-blue-500" />
+                  {activeCandidateGroup.examsWrittenCount} {activeCandidateGroup.examsWrittenCount === 1 ? 'Exam Written' : 'Exams Written'}
+                </span>
                 <span className="flex items-center text-rose-700">
                   <ShieldAlert className="w-3.5 h-3.5 mr-1 text-rose-500" />
                   {activeCandidateGroup.criticalCount} Critical
@@ -825,161 +1016,334 @@ export default function ViolationQueuePage() {
               </span>
             </div>
 
-            {/* Violations List for this Candidate */}
-            <div className="p-6 space-y-5 bg-slate-50/50">
-              <div className="flex items-center justify-between">
-                <h3 className="text-xs font-extrabold uppercase tracking-wider text-slate-500 flex items-center">
-                  <Layers className="w-4 h-4 mr-1.5 text-slate-400" />
-                  Violations Timeline for {activeCandidateGroup.candidateName} ({activeCandidateGroup.violations.length})
-                </h3>
+            {/* Exams Written by Candidate Overview & Interactive Filter Selector */}
+            <div className="bg-white border-b border-slate-200 px-6 py-4 space-y-3">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                <div>
+                  <h3 className="text-xs font-black uppercase tracking-wider text-slate-800 flex items-center">
+                    <BookOpen className="w-4 h-4 mr-1.5 text-blue-600" />
+                    Exams Written by Candidate ({activeCandidateGroup.examsWrittenCount})
+                  </h3>
+                  <p className="text-[11px] text-slate-500 mt-0.5">
+                    Select an exam below or choose from the dropdown to check violations specifically for that assessment.
+                  </p>
+                </div>
+
+                {/* Quick Dropdown Filter */}
+                <div className="flex items-center space-x-2">
+                  <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider shrink-0">Filter Exam:</span>
+                  <select
+                    value={selectedExamKey}
+                    onChange={(e) => setSelectedExamKey(e.target.value)}
+                    className="bg-slate-50 border border-slate-300 rounded-xl px-3 py-1.5 text-xs font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 transition cursor-pointer max-w-[280px] truncate"
+                  >
+                    <option value="ALL">
+                      All Exams Written ({activeCandidateGroup.examsWrittenCount} Exams • {activeCandidateGroup.totalViolations} Violations)
+                    </option>
+                    {activeCandidateGroup.exams.map((ex) => (
+                      <option 
+                        key={ex.attemptId || ex.examId} 
+                        value={ex.attemptId || ex.examId}
+                      >
+                        {ex.examTitle} ({ex.totalViolations} {ex.totalViolations === 1 ? 'Violation' : 'Violations'}{ex.attemptStatus ? ` • ${ex.attemptStatus}` : ''})
+                      </option>
+                    ))}
+                  </select>
+                </div>
               </div>
 
-              {activeCandidateGroup.violations.map((v, idx) => {
-                const info = getViolationInfo(v.type, v.description);
-                return (
-                  <div 
-                    key={v._id || idx}
-                    className="bg-white border border-slate-200 rounded-2xl p-5 shadow-xs hover:border-rose-200 transition-colors"
-                  >
-                    {/* Violation Header */}
-                    <div className="flex items-start justify-between flex-wrap gap-3 pb-4 border-b border-slate-100">
-                      <div className="flex items-center space-x-3">
-                        <span className="text-xs font-black bg-slate-100 text-slate-600 px-2.5 py-1 rounded-lg border border-slate-200">
-                          #{activeCandidateGroup.violations.length - idx}
+              {/* Interactive Exam Cards / Tabs */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2.5 pt-1">
+                {/* 'All Exams' Card Button */}
+                <button
+                  type="button"
+                  onClick={() => setSelectedExamKey('ALL')}
+                  className={`text-left p-3 rounded-2xl border transition flex flex-col justify-between ${
+                    selectedExamKey === 'ALL'
+                      ? 'bg-blue-50/80 border-blue-500 ring-2 ring-blue-500/20 shadow-xs'
+                      : 'bg-slate-50 hover:bg-slate-100 border-slate-200'
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-extrabold text-slate-900 flex items-center">
+                      <Layers className="w-3.5 h-3.5 mr-1 text-blue-600" />
+                      All Exams Combined
+                    </span>
+                    <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-blue-100 text-blue-700">
+                      {activeCandidateGroup.examsWrittenCount} Written
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between mt-2 text-[11px]">
+                    <span className="font-bold text-rose-700">
+                      {activeCandidateGroup.totalViolations} Total Violations
+                    </span>
+                    <span className="text-slate-500 text-[10px]">
+                      {activeCandidateGroup.proofCount} Proofs
+                    </span>
+                  </div>
+                </button>
+
+                {/* Individual Exam Cards */}
+                {activeCandidateGroup.exams.map((ex) => {
+                  const isSelected = (ex.attemptId && ex.attemptId === selectedExamKey) || (ex.examId && ex.examId === selectedExamKey);
+                  return (
+                    <button
+                      key={ex.attemptId || ex.examId}
+                      type="button"
+                      onClick={() => setSelectedExamKey(ex.attemptId || ex.examId)}
+                      className={`text-left p-3 rounded-2xl border transition flex flex-col justify-between ${
+                        isSelected
+                          ? 'bg-rose-50/80 border-rose-500 ring-2 ring-rose-500/20 shadow-xs'
+                          : 'bg-white hover:bg-slate-50 border-slate-200'
+                      }`}
+                    >
+                      <div className="flex items-start justify-between gap-1.5">
+                        <span className="text-xs font-extrabold text-slate-900 line-clamp-1" title={ex.examTitle}>
+                          {ex.examTitle}
                         </span>
-                        <div>
-                          <div className="flex items-center space-x-2">
-                            <span className="font-extrabold text-sm text-slate-900">
-                              {info.title}
-                            </span>
-                            <span className={`text-[11px] font-extrabold px-2.5 py-0.5 rounded-full border ${getSeverityBadge(v.severity)}`}>
-                              {v.severity}
-                            </span>
-                            <span className="text-[11px] font-mono font-bold bg-slate-100 text-slate-600 px-2 py-0.5 rounded-md border border-slate-200">
-                              {info.categoryLabel}
-                            </span>
+                        {ex.attemptStatus && (
+                          <span className="shrink-0 text-[9px] font-bold uppercase px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 border border-slate-200">
+                            {ex.attemptStatus}
+                          </span>
+                        )}
+                      </div>
+                      
+                      <div className="flex items-center justify-between mt-2 text-[11px]">
+                        {ex.totalViolations > 0 ? (
+                          <span className="font-extrabold text-rose-700 flex items-center">
+                            <AlertTriangle className="w-3 h-3 mr-1 text-rose-500" />
+                            {ex.totalViolations} {ex.totalViolations === 1 ? 'Violation' : 'Violations'}
+                          </span>
+                        ) : (
+                          <span className="font-extrabold text-emerald-700 flex items-center">
+                            <CheckCircle2 className="w-3 h-3 mr-1 text-emerald-600" />
+                            Clean (0 Violations)
+                          </span>
+                        )}
+
+                        {ex.proofCount > 0 ? (
+                          <span className="text-indigo-600 text-[10px] font-bold flex items-center">
+                            <Camera className="w-3 h-3 mr-0.5" />
+                            {ex.proofCount} Proofs
+                          </span>
+                        ) : (
+                          <span className="text-slate-400 text-[10px]">
+                            {ex.startedAt ? new Date(ex.startedAt).toLocaleDateString() : 'Attempted'}
+                          </span>
+                        )}
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Violations List for chosen exam */}
+            <div className="p-6 space-y-5 bg-slate-50/50">
+              <div className="flex items-center justify-between flex-wrap gap-2">
+                <h3 className="text-xs font-extrabold uppercase tracking-wider text-slate-600 flex items-center">
+                  <Layers className="w-4 h-4 mr-1.5 text-slate-400" />
+                  {selectedExam ? (
+                    <span>
+                      Violations for: <span className="text-slate-900 font-black">{selectedExam.examTitle}</span> ({displayedViolations.length})
+                    </span>
+                  ) : (
+                    <span>
+                      Violations Timeline Across All Written Exams ({displayedViolations.length})
+                    </span>
+                  )}
+                </h3>
+
+                {selectedExamKey !== 'ALL' && (
+                  <button
+                    type="button"
+                    onClick={() => setSelectedExamKey('ALL')}
+                    className="text-xs font-bold text-blue-600 hover:text-blue-800 flex items-center hover:underline"
+                  >
+                    &larr; View Violations For All Exams
+                  </button>
+                )}
+              </div>
+
+              {/* When no violations exist for selected exam */}
+              {displayedViolations.length === 0 ? (
+                <div className="bg-white border border-emerald-200 rounded-3xl p-10 flex flex-col items-center text-center shadow-xs">
+                  <div className="w-14 h-14 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center mb-3 border border-emerald-200 shadow-2xs">
+                    <ShieldCheck className="w-8 h-8" />
+                  </div>
+                  <h4 className="text-base font-black text-slate-900">
+                    Clean Examination Attempt
+                  </h4>
+                  <p className="text-slate-600 text-xs max-w-md mt-1.5 leading-relaxed">
+                    Zero violations logged for <span className="font-bold text-slate-800">{selectedExam?.examTitle || 'this exam'}</span>. 
+                    The candidate completed this examination session without any recorded suspicious activity or integrity breaches.
+                  </p>
+                  <div className="mt-4 flex items-center space-x-3 text-xs font-mono">
+                    <span className="px-3 py-1 rounded-lg bg-slate-100 text-slate-700 font-bold border border-slate-200">
+                      Status: {selectedExam?.attemptStatus || 'COMPLETED'}
+                    </span>
+                    {selectedExam?.duration && (
+                      <span className="px-3 py-1 rounded-lg bg-slate-100 text-slate-700 font-bold border border-slate-200">
+                        Duration: {selectedExam.duration} mins
+                      </span>
+                    )}
+                  </div>
+                </div>
+              ) : (
+                displayedViolations.map((v, idx) => {
+                  const info = getViolationInfo(v.type, v.description);
+                  const examTitle = v.attemptId?.examId?.title || 'Examination Assessment';
+                  return (
+                    <div 
+                      key={v._id || idx}
+                      className="bg-white border border-slate-200 rounded-2xl p-5 shadow-xs hover:border-rose-200 transition-colors"
+                    >
+                      {/* Violation Header */}
+                      <div className="flex items-start justify-between flex-wrap gap-3 pb-4 border-b border-slate-100">
+                        <div className="flex items-center space-x-3">
+                          <span className="text-xs font-black bg-slate-100 text-slate-600 px-2.5 py-1 rounded-lg border border-slate-200">
+                            #{displayedViolations.length - idx}
+                          </span>
+                          <div>
+                            <div className="flex items-center space-x-2 flex-wrap gap-y-1">
+                              <span className="font-extrabold text-sm text-slate-900">
+                                {info.title}
+                              </span>
+                              <span className={`text-[11px] font-extrabold px-2.5 py-0.5 rounded-full border ${getSeverityBadge(v.severity)}`}>
+                                {v.severity}
+                              </span>
+                              <span className="text-[11px] font-mono font-bold bg-slate-100 text-slate-600 px-2 py-0.5 rounded-md border border-slate-200">
+                                {info.categoryLabel}
+                              </span>
+                              {selectedExamKey === 'ALL' && (
+                                <span className="text-[11px] font-bold bg-blue-50 text-blue-700 px-2.5 py-0.5 rounded-md border border-blue-200 flex items-center">
+                                  <BookOpen className="w-3 h-3 mr-1 text-blue-500" />
+                                  {examTitle}
+                                </span>
+                              )}
+                            </div>
+                            <div className="flex items-center space-x-3 text-xs text-slate-500 font-mono mt-1">
+                              <span className="flex items-center">
+                                <Calendar className="w-3 h-3 mr-1 text-slate-400" />
+                                {new Date(v.detectedAt).toLocaleString()}
+                              </span>
+                              {v.source && (
+                                <span>&bull; Source: <span className="font-semibold text-slate-700">{v.source}</span></span>
+                              )}
+                            </div>
                           </div>
-                          <div className="flex items-center space-x-3 text-xs text-slate-500 font-mono mt-1">
-                            <span className="flex items-center">
-                              <Calendar className="w-3 h-3 mr-1 text-slate-400" />
-                              {new Date(v.detectedAt).toLocaleString()}
+                        </div>
+
+                        <div className="flex items-center space-x-2">
+                          <span className="text-xs font-bold text-slate-600 bg-slate-100 px-2.5 py-1 rounded-md border border-slate-200">
+                            Action: {v.actionTaken || 'LOGGED'}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Violation Content: Proof Image & Explanation */}
+                      <div className="mt-4 grid grid-cols-1 md:grid-cols-12 gap-5 items-start">
+                        {/* Screenshot proof */}
+                        <div className="md:col-span-5">
+                          {v.screenshot ? (
+                            <div 
+                              onClick={() => setSelectedProof(v)}
+                              className="relative group/thumb cursor-pointer w-full h-44 rounded-xl overflow-hidden border border-slate-200 hover:border-rose-500 shadow-sm bg-slate-900 transition-all transform hover:scale-[1.02]"
+                              title="Click to enlarge proof snapshot"
+                            >
+                              <img 
+                                src={v.screenshot} 
+                                alt="Violation proof snapshot" 
+                                className="w-full h-full object-cover"
+                              />
+                              <div className="absolute inset-0 bg-slate-900/30 group-hover/thumb:bg-slate-900/10 transition-colors flex items-center justify-center">
+                                <span className="bg-rose-600/90 text-white text-xs font-extrabold px-3 py-1 rounded-lg shadow-md flex items-center">
+                                  <Eye className="w-3.5 h-3.5 mr-1.5" /> View Proof Snapshot
+                                </span>
+                              </div>
+                              <div className="absolute bottom-2 left-2 bg-slate-900/80 backdrop-blur-xs text-white text-[10px] font-mono px-2 py-0.5 rounded">
+                                {new Date(v.detectedAt).toLocaleTimeString()}
+                              </div>
+                            </div>
+                          ) : (
+                            <div className="w-full h-44 rounded-xl border border-dashed border-slate-200 bg-slate-50 flex flex-col items-center justify-center text-slate-400 text-xs">
+                              <Camera className="w-6 h-6 mb-1 opacity-40" />
+                              <span className="font-medium text-slate-400">No snapshot image captured</span>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Detailed Violation Explanation */}
+                        <div className="md:col-span-7 flex flex-col space-y-3">
+                          {/* What the candidate did */}
+                          <div className="bg-rose-50/80 rounded-xl p-3.5 border border-rose-200">
+                            <span className="text-[10px] font-extrabold uppercase tracking-wider text-rose-800 block mb-1">
+                              What Candidate Did During Exam:
                             </span>
-                            {v.source && (
-                              <span>&bull; Source: <span className="font-semibold text-slate-700">{v.source}</span></span>
+                            <p className="text-xs font-bold text-slate-900 leading-relaxed">
+                              {info.actionDone}
+                            </p>
+                          </div>
+
+                          {/* Examination Rule Breached */}
+                          <div className="bg-slate-50 rounded-xl p-3 border border-slate-200 text-xs">
+                            <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-500 block mb-0.5">
+                              Examination Rule Breached:
+                            </span>
+                            <p className="text-slate-800 font-medium">
+                              {info.ruleBreached}
+                            </p>
+                          </div>
+
+                          {/* Telemetry log description */}
+                          {v.description && (
+                            <div className="bg-slate-50 rounded-xl p-2.5 border border-slate-200 text-xs font-mono text-slate-600">
+                              <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400 block mb-0.5 font-sans">
+                                System Telemetry Event:
+                              </span>
+                              {v.description}
+                            </div>
+                          )}
+
+                          {/* Interactive actions for this violation */}
+                          <div className="pt-1 flex items-center space-x-3">
+                            {v.screenshot && (
+                              <button
+                                onClick={() => setSelectedProof(v)}
+                                className="text-xs font-bold text-blue-600 hover:text-blue-700 flex items-center hover:underline"
+                              >
+                                <Eye className="w-3.5 h-3.5 mr-1" /> Enlarge Snapshot Proof
+                              </button>
+                            )}
+                            {v.driveUrl && !v.driveUrl.includes('folders/') ? (
+                              <a
+                                href={v.driveUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="px-2.5 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded-lg text-xs font-bold inline-flex items-center transition border border-emerald-200"
+                                title="Directly view this snapshot proof on Google Drive"
+                              >
+                                <CheckCircle className="w-3.5 h-3.5 mr-1 text-emerald-600" />
+                                View on Drive
+                                <ExternalLink className="w-3 h-3 ml-1 opacity-70" />
+                              </a>
+                            ) : (
+                              <a
+                                href={v.driveUrl || v.driveFolderUrl || 'https://drive.google.com/drive/folders/1P_3yKzFloiMrF8Pe1XFl9Lh-nqvPTit1?usp=sharing'}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-xs font-bold text-slate-600 hover:text-slate-800 flex items-center hover:underline"
+                              >
+                                <HardDrive className="w-3.5 h-3.5 mr-1" /> Open Drive File
+                              </a>
                             )}
                           </div>
                         </div>
                       </div>
-
-                      <div className="flex items-center space-x-2">
-                        <span className="text-xs font-bold text-slate-600 bg-slate-100 px-2.5 py-1 rounded-md border border-slate-200">
-                          Action: {v.actionTaken || 'LOGGED'}
-                        </span>
-                      </div>
                     </div>
-
-                    {/* Violation Content: Proof Image & Explanation */}
-                    <div className="mt-4 grid grid-cols-1 md:grid-cols-12 gap-5 items-start">
-                      {/* Screenshot proof */}
-                      <div className="md:col-span-5">
-                        {v.screenshot ? (
-                          <div 
-                            onClick={() => setSelectedProof(v)}
-                            className="relative group/thumb cursor-pointer w-full h-44 rounded-xl overflow-hidden border border-slate-200 hover:border-rose-500 shadow-sm bg-slate-900 transition-all transform hover:scale-[1.02]"
-                            title="Click to enlarge proof snapshot"
-                          >
-                            <img 
-                              src={v.screenshot} 
-                              alt="Violation proof snapshot" 
-                              className="w-full h-full object-cover"
-                            />
-                            <div className="absolute inset-0 bg-slate-900/30 group-hover/thumb:bg-slate-900/10 transition-colors flex items-center justify-center">
-                              <span className="bg-rose-600/90 text-white text-xs font-extrabold px-3 py-1 rounded-lg shadow-md flex items-center">
-                                <Eye className="w-3.5 h-3.5 mr-1.5" /> View Proof Snapshot
-                              </span>
-                            </div>
-                            <div className="absolute bottom-2 left-2 bg-slate-900/80 backdrop-blur-xs text-white text-[10px] font-mono px-2 py-0.5 rounded">
-                              {new Date(v.detectedAt).toLocaleTimeString()}
-                            </div>
-                          </div>
-                        ) : (
-                          <div className="w-full h-44 rounded-xl border border-dashed border-slate-200 bg-slate-50 flex flex-col items-center justify-center text-slate-400 text-xs">
-                            <Camera className="w-6 h-6 mb-1 opacity-40" />
-                            <span className="font-medium text-slate-400">No snapshot image captured</span>
-                          </div>
-                        )}
-                      </div>
-
-                      {/* Detailed Violation Explanation */}
-                      <div className="md:col-span-7 flex flex-col space-y-3">
-                        {/* What the candidate did */}
-                        <div className="bg-rose-50/80 rounded-xl p-3.5 border border-rose-200">
-                          <span className="text-[10px] font-extrabold uppercase tracking-wider text-rose-800 block mb-1">
-                            What Candidate Did During Exam:
-                          </span>
-                          <p className="text-xs font-bold text-slate-900 leading-relaxed">
-                            {info.actionDone}
-                          </p>
-                        </div>
-
-                        {/* Examination Rule Breached */}
-                        <div className="bg-slate-50 rounded-xl p-3 border border-slate-200 text-xs">
-                          <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-500 block mb-0.5">
-                            Examination Rule Breached:
-                          </span>
-                          <p className="text-slate-800 font-medium">
-                            {info.ruleBreached}
-                          </p>
-                        </div>
-
-                        {/* Telemetry log description */}
-                        {v.description && (
-                          <div className="bg-slate-50 rounded-xl p-2.5 border border-slate-200 text-xs font-mono text-slate-600">
-                            <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400 block mb-0.5 font-sans">
-                              System Telemetry Event:
-                            </span>
-                            {v.description}
-                          </div>
-                        )}
-
-                        {/* Interactive actions for this violation */}
-                        <div className="pt-1 flex items-center space-x-3">
-                          {v.screenshot && (
-                            <button
-                              onClick={() => setSelectedProof(v)}
-                              className="text-xs font-bold text-blue-600 hover:text-blue-700 flex items-center hover:underline"
-                            >
-                              <Eye className="w-3.5 h-3.5 mr-1" /> Enlarge Snapshot Proof
-                            </button>
-                          )}
-                          {v.driveUrl && !v.driveUrl.includes('folders/') ? (
-                            <a
-                              href={v.driveUrl}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="px-2.5 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded-lg text-xs font-bold inline-flex items-center transition border border-emerald-200"
-                              title="Directly view this snapshot proof on Google Drive"
-                            >
-                              <CheckCircle className="w-3.5 h-3.5 mr-1 text-emerald-600" />
-                              View on Drive
-                              <ExternalLink className="w-3 h-3 ml-1 opacity-70" />
-                            </a>
-                          ) : (
-                            <a
-                              href={v.driveUrl || v.driveFolderUrl || 'https://drive.google.com/drive/folders/1P_3yKzFloiMrF8Pe1XFl9Lh-nqvPTit1?usp=sharing'}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="text-xs font-bold text-slate-600 hover:text-slate-800 flex items-center hover:underline"
-                            >
-                              <HardDrive className="w-3.5 h-3.5 mr-1" /> Open Drive File
-                            </a>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
+                  );
+                })
+              )}
             </div>
 
             {/* Drawer Footer */}

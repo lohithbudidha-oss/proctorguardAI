@@ -57,6 +57,8 @@ function AttemptContent() {
   
   const noFaceFrames = useRef(0);
   const multipleFaceFrames = useRef(0);
+  const headTurnFrames = useRef(0);
+  const lastViolationTimeRef = useRef<Record<string, number>>({});
   const isSubmittedRef = useRef(false);
   
   const [questions, setQuestions] = useState<{ id: string; text: string; type: string; options: string[]; marks: number; negativeMarks: number; correctAnswer: string }[]>([]);
@@ -385,15 +387,35 @@ function AttemptContent() {
     }
   };
 
-  function triggerAIViolation(type: 'MULTIPLE_FACES' | 'FACE_NOT_FOUND') {
+  function triggerAIViolation(
+    type: 'MULTIPLE_FACES' | 'FACE_NOT_FOUND' | 'LOOKING_AWAY' | 'UNAUTHORIZED_DEVICE' | 'TAB_SWITCH' | 'COPY_PASTE' | 'SCREEN_SHARE_STOPPED',
+    customMessage?: string
+  ) {
     if (type === 'MULTIPLE_FACES') {
-      handleViolation('MULTIPLE_FACES', 'CRITICAL', 'Multiple faces detected in the camera frame.');
+      handleViolation('MULTIPLE_FACES', 'CRITICAL', customMessage || 'Multiple faces detected in the camera frame.');
+      addWarning('Multiple individuals detected in camera view! Academic integrity policy breached.');
     } else if (type === 'FACE_NOT_FOUND') {
-      handleViolation('FACE_NOT_FOUND', 'CRITICAL', 'Candidate face turned away or left the frame.');
+      handleViolation('FACE_NOT_FOUND', 'CRITICAL', customMessage || 'Candidate face not detected in camera frame (turned away or left seat).');
+      addWarning('Your face is not visible in camera! Please face the webcam directly.');
+    } else if (type === 'LOOKING_AWAY') {
+      handleViolation('LOOKING_AWAY', 'HIGH', customMessage || 'Candidate turned their face away from the examination screen.');
+      addWarning('Head turned away! Please maintain focus directly on the examination screen.');
+    } else if (type === 'TAB_SWITCH') {
+      handleViolation('TAB_SWITCH', 'CRITICAL', customMessage || 'Switched away from active exam tab.');
+      addWarning('Switching tabs is strictly forbidden during the test.');
+    } else if (type === 'COPY_PASTE') {
+      handleViolation('COPY_PASTE', 'HIGH', customMessage || 'Candidate attempted an unauthorized copy/paste action.');
+      addWarning('Copying or pasting exam content is prohibited.');
+    } else if (type === 'SCREEN_SHARE_STOPPED') {
+      handleViolation('SCREEN_SHARE_STOPPED', 'CRITICAL', customMessage || 'Screen sharing stopped before exam submission.');
+      addWarning('Screen sharing must remain active throughout the exam.');
+    } else if (type === 'UNAUTHORIZED_DEVICE') {
+      handleViolation('UNAUTHORIZED_DEVICE', 'CRITICAL', customMessage || 'Secondary display or external monitor detected.');
+      addWarning('External displays and secondary monitors are prohibited.');
     }
   }
 
-  // AI Face Detection (Mediapipe)
+  // AI Face & Head Turn Detection (Mediapipe BlazeFace)
   useEffect(() => {
     let faceDetector: import('@mediapipe/tasks-vision').FaceDetector;
     let animationFrameId: number;
@@ -435,30 +457,80 @@ function AttemptContent() {
             const detections = faceDetector.detect(videoRef.current);
             const count = detections?.detections?.length || 0;
 
+            // 1. MULTIPLE FACES CHECK
             if (count > 1) {
               multipleFaceFrames.current += 1;
+              headTurnFrames.current = 0;
+              noFaceFrames.current = 0;
               setAiStatus(`AI Alert: ${count} Faces Detected!`);
-              if (multipleFaceFrames.current >= 4) { // ~1 second of multiple faces
-                triggerAIViolation('MULTIPLE_FACES');
+              if (multipleFaceFrames.current >= 4) { // ~1 second
+                triggerAIViolation('MULTIPLE_FACES', `${count} faces detected in the camera frame simultaneously.`);
                 multipleFaceFrames.current = 0;
               }
             } else {
               multipleFaceFrames.current = Math.max(0, multipleFaceFrames.current - 1);
             }
 
+            // 2. NO FACE DETECTED (Face absent, turned away completely, camera obscured)
             if (count === 0) {
               noFaceFrames.current += 1;
-              setAiStatus('AI Warning: No Face Detected');
-              if (noFaceFrames.current >= 16) { // ~4 seconds of no face
-                triggerAIViolation('FACE_NOT_FOUND');
+              headTurnFrames.current = 0;
+              setAiStatus('AI Warning: No Face Detected in Frame');
+              if (noFaceFrames.current >= 6) { // ~1.5 seconds of face absence
+                triggerAIViolation('FACE_NOT_FOUND', 'Candidate face not detected in camera frame (turned away or left seat).');
                 noFaceFrames.current = 0;
               }
             } else {
               noFaceFrames.current = Math.max(0, noFaceFrames.current - 1);
             }
 
+            // 3. SINGLE FACE DETECTED: CHECK HEAD TURN / LOOKING AWAY
             if (count === 1) {
-              setAiStatus('AI Active: 1 Face Detected');
+              const det = detections.detections[0];
+              const kp = det.keypoints;
+              let isFaceTurned = false;
+              let turnReason = '';
+
+              if (kp && kp.length >= 3) {
+                // Keypoints: 0: right eye, 1: left eye, 2: nose tip, 3: mouth center
+                const rightEye = kp[0];
+                const leftEye = kp[1];
+                const noseTip = kp[2];
+
+                const eyeDistX = Math.abs(leftEye.x - rightEye.x);
+                const eyeMidX = (leftEye.x + rightEye.x) / 2;
+                const yawRatio = Math.abs(noseTip.x - eyeMidX) / Math.max(0.005, eyeDistX);
+
+                // Horizontal head turn (yaw): turning face left or right
+                if (yawRatio > 0.30) {
+                  isFaceTurned = true;
+                  turnReason = 'Candidate turned face to the side (diverted gaze away from screen).';
+                }
+
+                // Vertical head tilt (pitch): looking down at notes/phone or looking up
+                if (!isFaceTurned && kp[3]) {
+                  const mouth = kp[3];
+                  const eyeMidY = (leftEye.y + rightEye.y) / 2;
+                  const faceHeight = Math.abs(mouth.y - eyeMidY);
+                  const pitchRatio = (noseTip.y - eyeMidY) / Math.max(0.005, faceHeight);
+                  if (pitchRatio > 0.80 || pitchRatio < 0.18) {
+                    isFaceTurned = true;
+                    turnReason = 'Candidate tilted head away from monitor (looking down or away).';
+                  }
+                }
+              }
+
+              if (isFaceTurned) {
+                headTurnFrames.current += 1;
+                setAiStatus('AI Warning: Face Turned Away from Monitor');
+                if (headTurnFrames.current >= 4) { // ~1 second of sustained head turn
+                  triggerAIViolation('LOOKING_AWAY', turnReason || 'Candidate turned face away from the examination screen.');
+                  headTurnFrames.current = 0;
+                }
+              } else {
+                headTurnFrames.current = Math.max(0, headTurnFrames.current - 1);
+                setAiStatus('AI Active: 1 Face Detected (Attentive)');
+              }
             }
           }
         } catch (err) {
@@ -482,42 +554,115 @@ function AttemptContent() {
     };
   }, [streamsStarted]);
 
-  // Audio Detection has been removed as per requirement
-
-  // Browser Security Listeners (STRICT AUTO-TERMINATE)
+  // Browser & System Security Listeners
   useEffect(() => {
-    if (!streamsStarted) return; // Do not attach until after screen share popup is resolved
+    if (!streamsStarted) return;
+
+    // Check for multi-monitor / extended display
+    try {
+      if (typeof window !== 'undefined' && (window.screen as any).isExtended) {
+        handleViolation('UNAUTHORIZED_DEVICE', 'CRITICAL', 'Multiple monitors or extended display configuration detected.');
+      }
+    } catch (e) {}
 
     const handleVisibilityChange = () => {
       if (isSubmittedRef.current || examStatus !== 'IN_PROGRESS') return;
       if (document.visibilityState === 'hidden') {
-        handleViolation('TAB_SWITCH', 'CRITICAL', 'You switched away from the exam tab.');
+        handleViolation('TAB_SWITCH', 'CRITICAL', 'Candidate switched away from the active exam tab.');
+        addWarning('Switching tabs is strictly forbidden during the test.');
       }
     };
 
     const handleFocusLoss = () => {
       if (isSubmittedRef.current || examStatus !== 'IN_PROGRESS') return;
-      handleViolation('WINDOW_FOCUS_LOST', 'CRITICAL', 'Exam window lost focus.');
+      handleViolation('WINDOW_FOCUS_LOST', 'CRITICAL', 'Exam window lost focus (clicked outside or opened background app).');
+      addWarning('Please keep the exam window active and focused.');
     };
 
-
-
-    const handleCopyPaste = (e: Event) => {
+    const handleCopy = (e: Event) => {
       e.preventDefault();
+      if (isSubmittedRef.current || examStatus !== 'IN_PROGRESS') return;
+      handleViolation('COPY_PASTE', 'HIGH', 'Candidate attempted to copy test questions or content.');
+      addWarning('Copying exam content is strictly prohibited.');
+    };
+
+    const handlePaste = (e: Event) => {
+      e.preventDefault();
+      if (isSubmittedRef.current || examStatus !== 'IN_PROGRESS') return;
+      handleViolation('COPY_PASTE', 'HIGH', 'Candidate attempted to paste content into the examination.');
+      addWarning('Pasting content during the exam is strictly prohibited.');
+    };
+
+    const handleContextMenu = (e: Event) => {
+      e.preventDefault();
+      if (isSubmittedRef.current || examStatus !== 'IN_PROGRESS') return;
+      handleViolation('COPY_PASTE', 'MEDIUM', 'Candidate attempted to open right-click context menu.');
+      addWarning('Right-click context menu is disabled.');
+    };
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (isSubmittedRef.current || examStatus !== 'IN_PROGRESS') return;
+
+      // PrintScreen / Screenshot attempt
+      if (e.key === 'PrintScreen') {
+        e.preventDefault();
+        handleViolation('WINDOW_FOCUS_LOST', 'HIGH', 'Candidate attempted to take a screenshot via PrintScreen key.');
+        addWarning('Screenshots are prohibited during the examination.');
+        return;
+      }
+
+      // DevTools (F12, Ctrl+Shift+I, Ctrl+Shift+J, Ctrl+U)
+      if (
+        e.key === 'F12' ||
+        (e.ctrlKey && e.shiftKey && (e.key === 'I' || e.key === 'i' || e.key === 'J' || e.key === 'j')) ||
+        (e.ctrlKey && (e.key === 'u' || e.key === 'U'))
+      ) {
+        e.preventDefault();
+        handleViolation('WINDOW_FOCUS_LOST', 'CRITICAL', 'Candidate attempted to inspect page source / open developer tools.');
+        addWarning('Developer tools access is strictly forbidden.');
+        return;
+      }
+
+      // Copy / Cut / Paste shortcuts
+      if (e.ctrlKey && (e.key === 'c' || e.key === 'C')) {
+        e.preventDefault();
+        handleViolation('COPY_PASTE', 'HIGH', 'Candidate attempted to copy content via Ctrl+C.');
+        addWarning('Copying text is prohibited.');
+        return;
+      }
+      if (e.ctrlKey && (e.key === 'v' || e.key === 'V')) {
+        e.preventDefault();
+        handleViolation('COPY_PASTE', 'HIGH', 'Candidate attempted to paste content via Ctrl+V.');
+        addWarning('Pasting text is prohibited.');
+        return;
+      }
+      if (e.ctrlKey && (e.key === 'x' || e.key === 'X')) {
+        e.preventDefault();
+        handleViolation('COPY_PASTE', 'HIGH', 'Candidate attempted to cut content via Ctrl+X.');
+        addWarning('Cutting text is prohibited.');
+        return;
+      }
+
+      // Alt+Tab
+      if (e.altKey && e.key === 'Tab') {
+        handleViolation('TAB_SWITCH', 'CRITICAL', 'Candidate attempted to switch application via Alt+Tab.');
+      }
     };
 
     document.addEventListener('visibilitychange', handleVisibilityChange);
     window.addEventListener('blur', handleFocusLoss);
-    document.addEventListener('copy', handleCopyPaste);
-    document.addEventListener('paste', handleCopyPaste);
-    document.addEventListener('contextmenu', handleCopyPaste);
+    document.addEventListener('copy', handleCopy);
+    document.addEventListener('paste', handlePaste);
+    document.addEventListener('contextmenu', handleContextMenu);
+    window.addEventListener('keydown', handleKeyDown);
 
     return () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
       window.removeEventListener('blur', handleFocusLoss);
-      document.removeEventListener('copy', handleCopyPaste);
-      document.removeEventListener('paste', handleCopyPaste);
-      document.removeEventListener('contextmenu', handleCopyPaste);
+      document.removeEventListener('copy', handleCopy);
+      document.removeEventListener('paste', handlePaste);
+      document.removeEventListener('contextmenu', handleContextMenu);
+      window.removeEventListener('keydown', handleKeyDown);
     };
   }, [streamsStarted]);
 
@@ -701,6 +846,13 @@ function AttemptContent() {
     if (isSubmittedRef.current || examStatus === 'SUBMITTED' || examStatus === 'TERMINATED') {
       return;
     }
+    const now = Date.now();
+    const last = lastViolationTimeRef.current[type] || 0;
+    // Debounce duplicate events within 4 seconds per violation type
+    if (now - last < 4000) {
+      return;
+    }
+    lastViolationTimeRef.current[type] = now;
     captureSnapshotAndReport(type, severity, message);
   }
 
