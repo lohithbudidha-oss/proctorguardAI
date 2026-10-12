@@ -172,6 +172,20 @@ export default function CandidateExamRecordsPage() {
     };
   }, []);
 
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        if (selectedProofModal) {
+          setSelectedProofModal(null);
+        } else if (selectedCandidate) {
+          setSelectedCandidate(null);
+        }
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [selectedProofModal, selectedCandidate]);
+
   const handleApiCommand = async (attemptId: string, action: string) => {
     if (!attemptId) return;
     try {
@@ -386,10 +400,10 @@ export default function CandidateExamRecordsPage() {
                 return (
                   <div 
                     key={cand.attemptId || cand.id} 
-                    onClick={() => setSelectedCandidate(cand)}
+                    onClick={() => setSelectedCandidate(isSelected ? null : cand)}
                     className={`bg-white rounded-2xl border-2 cursor-pointer transition-all duration-300 p-5 flex flex-col justify-between group hover:-translate-y-1 ${
                       isSelected 
-                        ? 'border-blue-500 shadow-lg ring-2 ring-blue-500/10' 
+                        ? 'border-blue-600 shadow-xl ring-4 ring-blue-500/15 bg-blue-50/20' 
                         : cand.riskScore >= 60 
                           ? 'border-rose-200 hover:border-rose-400 shadow-sm hover:shadow-md' 
                           : 'border-slate-200 hover:border-blue-400 shadow-sm hover:shadow-md'
@@ -397,20 +411,20 @@ export default function CandidateExamRecordsPage() {
                   >
                     {/* Top Row: Candidate Name & Status Badge */}
                     <div>
-                      <div className="flex items-start justify-between mb-3">
-                        <div className="flex items-center space-x-3">
-                          <div className={`w-12 h-12 rounded-xl flex items-center justify-center font-black text-lg border ${
+                      <div className="flex items-start justify-between mb-3 gap-2">
+                        <div className="flex items-center space-x-3 min-w-0">
+                          <div className={`w-12 h-12 rounded-xl flex items-center justify-center font-black text-lg border shrink-0 ${
                             isCompleted 
                               ? 'bg-blue-50 text-blue-600 border-blue-200' 
                               : 'bg-amber-50 text-amber-600 border-amber-200'
                           }`}>
                             {cand.name.charAt(0).toUpperCase()}
                           </div>
-                          <div>
-                            <h3 className="font-extrabold text-slate-900 text-lg group-hover:text-blue-600 transition-colors line-clamp-1">
+                          <div className="min-w-0">
+                            <h3 className="font-extrabold text-slate-900 text-lg group-hover:text-blue-600 transition-colors truncate">
                               {cand.name}
                             </h3>
-                            <p className="text-xs text-slate-500 font-mono mt-0.5">
+                            <p className="text-xs text-slate-500 font-mono mt-0.5 truncate">
                               {cand.email || `ID: ${cand.id.substring(0, 10)}...`}
                             </p>
                           </div>
@@ -519,16 +533,16 @@ export default function CandidateExamRecordsPage() {
                         type="button"
                         onClick={(e) => {
                           e.stopPropagation();
-                          setSelectedCandidate(cand);
+                          setSelectedCandidate(isSelected ? null : cand);
                         }}
-                        className={`w-full py-2 px-3 rounded-xl font-extrabold text-xs flex items-center justify-center transition-all border shadow-2xs whitespace-nowrap group/btn ${
+                        className={`w-full py-2.5 px-3 rounded-xl font-extrabold text-xs flex items-center justify-center transition-all border shadow-2xs whitespace-nowrap group/btn ${
                           isSelected
-                            ? 'bg-blue-600 text-white border-blue-600 shadow-sm'
+                            ? 'bg-blue-600 text-white border-blue-600 shadow-md ring-2 ring-blue-500/20'
                             : 'bg-blue-50/80 hover:bg-blue-600 text-blue-700 hover:text-white border-blue-200 hover:border-blue-600'
                         }`}
                       >
-                        <span className="whitespace-nowrap">View Exam Info</span>
-                        <ChevronRight className="w-3.5 h-3.5 ml-1.5 shrink-0 transition-transform group-hover/btn:translate-x-0.5" />
+                        <span className="whitespace-nowrap">{isSelected ? 'Viewing Exam Info' : 'View Exam Info'}</span>
+                        <ChevronRight className={`w-3.5 h-3.5 ml-1.5 shrink-0 transition-transform ${isSelected ? 'translate-x-1' : 'group-hover/btn:translate-x-0.5'}`} />
                       </button>
                     </div>
                   </div>
@@ -539,29 +553,35 @@ export default function CandidateExamRecordsPage() {
         </main>
       </div>
 
-      {/* Side Slide-in: Detailed Candidate Exam Information Panel */}
+      {/* Detailed Candidate Exam Information Slide-Over Drawer */}
       {selectedCandidate && (
         <>
           <div 
-            className="fixed inset-0 bg-slate-900/30 backdrop-blur-xs z-40 lg:hidden" 
+            className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs z-40 transition-opacity animate-in fade-in duration-200" 
             onClick={() => setSelectedCandidate(null)} 
           />
-          <div className="fixed lg:relative right-0 top-0 bottom-0 w-full max-w-md bg-white border-l border-slate-200 shadow-2xl flex flex-col z-50 transform transition-transform duration-300">
+          <div className="fixed inset-y-0 right-0 w-full max-w-md sm:max-w-lg bg-white border-l border-slate-200 shadow-2xl flex flex-col z-50 animate-in slide-in-from-right duration-300">
             
             {/* Drawer Header */}
-            <div className="p-6 border-b border-slate-200 flex justify-between items-center bg-slate-50/80">
-              <div className="flex items-center space-x-3">
-                <div className="w-10 h-10 rounded-xl bg-blue-50 border border-blue-200 flex items-center justify-center font-bold text-blue-600 text-lg">
+            <div className="p-6 border-b border-slate-200 flex justify-between items-center bg-slate-50/90 sticky top-0 z-10 backdrop-blur-sm">
+              <div className="flex items-center space-x-3 min-w-0">
+                <div className="w-11 h-11 rounded-2xl bg-blue-50 border border-blue-200 flex items-center justify-center font-black text-blue-600 text-lg shadow-2xs shrink-0">
                   {selectedCandidate.name.charAt(0).toUpperCase()}
                 </div>
-                <div>
-                  <h2 className="font-extrabold text-lg text-slate-900">{selectedCandidate.name}</h2>
-                  <p className="text-xs text-slate-500 font-mono">{selectedCandidate.email || selectedCandidate.id}</p>
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2">
+                    <h2 className="font-extrabold text-lg text-slate-900 truncate">{selectedCandidate.name}</h2>
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-100 text-blue-800 border border-blue-200 uppercase tracking-wider shrink-0">
+                      Exam Profile
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-500 font-mono truncate mt-0.5">{selectedCandidate.email || selectedCandidate.id}</p>
                 </div>
               </div>
               <button 
                 onClick={() => setSelectedCandidate(null)} 
-                className="text-slate-400 hover:text-slate-700 transition-colors p-2 hover:bg-slate-100 rounded-full"
+                className="text-slate-400 hover:text-slate-700 transition-colors p-2.5 hover:bg-slate-200/60 rounded-xl shrink-0"
+                title="Close Panel (Esc)"
               >
                 <X className="w-5 h-5" />
               </button>
