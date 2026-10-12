@@ -365,7 +365,7 @@ export default function CandidateExamRecordsPage() {
               </p>
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-5">
               {filteredCandidates.map(cand => {
                 const isCompleted = isCompletedStatus(cand.status);
                 const isSelected = selectedCandidate?.id === cand.id;
@@ -374,7 +374,7 @@ export default function CandidateExamRecordsPage() {
                   <div 
                     key={cand.attemptId || cand.id} 
                     onClick={() => setSelectedCandidate(cand)}
-                    className={`bg-white rounded-2xl border-2 cursor-pointer transition-all duration-300 p-6 flex flex-col justify-between group hover:-translate-y-1 ${
+                    className={`bg-white rounded-2xl border-2 cursor-pointer transition-all duration-300 p-5 flex flex-col justify-between group hover:-translate-y-1 ${
                       isSelected 
                         ? 'border-blue-500 shadow-lg ring-2 ring-blue-500/10' 
                         : cand.riskScore >= 60 
@@ -403,7 +403,7 @@ export default function CandidateExamRecordsPage() {
                           </div>
                         </div>
 
-                        <span className={`px-2.5 py-1 rounded-full text-[11px] font-extrabold uppercase tracking-wide border ${
+                        <span className={`px-2.5 py-1 rounded-full text-[11px] font-extrabold uppercase tracking-wide border shrink-0 ${
                           isCompleted
                             ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
                             : 'bg-amber-50 text-amber-700 border-amber-200 animate-pulse'
@@ -447,28 +447,72 @@ export default function CandidateExamRecordsPage() {
                       </div>
                     </div>
 
-                    {/* Bottom Row: Violation Badges & Action */}
-                    <div className="pt-3 border-t border-slate-100 flex items-center justify-between">
-                      <div className="flex items-center space-x-2 text-xs">
-                        <span className={`px-2.5 py-1 rounded-lg font-bold flex items-center border ${
-                          cand.violations.length > 0 
-                            ? 'bg-rose-50 text-rose-700 border-rose-200' 
-                            : 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                        }`}>
-                          <AlertTriangle className="w-3.5 h-3.5 mr-1" />
-                          {cand.violations.length} Flags
-                        </span>
-
-                        {cand.violations.some(v => v.screenshot || v.snapshotImage) && (
-                          <span className="bg-indigo-50 text-indigo-700 border border-indigo-200 px-2 py-1 rounded-lg font-bold text-[10px] flex items-center">
-                            <Camera className="w-3 h-3 mr-1" /> Proof
+                    {/* Bottom Row: Violation Badges & View Exam Info Action */}
+                    <div className="pt-3.5 border-t border-slate-100 flex flex-col gap-2.5">
+                      {/* Flags & Proof Badges Row */}
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-1.5 flex-wrap min-w-0">
+                          <span className={`px-2.5 py-1 rounded-lg font-extrabold text-xs flex items-center shrink-0 border ${
+                            cand.violations.length > 0 
+                              ? 'bg-rose-50 text-rose-700 border-rose-200' 
+                              : 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                          }`}>
+                            <AlertTriangle className="w-3.5 h-3.5 mr-1 shrink-0" />
+                            <span className="whitespace-nowrap">{cand.violations.length} Flags</span>
                           </span>
-                        )}
+
+                          {cand.violations.some(v => v.screenshot || v.snapshotImage) && (
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                const vWithProof = cand.violations.find(v => v.screenshot || v.snapshotImage);
+                                if (vWithProof) {
+                                  setSelectedProofModal({
+                                    image: vWithProof.screenshot || vWithProof.snapshotImage || '',
+                                    type: vWithProof.type,
+                                    time: vWithProof.timestamp || vWithProof.detectedAt || new Date().toISOString(),
+                                    desc: vWithProof.description
+                                  });
+                                }
+                              }}
+                              className="bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 px-2.5 py-1 rounded-lg font-bold text-xs flex items-center shrink-0 transition shadow-2xs whitespace-nowrap cursor-pointer hover:border-indigo-300"
+                              title="Click to view violation proof screenshot"
+                            >
+                              <Camera className="w-3.5 h-3.5 mr-1 shrink-0 text-indigo-600" />
+                              <span>Proof</span>
+                            </button>
+                          )}
+                        </div>
+
+                        {/* Integrity Status Pill */}
+                        <span className={`text-[11px] font-extrabold px-2 py-0.5 rounded-md border shrink-0 whitespace-nowrap ${
+                          cand.riskScore >= 60
+                            ? 'bg-rose-50 text-rose-700 border-rose-200'
+                            : cand.riskScore > 0
+                              ? 'bg-amber-50 text-amber-700 border-amber-200'
+                              : 'bg-slate-50 text-slate-500 border-slate-200'
+                        }`}>
+                          {cand.riskScore > 0 ? `${cand.riskScore}% Risk` : 'Clean'}
+                        </span>
                       </div>
 
-                      <span className="text-xs font-bold text-blue-600 group-hover:text-blue-700 flex items-center">
-                        View Exam Info <ChevronRight className="w-4 h-4 ml-1" />
-                      </span>
+                      {/* View Exam Info Button */}
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setSelectedCandidate(cand);
+                        }}
+                        className={`w-full py-2 px-3 rounded-xl font-extrabold text-xs flex items-center justify-center transition-all border shadow-2xs whitespace-nowrap group/btn ${
+                          isSelected
+                            ? 'bg-blue-600 text-white border-blue-600 shadow-sm'
+                            : 'bg-blue-50/80 hover:bg-blue-600 text-blue-700 hover:text-white border-blue-200 hover:border-blue-600'
+                        }`}
+                      >
+                        <span className="whitespace-nowrap">View Exam Info</span>
+                        <ChevronRight className="w-3.5 h-3.5 ml-1.5 shrink-0 transition-transform group-hover/btn:translate-x-0.5" />
+                      </button>
                     </div>
                   </div>
                 );
