@@ -121,10 +121,20 @@ export const saveAnswer = async (req: AuthRequest, res: Response, next: NextFunc
     // Strict Backend Timer Check
     const now = new Date();
     if (attempt.expiresAt && now > attempt.expiresAt) {
-      attempt.status = AttemptStatus.AUTO_SUBMITTED;
-      attempt.submittedAt = now;
-      await attempt.save();
-      return res.status(403).json({ success: false, message: 'Exam time expired. Attempt auto-submitted.' });
+      if (attempt.status === AttemptStatus.IN_PROGRESS || attempt.status === AttemptStatus.PAUSED) {
+        attempt.status = AttemptStatus.AUTO_SUBMITTED;
+        attempt.submittedAt = now;
+        await attempt.save();
+
+        const assignment = await Assignment.findById(attempt.assignmentId);
+        if (assignment) {
+          assignment.status = AssignmentStatus.COMPLETED;
+          await assignment.save();
+        }
+
+        await evaluateAttempt(attemptId as string, candidateId as string);
+      }
+      return res.status(200).json({ success: true, message: 'Exam time expired. Attempt auto-submitted.' });
     }
 
     // SEC-21: Verify question belongs to the exam
@@ -166,12 +176,19 @@ export const submitAttempt = async (req: AuthRequest, res: Response, next: NextF
       return res.status(404).json({ success: false, message: 'Attempt not found' });
     }
 
+    // If already submitted or auto-submitted, return success idempotently
+    if (attempt.status === AttemptStatus.SUBMITTED || attempt.status === AttemptStatus.AUTO_SUBMITTED) {
+      return res.status(200).json({ success: true, message: 'Exam already finalized and submitted' });
+    }
+
     if (![AttemptStatus.IN_PROGRESS, AttemptStatus.PAUSED].includes(attempt.status)) {
        return res.status(403).json({ success: false, message: 'Attempt already finalized' });
     }
 
-    attempt.status = AttemptStatus.SUBMITTED;
-    attempt.submittedAt = new Date();
+    const now = new Date();
+    const isTimerExpired = Boolean(attempt.expiresAt && now > attempt.expiresAt);
+    attempt.status = isTimerExpired ? AttemptStatus.AUTO_SUBMITTED : AttemptStatus.SUBMITTED;
+    attempt.submittedAt = now;
     await attempt.save();
 
     const assignment = await Assignment.findById(attempt.assignmentId);
@@ -182,7 +199,10 @@ export const submitAttempt = async (req: AuthRequest, res: Response, next: NextF
 
     await evaluateAttempt(attemptId as string, candidateId as string);
 
-    res.status(200).json({ success: true, message: 'Exam submitted successfully' });
+    res.status(200).json({ 
+      success: true, 
+      message: isTimerExpired ? 'Exam timer completed. Exam automatically submitted.' : 'Exam submitted successfully' 
+    });
   } catch (err) {
     next(err);
   }

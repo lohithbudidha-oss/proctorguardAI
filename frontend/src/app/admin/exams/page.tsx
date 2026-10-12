@@ -3,7 +3,21 @@
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, Plus, Settings, Users, MonitorPlay, FileText, CheckCircle, Trash2, Eye, Edit2, X } from 'lucide-react';
+import { 
+  ArrowLeft, 
+  Plus, 
+  Settings, 
+  Users, 
+  MonitorPlay, 
+  FileText, 
+  CheckCircle, 
+  Trash2, 
+  Eye, 
+  Edit2, 
+  X, 
+  Clock, 
+  AlertCircle 
+} from 'lucide-react';
 import api from '@/lib/api';
 
 interface Exam {
@@ -11,16 +25,39 @@ interface Exam {
   title: string;
   duration: number;
   status: string;
+  description?: string;
+  instructions?: string;
+  createdAt?: string;
 }
+
+const PRESET_DURATIONS = [15, 30, 45, 60, 90, 120, 180];
 
 export default function AdminExamsPage() {
   const router = useRouter();
   const [exams, setExams] = useState<Exam[]>([]);
   const [loading, setLoading] = useState(true);
   
+  // View Details Modal State
   const [selectedExam, setSelectedExam] = useState<Exam | null>(null);
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
   const [examDetails, setExamDetails] = useState<any>(null);
+
+  // Create Exam Modal State
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [createTitle, setCreateTitle] = useState('');
+  const [createDuration, setCreateDuration] = useState<number>(60);
+  const [createDescription, setCreateDescription] = useState('');
+  const [createInstructions, setCreateInstructions] = useState('');
+  const [isCreating, setIsCreating] = useState(false);
+
+  // Edit Exam Modal State
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [editingExam, setEditingExam] = useState<Exam | null>(null);
+  const [editTitle, setEditTitle] = useState('');
+  const [editDuration, setEditDuration] = useState<number>(60);
+  const [editDescription, setEditDescription] = useState('');
+  const [editInstructions, setEditInstructions] = useState('');
+  const [isSavingEdit, setIsSavingEdit] = useState(false);
 
   const fetchExams = () => {
     api.get('/admin/exams')
@@ -38,20 +75,91 @@ export default function AdminExamsPage() {
     fetchExams();
   }, []);
 
-  const handleCreate = async () => {
+  const formatDurationDisplay = (mins: number) => {
+    if (!mins || isNaN(mins)) return '0 Min';
+    const hours = Math.floor(mins / 60);
+    const rem = mins % 60;
+    if (hours > 0 && rem > 0) return `${hours}h ${rem}m (${mins} Mins)`;
+    if (hours > 0) return `${hours} hr${hours > 1 ? 's' : ''} (${mins} Mins)`;
+    return `${mins} Mins`;
+  };
+
+  const handleOpenCreateModal = () => {
+    setCreateTitle('');
+    setCreateDuration(60);
+    setCreateDescription('');
+    setCreateInstructions('');
+    setIsCreateModalOpen(true);
+  };
+
+  const handleConfirmCreate = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!createTitle.trim()) {
+      alert('Please enter an exam title.');
+      return;
+    }
+    const durationNum = Number(createDuration);
+    if (!durationNum || durationNum <= 0) {
+      alert('Please assign a valid exam duration (minimum 1 minute).');
+      return;
+    }
+
     try {
-      const title = prompt('Enter new exam title:');
-      if (!title) return;
-      
+      setIsCreating(true);
       const res = await api.post('/admin/exams', {
-        title,
-        duration: 60,
+        title: createTitle.trim(),
+        duration: durationNum,
+        description: createDescription.trim(),
+        instructions: createInstructions.trim(),
         status: 'DRAFT',
       });
+      setIsCreateModalOpen(false);
       router.push(`/admin/exams/${res.data.exam._id}/questions`);
     } catch (err) {
       console.error(err);
-      alert('Failed to create exam');
+      alert('Failed to create exam. Please check backend connection.');
+    } finally {
+      setIsCreating(false);
+    }
+  };
+
+  const handleOpenEditModal = (exam: Exam) => {
+    setEditingExam(exam);
+    setEditTitle(exam.title);
+    setEditDuration(exam.duration || 60);
+    setEditDescription(exam.description || '');
+    setEditInstructions(exam.instructions || '');
+    setIsEditModalOpen(true);
+  };
+
+  const handleConfirmEdit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingExam) return;
+    if (!editTitle.trim()) {
+      alert('Please enter an exam title.');
+      return;
+    }
+    const durationNum = Number(editDuration);
+    if (!durationNum || durationNum <= 0) {
+      alert('Please assign a valid exam duration (minimum 1 minute).');
+      return;
+    }
+
+    try {
+      setIsSavingEdit(true);
+      await api.patch(`/admin/exams/${editingExam._id}`, {
+        title: editTitle.trim(),
+        duration: durationNum,
+        description: editDescription.trim(),
+        instructions: editInstructions.trim(),
+      });
+      setIsEditModalOpen(false);
+      fetchExams();
+    } catch (err) {
+      console.error(err);
+      alert('Failed to update exam. Ensure it is still in DRAFT status.');
+    } finally {
+      setIsSavingEdit(false);
     }
   };
 
@@ -66,21 +174,10 @@ export default function AdminExamsPage() {
     }
   };
 
-  const handleEdit = async (exam: Exam) => {
-    const newTitle = prompt('Enter new title:', exam.title);
-    if (!newTitle) return;
-    try {
-      await api.patch(`/admin/exams/${exam._id}`, { title: newTitle });
-      fetchExams();
-    } catch(err) {
-      alert('Failed to edit exam. Ensure it is still in DRAFT status.');
-    }
-  };
-
   const handleView = async (exam: Exam) => {
     setSelectedExam(exam);
     setIsViewModalOpen(true);
-    setExamDetails(null); // Reset while loading
+    setExamDetails(null);
     try {
       const res = await api.get(`/admin/exams/${exam._id}`);
       setExamDetails(res.data.exam);
@@ -116,7 +213,7 @@ export default function AdminExamsPage() {
         <div className="flex justify-between items-center mb-10">
           <div>
             <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight">Exam Management</h1>
-            <p className="text-slate-500 mt-2">Create and manage your organization&apos;s assessments.</p>
+            <p className="text-slate-500 mt-2">Create assessments, configure test timers, and manage question sets.</p>
           </div>
           <div className="flex space-x-4">
             <Link href="/admin/candidates" className="px-5 py-2.5 bg-indigo-600 text-white font-semibold rounded-lg hover:bg-indigo-700 transition shadow-sm">
@@ -126,8 +223,8 @@ export default function AdminExamsPage() {
               Exam Candidates
             </Link>
             <button 
-              onClick={handleCreate}
-              className="px-5 py-2.5 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition shadow-sm flex items-center"
+              onClick={handleOpenCreateModal}
+              className="px-5 py-2.5 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition shadow-sm flex items-center shadow-blue-600/20"
             >
               <Plus className="w-5 h-5 mr-2" /> Create Exam
             </button>
@@ -144,7 +241,9 @@ export default function AdminExamsPage() {
                 <div>
                   <h3 className="text-xl font-bold text-slate-900">{exam.title}</h3>
                   <div className="flex items-center mt-1 space-x-4 text-sm text-slate-500 font-medium">
-                    <span className="flex items-center"><MonitorPlay className="w-4 h-4 mr-1 text-slate-400" /> {exam.duration} Min</span>
+                    <span className="flex items-center bg-blue-50 text-blue-700 px-2.5 py-0.5 rounded-md font-semibold border border-blue-100">
+                      <Clock className="w-4 h-4 mr-1 text-blue-500" /> {formatDurationDisplay(exam.duration)}
+                    </span>
                     <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold uppercase tracking-wider ${exam.status === 'PUBLISHED' ? 'bg-emerald-100 text-emerald-700 border border-emerald-200' : 'bg-slate-100 text-slate-600 border border-slate-200'}`}>
                       {exam.status}
                     </span>
@@ -162,9 +261,9 @@ export default function AdminExamsPage() {
                 </button>
                 {exam.status === 'DRAFT' && (
                   <button
-                    onClick={() => handleEdit(exam)}
+                    onClick={() => handleOpenEditModal(exam)}
                     className="p-2 text-white bg-amber-500 hover:bg-amber-600 rounded-lg shadow-sm transition"
-                    title="Edit Title"
+                    title="Edit Exam Title & Time Duration"
                   >
                     <Edit2 className="w-4 h-4" />
                   </button>
@@ -204,11 +303,284 @@ export default function AdminExamsPage() {
             <div className="text-center py-20 bg-white rounded-2xl border border-dashed border-slate-300">
               <FileText className="w-12 h-12 text-slate-300 mx-auto mb-3" />
               <p className="text-slate-500 font-medium">No exams created yet.</p>
+              <button
+                onClick={handleOpenCreateModal}
+                className="mt-4 px-5 py-2.5 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition"
+              >
+                Create Your First Exam
+              </button>
             </div>
           )}
         </div>
       </div>
 
+      {/* CREATE EXAM MODAL WITH TIME ASSIGNMENT */}
+      {isCreateModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 backdrop-blur-sm p-4 animate-in fade-in duration-150">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-xl overflow-hidden flex flex-col max-h-[92vh] border border-slate-100">
+            <div className="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">
+              <div className="flex items-center space-x-2.5">
+                <div className="p-2 bg-blue-100 text-blue-700 rounded-lg">
+                  <Clock className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-extrabold text-slate-900">Create New Examination</h3>
+                  <p className="text-xs text-slate-500">Configure title and assign examination duration</p>
+                </div>
+              </div>
+              <button 
+                onClick={() => setIsCreateModalOpen(false)} 
+                className="text-slate-400 hover:text-slate-600 transition p-1 hover:bg-slate-100 rounded-lg"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleConfirmCreate} className="p-6 overflow-y-auto space-y-5">
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
+                  Exam Title <span className="text-rose-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g., Software Engineering Aptitude & Logic Assessment"
+                  value={createTitle}
+                  onChange={e => setCreateTitle(e.target.value)}
+                  className="w-full px-4 py-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-slate-900 text-sm font-medium outline-none transition"
+                />
+              </div>
+
+              {/* TIME ASSIGNMENT SECTION */}
+              <div className="bg-blue-50/60 border border-blue-200/80 rounded-xl p-4 space-y-3">
+                <div className="flex items-center justify-between">
+                  <label className="block text-xs font-bold uppercase tracking-wider text-blue-950 flex items-center">
+                    <Clock className="w-4 h-4 mr-1.5 text-blue-600" />
+                    Assign Exam Duration (Minutes) <span className="text-rose-500 ml-1">*</span>
+                  </label>
+                  <span className="text-xs font-black text-blue-700 bg-white px-2.5 py-1 rounded-full border border-blue-200 shadow-2xs">
+                    {formatDurationDisplay(createDuration)}
+                  </span>
+                </div>
+
+                <div className="flex items-center space-x-3">
+                  <input
+                    type="number"
+                    min="1"
+                    max="600"
+                    required
+                    value={createDuration || ''}
+                    onChange={e => setCreateDuration(Math.max(1, parseInt(e.target.value) || 0))}
+                    className="w-32 px-4 py-2 border border-blue-300 rounded-xl bg-white text-slate-900 font-bold text-center focus:ring-2 focus:ring-blue-500 outline-none text-base"
+                  />
+                  <span className="text-sm font-semibold text-slate-600">Minutes</span>
+                </div>
+
+                {/* Quick preset pills */}
+                <div>
+                  <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-2">Quick Presets:</p>
+                  <div className="flex flex-wrap gap-2">
+                    {PRESET_DURATIONS.map(mins => (
+                      <button
+                        type="button"
+                        key={mins}
+                        onClick={() => setCreateDuration(mins)}
+                        className={`px-3 py-1 text-xs font-bold rounded-lg border transition ${
+                          createDuration === mins
+                            ? 'bg-blue-600 text-white border-blue-600 shadow-xs'
+                            : 'bg-white text-slate-700 border-slate-200 hover:border-blue-400 hover:bg-blue-50/50'
+                        }`}
+                      >
+                        {mins} Min {mins >= 60 ? `(${mins / 60}h)` : ''}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <p className="text-[11px] text-blue-800 flex items-center font-medium mt-1">
+                  <AlertCircle className="w-3.5 h-3.5 mr-1 shrink-0 text-blue-600" />
+                  When candidate timer reaches 0, their exam will automatically submit immediately wherever they are.
+                </p>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
+                  Description (Optional)
+                </label>
+                <textarea
+                  rows={2}
+                  placeholder="Provide a brief overview of the exam syllabus or purpose..."
+                  value={createDescription}
+                  onChange={e => setCreateDescription(e.target.value)}
+                  className="w-full px-4 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-slate-900 text-sm outline-none transition resize-none"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
+                  Exam Guidelines & Instructions (Optional)
+                </label>
+                <textarea
+                  rows={2}
+                  placeholder="e.g. Scientific calculators allowed, each question carries equal weightage..."
+                  value={createInstructions}
+                  onChange={e => setCreateInstructions(e.target.value)}
+                  className="w-full px-4 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-slate-900 text-sm outline-none transition resize-none"
+                />
+              </div>
+
+              <div className="pt-2 border-t border-slate-100 flex items-center justify-end space-x-3">
+                <button
+                  type="button"
+                  onClick={() => setIsCreateModalOpen(false)}
+                  className="px-5 py-2.5 text-slate-600 font-semibold hover:bg-slate-100 rounded-xl transition text-sm"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isCreating}
+                  className="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-extrabold rounded-xl transition text-sm flex items-center shadow-md shadow-blue-600/20 disabled:opacity-50"
+                >
+                  <Plus className="w-4 h-4 mr-1.5" />
+                  {isCreating ? 'Creating Exam...' : 'Create Exam & Add Questions'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* EDIT EXAM MODAL (ALLOWS UPDATING DURATION & TITLE) */}
+      {isEditModalOpen && editingExam && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 backdrop-blur-sm p-4 animate-in fade-in duration-150">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-xl overflow-hidden flex flex-col max-h-[92vh] border border-slate-100">
+            <div className="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">
+              <div className="flex items-center space-x-2.5">
+                <div className="p-2 bg-amber-100 text-amber-700 rounded-lg">
+                  <Edit2 className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-extrabold text-slate-900">Edit Examination Details</h3>
+                  <p className="text-xs text-slate-500">Modify title and adjust allocated exam time</p>
+                </div>
+              </div>
+              <button 
+                onClick={() => setIsEditModalOpen(false)} 
+                className="text-slate-400 hover:text-slate-600 transition p-1 hover:bg-slate-100 rounded-lg"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleConfirmEdit} className="p-6 overflow-y-auto space-y-5">
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
+                  Exam Title <span className="text-rose-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={editTitle}
+                  onChange={e => setEditTitle(e.target.value)}
+                  className="w-full px-4 py-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-slate-900 text-sm font-medium outline-none transition"
+                />
+              </div>
+
+              {/* TIME ASSIGNMENT SECTION */}
+              <div className="bg-amber-50/60 border border-amber-200/80 rounded-xl p-4 space-y-3">
+                <div className="flex items-center justify-between">
+                  <label className="block text-xs font-bold uppercase tracking-wider text-amber-950 flex items-center">
+                    <Clock className="w-4 h-4 mr-1.5 text-amber-600" />
+                    Assigned Exam Duration (Minutes) <span className="text-rose-500 ml-1">*</span>
+                  </label>
+                  <span className="text-xs font-black text-amber-800 bg-white px-2.5 py-1 rounded-full border border-amber-200 shadow-2xs">
+                    {formatDurationDisplay(editDuration)}
+                  </span>
+                </div>
+
+                <div className="flex items-center space-x-3">
+                  <input
+                    type="number"
+                    min="1"
+                    max="600"
+                    required
+                    value={editDuration || ''}
+                    onChange={e => setEditDuration(Math.max(1, parseInt(e.target.value) || 0))}
+                    className="w-32 px-4 py-2 border border-amber-300 rounded-xl bg-white text-slate-900 font-bold text-center focus:ring-2 focus:ring-amber-500 outline-none text-base"
+                  />
+                  <span className="text-sm font-semibold text-slate-600">Minutes</span>
+                </div>
+
+                {/* Quick preset pills */}
+                <div>
+                  <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-2">Quick Presets:</p>
+                  <div className="flex flex-wrap gap-2">
+                    {PRESET_DURATIONS.map(mins => (
+                      <button
+                        type="button"
+                        key={mins}
+                        onClick={() => setEditDuration(mins)}
+                        className={`px-3 py-1 text-xs font-bold rounded-lg border transition ${
+                          editDuration === mins
+                            ? 'bg-amber-600 text-white border-amber-600 shadow-xs'
+                            : 'bg-white text-slate-700 border-slate-200 hover:border-amber-400 hover:bg-amber-50/50'
+                        }`}
+                      >
+                        {mins} Min {mins >= 60 ? `(${mins / 60}h)` : ''}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
+                  Description
+                </label>
+                <textarea
+                  rows={2}
+                  value={editDescription}
+                  onChange={e => setEditDescription(e.target.value)}
+                  className="w-full px-4 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-slate-900 text-sm outline-none transition resize-none"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
+                  Instructions
+                </label>
+                <textarea
+                  rows={2}
+                  value={editInstructions}
+                  onChange={e => setEditInstructions(e.target.value)}
+                  className="w-full px-4 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-slate-900 text-sm outline-none transition resize-none"
+                />
+              </div>
+
+              <div className="pt-2 border-t border-slate-100 flex items-center justify-end space-x-3">
+                <button
+                  type="button"
+                  onClick={() => setIsEditModalOpen(false)}
+                  className="px-5 py-2.5 text-slate-600 font-semibold hover:bg-slate-100 rounded-xl transition text-sm"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSavingEdit}
+                  className="px-6 py-2.5 bg-amber-600 hover:bg-amber-700 text-white font-extrabold rounded-xl transition text-sm flex items-center shadow-md shadow-amber-600/20 disabled:opacity-50"
+                >
+                  <CheckCircle className="w-4 h-4 mr-1.5" />
+                  {isSavingEdit ? 'Saving...' : 'Save Changes'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* VIEW DETAILS MODAL */}
       {isViewModalOpen && selectedExam && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 backdrop-blur-sm p-4">
           <div className="bg-white rounded-2xl shadow-xl w-full max-w-2xl overflow-hidden flex flex-col max-h-[90vh]">
@@ -236,7 +608,10 @@ export default function AdminExamsPage() {
                     </div>
                     <div>
                       <h4 className="text-sm font-semibold text-slate-400 uppercase tracking-wider mb-1">Duration</h4>
-                      <p className="text-slate-800 font-medium">{examDetails.duration} Minutes</p>
+                      <p className="text-slate-800 font-bold flex items-center">
+                        <Clock className="w-4 h-4 mr-1.5 text-blue-600" />
+                        {formatDurationDisplay(examDetails.duration)}
+                      </p>
                     </div>
                   </div>
                   <div>

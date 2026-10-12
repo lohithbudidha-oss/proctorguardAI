@@ -19,7 +19,8 @@ import {
   HelpCircle,
   ListChecks,
   X,
-  ArrowLeft
+  ArrowLeft,
+  Loader2
 } from 'lucide-react';
 import { useRecordings } from '../../../../../../hooks/useRecordings';
 
@@ -37,7 +38,16 @@ function AttemptContent() {
   const [warnings, setWarnings] = useState<string[]>([]);
   const [showWarningModal, setShowWarningModal] = useState(false);
   const [showReviewCatalogModal, setShowReviewCatalogModal] = useState(false);
-  const [timeRemaining, setTimeRemaining] = useState(3600); // 1 hour mock
+  const [submissionOverlay, setSubmissionOverlay] = useState<{
+    isOpen: boolean;
+    isAutoSubmitted: boolean;
+    title: string;
+    message: string;
+  } | null>(null);
+
+  const [timeRemaining, setTimeRemaining] = useState(3600); // Updated dynamically with wall-clock time
+  const expiresAtMsRef = useRef<number | null>(null);
+
   const [streamsStarted, setStreamsStarted] = useState(false);
   const [aiStatus, setAiStatus] = useState('Initializing AI...');
   const [examStatus, setExamStatus] = useState<'IN_PROGRESS' | 'PAUSED' | 'TERMINATED' | 'SUBMITTED'>('IN_PROGRESS');
@@ -49,6 +59,7 @@ function AttemptContent() {
   const isSubmittedRef = useRef(false);
   
   const [questions, setQuestions] = useState<{ id: string; text: string; type: string; options: string[]; marks: number; negativeMarks: number; correctAnswer: string }[]>([]);
+  const currentQuestionIdxRef = useRef(0);
   const [currentQuestionIdx, setCurrentQuestionIdx] = useState(0);
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [markedForReview, setMarkedForReview] = useState<Record<string, boolean>>({});
@@ -84,14 +95,25 @@ function AttemptContent() {
       setAnswers(restoredAnswers);
       setMarkedForReview(restoredMarks);
 
-      // Calculate time remaining based on attempt.expiresAt
+      // Calculate exact wall-clock expiration timestamp
+      let expiryMs = 0;
       if (attempt.expiresAt) {
-        const remaining = Math.max(0, Math.floor((new Date(attempt.expiresAt).getTime() - Date.now()) / 1000));
-        setTimeRemaining(remaining);
+        expiryMs = new Date(attempt.expiresAt).getTime();
+      } else if (attempt.startedAt && exam?.duration) {
+        expiryMs = new Date(attempt.startedAt).getTime() + exam.duration * 60 * 1000;
       } else {
-        setTimeRemaining(exam.duration * 60);
+        expiryMs = Date.now() + ((exam?.duration || 60) * 60 * 1000);
       }
+      expiresAtMsRef.current = expiryMs;
+
+      const remaining = Math.max(0, Math.floor((expiryMs - Date.now()) / 1000));
+      setTimeRemaining(remaining);
       setIsLoading(false);
+
+      // If already expired on arrival, auto-submit immediately
+      if (remaining <= 0 && !isSubmittedRef.current && attempt.status !== 'SUBMITTED' && attempt.status !== 'AUTO_SUBMITTED') {
+        submitExam('Exam timer has expired. Your exam has been automatically submitted.', false, true);
+      }
     }).catch(err => {
       console.error('Failed to load attempt', err);
       setIsLoading(false);
@@ -488,20 +510,29 @@ function AttemptContent() {
     };
   }, [streamsStarted]);
 
-  // Timer
+  // Timer (Wall-clock accurate; automatically submits wherever candidate is upon timer completion)
   useEffect(() => {
+    if (isLoading) return;
+
     const timer = setInterval(() => {
-      setTimeRemaining(prev => {
-        if (prev <= 1) {
+      if (isSubmittedRef.current || examStatus === 'SUBMITTED' || examStatus === 'TERMINATED') {
+        clearInterval(timer);
+        return;
+      }
+
+      if (expiresAtMsRef.current !== null) {
+        const remaining = Math.max(0, Math.floor((expiresAtMsRef.current - Date.now()) / 1000));
+        setTimeRemaining(remaining);
+
+        if (remaining <= 0) {
           clearInterval(timer);
-          submitExam('Time limit exceeded.');
-          return 0;
+          submitExam('Exam timer completed! Your exam has been automatically submitted.', false, true);
         }
-        return prev - 1;
-      });
+      }
     }, 1000);
+
     return () => clearInterval(timer);
-  }, []);
+  }, [isLoading, examStatus]);
 
   async function captureSnapshotAndReport(type: string, severity: string, message: string) {
     if (isSubmittedRef.current || examStatus === 'SUBMITTED' || examStatus === 'TERMINATED') {
@@ -679,11 +710,36 @@ function AttemptContent() {
     setMarkedForReview(prev => ({ ...prev, [qId]: !prev[qId] }));
   };
 
-  async function submitExam(reason?: string, isTermination = false) {
+  async function submitExam(reason?: string, isTermination = false, isAutoSubmit = false) {
     if (isSubmittedRef.current || examStatus === 'SUBMITTED' || examStatus === 'TERMINATED') return;
     isSubmittedRef.current = true;
     setExamStatus(isTermination ? 'TERMINATED' : 'SUBMITTED');
     setShowReviewCatalogModal(false);
+    setShowWarningModal(false);
+
+    // Display non-blocking submission status overlay immediately
+    if (isTermination) {
+      setSubmissionOverlay({
+        isOpen: true,
+        isAutoSubmitted: false,
+        title: 'Examination Terminated',
+        message: reason || 'Examination terminated by proctor policy. Redirecting to candidate dashboard...'
+      });
+    } else if (isAutoSubmit) {
+      setSubmissionOverlay({
+        isOpen: true,
+        isAutoSubmitted: true,
+        title: 'Exam Timer Completed!',
+        message: 'The allocated time for this examination has reached 0:00. Your answers and assessment scores have been automatically submitted.'
+      });
+    } else {
+      setSubmissionOverlay({
+        isOpen: true,
+        isAutoSubmitted: false,
+        title: 'Exam Submitted Successfully!',
+        message: 'Your examination responses have been finalized and recorded.'
+      });
+    }
 
     // 1. Immediately shut down camera tracks and clear video source
     try {
@@ -713,7 +769,7 @@ function AttemptContent() {
     } catch(e) {}
 
     // 4. Safely exit fullscreen
-    if (document.fullscreenElement) {
+    if (typeof document !== 'undefined' && document.fullscreenElement) {
       document.exitFullscreen().catch(()=>{});
     }
 
@@ -730,18 +786,16 @@ function AttemptContent() {
         }
       } catch(e) {}
 
-      if (reason) {
-        alert(reason);
-      } else {
-        alert('Examination Submitted Successfully');
-      }
-      
-      // Redirect to dashboard instead of results page
-      router.push(`/candidate/dashboard`);
+      // Smooth delay so candidate sees final submission overlay and redirected cleanly
+      setTimeout(() => {
+        router.push(`/candidate/dashboard`);
+      }, 1800);
     } catch (err) {
       console.error('Submit failed', err);
-      // Force routing even if API fails to prevent being stuck
-      router.push(`/candidate/dashboard`);
+      // Force routing even if API fails to prevent candidate being stuck
+      setTimeout(() => {
+        router.push(`/candidate/dashboard`);
+      }, 1800);
     }
   }
 
@@ -797,8 +851,14 @@ function AttemptContent() {
             <Wifi className="w-4 h-4 text-green-400" />
             <span className="text-sm font-medium">Connected</span>
           </div>
-          <div className="flex items-center space-x-2 text-rose-400 bg-slate-800 px-4 py-1.5 rounded-md font-mono text-lg font-bold">
-            <Clock className="w-5 h-5" />
+          <div className={`flex items-center space-x-2 px-4 py-1.5 rounded-md font-mono text-lg font-bold transition-all ${
+            timeRemaining <= 60 
+              ? 'text-red-400 bg-red-950/80 border border-red-500 animate-pulse' 
+              : timeRemaining <= 300
+                ? 'text-amber-400 bg-amber-950/60 border border-amber-600'
+                : 'text-rose-400 bg-slate-800'
+          }`}>
+            <Clock className={`w-5 h-5 ${timeRemaining <= 60 ? 'text-red-400 animate-spin' : ''}`} />
             <span>{formatTime(timeRemaining)}</span>
           </div>
         </div>
@@ -899,7 +959,7 @@ function AttemptContent() {
               <h2 className="text-xl font-bold text-slate-800">No Questions Found</h2>
               <p className="text-slate-500 mt-2">This exam doesn't have any questions configured.</p>
               <button 
-                onClick={() => submitExam()} 
+                onClick={() => submitExam('Exam completed.', false, false)} 
                 disabled={examStatus === 'SUBMITTED' || examStatus === 'TERMINATED'}
                 className="mt-6 bg-blue-600 text-white px-6 py-2 rounded font-semibold hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
               >
@@ -1159,7 +1219,7 @@ function AttemptContent() {
               </button>
 
               <button
-                onClick={() => submitExam()}
+                onClick={() => submitExam('Exam submitted successfully.', false, false)}
                 disabled={examStatus === 'SUBMITTED' || examStatus === 'TERMINATED'}
                 className="w-full sm:w-auto px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold rounded-xl transition text-sm flex items-center justify-center shadow-md shadow-emerald-600/20 disabled:opacity-50 disabled:cursor-not-allowed"
               >
@@ -1189,6 +1249,45 @@ function AttemptContent() {
             >
               I Understand
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* Auto-Submit & Submission Confirmation Overlay */}
+      {submissionOverlay && (
+        <div className="fixed inset-0 bg-slate-950/85 backdrop-blur-md z-[200] flex items-center justify-center p-4 animate-in fade-in duration-200">
+          <div className="bg-white rounded-3xl shadow-2xl max-w-lg w-full p-8 text-center border border-slate-100 flex flex-col items-center">
+            {submissionOverlay.isAutoSubmitted ? (
+              <div className="relative mb-6">
+                <div className="w-20 h-20 bg-amber-100 text-amber-600 rounded-3xl flex items-center justify-center shadow-lg shadow-amber-500/20 animate-pulse">
+                  <Clock className="w-10 h-10" />
+                </div>
+                <div className="absolute -bottom-1 -right-1 w-7 h-7 bg-emerald-500 text-white rounded-full flex items-center justify-center ring-4 ring-white shadow-xs">
+                  <CheckCircle2 className="w-4 h-4" />
+                </div>
+              </div>
+            ) : (
+              <div className="w-20 h-20 bg-emerald-100 text-emerald-600 rounded-3xl flex items-center justify-center shadow-lg shadow-emerald-500/20 mb-6">
+                <CheckCircle className="w-10 h-10" />
+              </div>
+            )}
+
+            <h3 className="text-2xl font-black text-slate-900 mb-2">
+              {submissionOverlay.title}
+            </h3>
+
+            <p className="text-slate-600 text-sm leading-relaxed mb-6 max-w-md">
+              {submissionOverlay.message}
+            </p>
+
+            <div className="w-full bg-slate-50 border border-slate-200 rounded-2xl p-4 flex items-center justify-center space-x-3 text-slate-700 text-xs font-bold mb-2">
+              <Loader2 className="w-5 h-5 text-blue-600 animate-spin" />
+              <span>Finalizing examination answers & redirecting to dashboard...</span>
+            </div>
+
+            <p className="text-[11px] text-slate-400 mt-2 font-medium">
+              Please do not close this window while final results are synchronized.
+            </p>
           </div>
         </div>
       )}
