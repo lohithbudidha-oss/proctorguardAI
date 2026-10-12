@@ -26,6 +26,7 @@ import {
   Layers,
   FileText,
   RefreshCw,
+  BarChart3,
   CheckCircle
 } from 'lucide-react';
 import api from '@/lib/api';
@@ -464,6 +465,28 @@ export default function ViolationQueuePage() {
     );
   }, [violations, candidateAttempts]);
 
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const params = new URLSearchParams(window.location.search);
+    const targetCandidate = params.get('candidateId') || params.get('candidate');
+    const targetExam = params.get('examId');
+
+    if (targetCandidate && candidateGroups.length > 0) {
+      const match = candidateGroups.find(
+        (g) =>
+          g.key === targetCandidate ||
+          g.candidateId?._id === targetCandidate ||
+          (g.candidateEmail && g.candidateEmail.toLowerCase() === targetCandidate.toLowerCase())
+      );
+      if (match) {
+        setSelectedCandidateKey(match.key);
+        if (targetExam) {
+          setSelectedExamKey(targetExam);
+        }
+      }
+    }
+  }, [candidateGroups]);
+
   // Filter groups according to search query and severity
   const filteredGroups = useMemo(() => {
     const rawQuery = searchQuery.trim().toLowerCase();
@@ -577,12 +600,18 @@ export default function ViolationQueuePage() {
 
       {/* Top Bar Header */}
       <header className="bg-white/80 border-b border-slate-200/80 backdrop-blur-md px-8 py-5 flex items-center justify-between sticky top-0 z-30">
-        <div className="flex items-center space-x-4">
+        <div className="flex items-center space-x-3">
           <Link 
             href="/admin/monitoring" 
             className="flex items-center text-sm font-bold text-slate-600 hover:text-blue-600 px-3 py-1.5 rounded-lg hover:bg-slate-100 transition-colors"
           >
-            <ArrowLeft className="w-4 h-4 mr-2" /> Back to Candidates
+            <ArrowLeft className="w-4 h-4 mr-2" /> Candidates
+          </Link>
+          <Link 
+            href="/admin/results" 
+            className="flex items-center text-sm font-bold text-slate-600 hover:text-blue-600 px-3 py-1.5 rounded-lg hover:bg-slate-100 transition-colors"
+          >
+            <BarChart3 className="w-4 h-4 mr-1.5 text-slate-400" /> Results
           </Link>
           <div className="h-5 w-[1px] bg-slate-200" />
           <div className="flex items-center space-x-2.5">

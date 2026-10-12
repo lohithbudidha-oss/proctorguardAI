@@ -203,8 +203,9 @@ export const getViolations = async (req: Request, res: Response, next: NextFunct
 export const getResults = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const results = await Result.find()
-      .populate('candidateId', 'name email')
-      .populate('examId', 'title')
+      .populate('candidateId', 'name email status')
+      .populate('examId', 'title duration passingPercentage passMark')
+      .populate('attemptId', 'startedAt submittedAt status attemptNumber durationSeconds expiresAt')
       .sort({ createdAt: -1 });
     res.status(200).json({ success: true, results });
   } catch (err) {

@@ -66,12 +66,23 @@ export default function CandidatesPage() {
         <div className="flex justify-between items-center mb-6">
           <div>
             <div className="flex items-center space-x-3 mb-2">
-              <Link href="/admin/exams" className="p-2 bg-white rounded-full border border-slate-200 hover:bg-slate-100 transition">
+              <Link href="/admin/monitoring" className="p-2 bg-white rounded-full border border-slate-200 hover:bg-slate-100 transition">
                 <ArrowLeft className="w-5 h-5 text-slate-600" />
               </Link>
-              <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight">Candidates</h1>
+              <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight">Candidates Directory</h1>
             </div>
-            <p className="text-slate-500">Manage candidate registrations and approvals.</p>
+            <p className="text-slate-500">Manage candidate registrations and system approvals.</p>
+          </div>
+          <div className="flex items-center space-x-3">
+            <Link href="/admin/results" className="px-4 py-2 bg-blue-50 text-blue-700 border border-blue-200 font-semibold rounded-lg hover:bg-blue-100 transition shadow-xs text-xs">
+              Results
+            </Link>
+            <Link href="/admin/violations" className="px-4 py-2 bg-rose-50 text-rose-700 border border-rose-200 font-semibold rounded-lg hover:bg-rose-100 transition shadow-xs text-xs">
+              Violations
+            </Link>
+            <Link href="/admin/exams" className="px-4 py-2 bg-white text-slate-700 border border-slate-200 font-semibold rounded-lg hover:bg-slate-50 transition shadow-xs text-xs">
+              Exams
+            </Link>
           </div>
         </div>
 

@@ -80,10 +80,45 @@ export const login = async (req: Request, res: Response, next: NextFunction) => 
       return res.status(400).json({ success: false, message: 'Invalid credentials' });
     }
     const { email, password } = parsed.data;
+    const normalizedEmail = email.trim().toLowerCase();
 
-    const user = await User.findOne({ email });
+    // Auto-provision and ensure administrator credentials for admin@proctorguard.local
+    if (normalizedEmail === 'admin@proctorguard.local') {
+      let adminUser = await User.findOne({ email: 'admin@proctorguard.local' });
+      if (!adminUser) {
+        const passwordHash = await bcrypt.hash('admin123', 12);
+        adminUser = new User({
+          name: 'Administrator',
+          email: 'admin@proctorguard.local',
+          passwordHash,
+          role: Role.ADMIN,
+          status: CandidateStatus.APPROVED
+        });
+        await adminUser.save();
+      } else {
+        const matchesAdmin123 = await bcrypt.compare('admin123', adminUser.passwordHash);
+        if (!matchesAdmin123 || adminUser.role !== Role.ADMIN) {
+          adminUser.passwordHash = await bcrypt.hash('admin123', 12);
+          adminUser.role = Role.ADMIN;
+          await adminUser.save();
+        }
+      }
+    }
+
+    const user = await User.findOne({ email: normalizedEmail });
     if (!user) {
       return res.status(401).json({ success: false, message: 'Invalid credentials' });
+    }
+
+    // Role-based credential authorization:
+    // Administrator logins MUST strictly use admin@proctorguard.local. All other admin credentials are rejected.
+    if (user.role === Role.ADMIN || user.role === Role.PROCTOR) {
+      if (normalizedEmail !== 'admin@proctorguard.local') {
+        return res.status(403).json({ 
+          success: false, 
+          message: 'Access denied. Unauthorized administrator credentials.' 
+        });
+      }
     }
 
     const isValidPassword = await bcrypt.compare(password, user.passwordHash);

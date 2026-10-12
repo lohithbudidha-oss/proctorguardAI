@@ -57,6 +57,7 @@ export interface IViolationEvent extends Document {
   screenshot?: string;
   snapshotImage?: string;
   driveUrl?: string;
+  driveFileId?: string;
   driveFolderUrl?: string;
   createdAt: Date;
   updatedAt: Date;
@@ -80,6 +81,7 @@ const ViolationEventSchema: Schema = new Schema({
   screenshot: { type: String },
   snapshotImage: { type: String },
   driveUrl: { type: String },
+  driveFileId: { type: String },
   driveFolderUrl: { type: String }
 }, { timestamps: true, strict: false });
 

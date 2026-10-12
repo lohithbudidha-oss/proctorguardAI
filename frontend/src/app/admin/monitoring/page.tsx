@@ -27,6 +27,7 @@ import {
   HelpCircle,
   User,
   HardDrive,
+  BarChart3,
   ExternalLink
 } from 'lucide-react';
 import api from '@/lib/api';
@@ -86,11 +87,20 @@ export default function CandidateExamRecordsPage() {
     severity?: string;
   } | null>(null);
   const [loading, setLoading] = useState(true);
+  const [adminProfile, setAdminProfile] = useState<{ name?: string; email?: string; role?: string } | null>(null);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+
+  useEffect(() => {
+    try {
+      const u = localStorage.getItem('user');
+      if (u) setAdminProfile(JSON.parse(u));
+    } catch (e) {}
+  }, []);
 
   const handleLogout = () => {
     localStorage.removeItem('token');
-    router.push('/');
+    localStorage.removeItem('user');
+    router.push('/login?role=admin');
   };
 
   const fetchCandidateRecords = () => {
@@ -354,6 +364,13 @@ export default function CandidateExamRecordsPage() {
           </div>
 
           <div 
+            onClick={() => router.push('/admin/results')} 
+            className="text-slate-600 px-4 py-3 rounded-xl font-medium hover:bg-slate-100 hover:text-slate-900 cursor-pointer transition-all flex items-center"
+          >
+            <BarChart3 className="w-5 h-5 mr-3 text-slate-400" /> Results
+          </div>
+
+          <div 
             onClick={() => router.push('/admin/reports')} 
             className="text-slate-600 px-4 py-3 rounded-xl font-medium hover:bg-slate-100 hover:text-slate-900 cursor-pointer transition-all flex items-center"
           >
@@ -361,23 +378,23 @@ export default function CandidateExamRecordsPage() {
           </div>
         </div>
 
-        <div className="mt-auto p-5 border-t border-slate-100">
+        <div className="mt-auto p-4 border-t border-slate-100 bg-slate-50/50">
           <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-3">
-              <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center border border-slate-200">
-                <span className="text-xs font-bold text-slate-700">AD</span>
+            <div className="flex items-center space-x-2.5 min-w-0">
+              <div className="w-9 h-9 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center font-bold text-xs border border-blue-200 shrink-0">
+                {adminProfile?.name ? adminProfile.name.substring(0, 2).toUpperCase() : 'AD'}
               </div>
-              <div>
-                <p className="text-sm font-bold text-slate-900">Admin User</p>
-                <p className="text-xs text-slate-500">Security Officer</p>
+              <div className="min-w-0">
+                <p className="text-xs font-bold text-slate-900 truncate">{adminProfile?.name || 'Administrator'}</p>
+                <p className="text-[11px] text-slate-500 font-medium truncate">{adminProfile?.email || 'admin@proctorguard.local'}</p>
               </div>
             </div>
             <button 
               onClick={() => setShowLogoutConfirm(true)} 
-              className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer" 
+              className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer shrink-0 ml-1 border border-transparent hover:border-rose-100" 
               title="Sign Out"
             >
-              <LogOut className="w-5 h-5" />
+              <LogOut className="w-4 h-4" />
             </button>
           </div>
         </div>

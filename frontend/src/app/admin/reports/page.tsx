@@ -12,6 +12,7 @@ import {
   ExternalLink, 
   HardDrive, 
   Search,
+  BarChart3,
   Eye,
   Clock,
   Award,
@@ -166,9 +167,17 @@ export default function ResultsVerificationPage() {
     <div className="min-h-screen bg-slate-50 flex flex-col py-10 px-8">
       <div className="max-w-7xl mx-auto w-full">
         <div className="flex items-center justify-between mb-6">
-          <Link href="/admin/monitoring" className="text-blue-600 font-semibold flex items-center hover:underline w-max">
-            <ArrowLeft className="w-4 h-4 mr-2" /> Back to Candidates
-          </Link>
+          <div className="flex items-center space-x-4">
+            <Link href="/admin/monitoring" className="text-blue-600 font-semibold flex items-center hover:underline w-max text-sm">
+              <ArrowLeft className="w-4 h-4 mr-2" /> Candidates
+            </Link>
+            <Link href="/admin/results" className="text-blue-600 font-semibold flex items-center hover:underline w-max text-sm">
+              <BarChart3 className="w-4 h-4 mr-1.5" /> Results
+            </Link>
+            <Link href="/admin/violations" className="text-blue-600 font-semibold flex items-center hover:underline w-max text-sm">
+              <ShieldAlert className="w-4 h-4 mr-1.5 text-rose-500" /> Violations
+            </Link>
+          </div>
 
           <button 
             onClick={handleOpenDriveFolder}

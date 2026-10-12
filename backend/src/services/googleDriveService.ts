@@ -322,56 +322,65 @@ export class GoogleDriveService {
       console.warn('[GoogleDrive] Local vault write warning:', e);
     }
 
-    // Attempt cloud upload if authenticated
+    // Attempt cloud upload if authenticated (with automatic retries & backoff)
     if (this.isConfigured && this.drive) {
-      try {
-        const targetParentId = await this.getOrCreateSubfolder(subfolderName);
-        
-        const media = {
-          mimeType,
-          body: Readable.from(buffer),
-        };
-
-        const fileMetadata: any = {
-          name: cleanFileName,
-          parents: [targetParentId],
-        };
-
-        const response = await this.drive.files.create({
-          requestBody: fileMetadata,
-          media,
-          fields: 'id, name, webViewLink, webContentLink',
-          supportsAllDrives: true,
-        });
-
-        const fileId = response.data.id;
-        let webViewLink = response.data.webViewLink || `https://drive.google.com/file/d/${fileId}/view`;
-
-        // Attempt to make file readable by anyone with link
+      const maxRetries = 3;
+      for (let attempt = 1; attempt <= maxRetries; attempt++) {
         try {
-          await this.drive.permissions.create({
-            fileId,
-            requestBody: {
-              role: 'reader',
-              type: 'anyone',
-            },
+          const targetParentId = await this.getOrCreateSubfolder(subfolderName);
+          
+          const media = {
+            mimeType,
+            body: Readable.from(buffer),
+          };
+
+          const fileMetadata: any = {
+            name: cleanFileName,
+            parents: [targetParentId],
+          };
+
+          const response = await this.drive.files.create({
+            requestBody: fileMetadata,
+            media,
+            fields: 'id, name, webViewLink, webContentLink',
             supportsAllDrives: true,
           });
-        } catch (permErr) {
-          // Non-fatal if domain policies restrict permissions
-        }
 
-        console.log(`[GoogleDrive] Successfully uploaded '${cleanFileName}' to Google Drive: ${webViewLink}`);
-        return {
-          fileId,
-          webViewLink,
-          downloadUrl: response.data.webContentLink,
-          fileName: cleanFileName,
-          syncedToCloud: true,
-          localPath,
-        };
-      } catch (cloudErr: any) {
-        console.error(`[GoogleDrive] Cloud upload failed for '${cleanFileName}', saved to local vault:`, cloudErr?.message || cloudErr);
+          const fileId = response.data.id;
+          let webViewLink = response.data.webViewLink || `https://drive.google.com/file/d/${fileId}/view`;
+
+          // Attempt to make file readable by anyone with link
+          try {
+            await this.drive.permissions.create({
+              fileId,
+              requestBody: {
+                role: 'reader',
+                type: 'anyone',
+              },
+              supportsAllDrives: true,
+            });
+          } catch (permErr) {
+            // Non-fatal if domain policies restrict permissions
+          }
+
+          console.log(`[GoogleDrive] (Attempt ${attempt}/${maxRetries}) Successfully uploaded '${cleanFileName}' to Google Drive: ${webViewLink}`);
+          return {
+            fileId,
+            webViewLink,
+            downloadUrl: response.data.webContentLink,
+            fileName: cleanFileName,
+            syncedToCloud: true,
+            localPath,
+          };
+        } catch (cloudErr: any) {
+          console.warn(`[GoogleDrive] Upload attempt ${attempt}/${maxRetries} failed for '${cleanFileName}': ${cloudErr?.message || cloudErr}`);
+          if (attempt < maxRetries) {
+            // Wait with exponential backoff before retrying
+            await new Promise((resolve) => setTimeout(resolve, attempt * 600));
+          } else {
+            console.error(`[GoogleDrive] All ${maxRetries} upload retries failed for '${cleanFileName}', preserved in local vault.`);
+          }
+        }
       }
     }
 

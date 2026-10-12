@@ -22,7 +22,10 @@ function LoginContent() {
     e.preventDefault();
     setError('');
 
-    if (!isAdminLogin && !/^[a-zA-Z0-9._%+-]+@gmail\.com$/i.test(email.trim())) {
+    const normalized = email.trim().toLowerCase();
+    const isAdminCred = normalized === 'admin@proctorguard.local';
+
+    if (!isAdminLogin && !isAdminCred && !/^[a-zA-Z0-9._%+-]+@gmail\.com$/i.test(normalized)) {
       setError('Only @gmail.com email addresses are accepted (e.g. user@gmail.com).');
       return;
     }
@@ -151,7 +154,7 @@ function LoginContent() {
                   value={email}
                   onChange={e => setEmail(e.target.value)}
                   className="block w-full pl-10 pr-3 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all bg-slate-50 hover:bg-slate-100 focus:bg-white text-slate-900 font-medium placeholder:font-normal"
-                  placeholder={isAdminLogin ? "admin@proctorguard.ai" : "user@gmail.com"}
+                  placeholder={isAdminLogin ? "admin@proctorguard.local" : "user@gmail.com"}
                   suppressHydrationWarning
                 />
               </div>

@@ -14,7 +14,7 @@ export default function CandidateDashboard() {
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const notificationRef = useRef<HTMLDivElement>(null);
-
+  const [currentUser, setCurrentUser] = useState<{ name?: string; email?: string } | null>(null);
   const [exams, setExams] = useState<{ id: string; title: string; duration: number; status: string; scheduledFor: string; resultStatus?: string; attemptId?: string }[]>([]);
 
   const filteredExams = useMemo(() => {
@@ -54,6 +54,11 @@ export default function CandidateDashboard() {
       const fetchedExams = res.data?.exams || [];
       setExams(fetchedExams);
     }).catch(err => console.error('Error fetching exams:', err));
+
+    try {
+      const u = localStorage.getItem('user');
+      if (u) setCurrentUser(JSON.parse(u));
+    } catch (e) {}
 
     return () => clearTimeout(t);
   }, [router]);
@@ -162,15 +167,24 @@ export default function CandidateDashboard() {
                 </div>
               )}
             </div>
-            <div className="h-6 w-px bg-slate-200"></div>
-            <div className="flex items-center space-x-3 group cursor-pointer" onClick={() => setShowLogoutConfirm(true)}>
-              <div className="text-right hidden md:block">
-                <p className="text-sm font-bold text-slate-800 group-hover:text-rose-600 transition-colors">Sign Out</p>
-                <p className="text-xs text-slate-500 font-medium">{currentTime}</p>
+            <div className="flex items-center space-x-3">
+              <div className="flex items-center space-x-2.5">
+                <div className="w-9 h-9 bg-slate-100 rounded-full flex items-center justify-center border border-slate-200">
+                  <UserCircle className="w-5 h-5 text-slate-600" />
+                </div>
+                <div className="text-left hidden md:block">
+                  <p className="text-xs font-bold text-slate-800 leading-tight">{currentUser?.name || 'Candidate'}</p>
+                  <p className="text-[11px] text-slate-500 font-medium truncate max-w-[160px]">{currentUser?.email || currentTime}</p>
+                </div>
               </div>
-              <div className="w-10 h-10 bg-slate-100 rounded-full flex items-center justify-center border border-slate-200 group-hover:border-rose-300 group-hover:bg-rose-50 transition-colors">
-                <UserCircle className="w-6 h-6 text-slate-500 group-hover:text-rose-600 transition-colors" />
-              </div>
+              <button 
+                onClick={() => setShowLogoutConfirm(true)}
+                className="inline-flex items-center space-x-1.5 px-3 py-1.5 bg-slate-100 hover:bg-rose-50 text-slate-700 hover:text-rose-600 rounded-lg text-xs font-bold transition-all border border-slate-200 hover:border-rose-200 cursor-pointer"
+                title="Sign Out"
+              >
+                <LogOut className="w-3.5 h-3.5" />
+                <span>Sign Out</span>
+              </button>
             </div>
           </div>
         </div>

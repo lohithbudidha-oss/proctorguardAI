@@ -148,7 +148,7 @@ export const setupSockets = (io: Server) => {
               if (uploadRes?.webViewLink) {
                 const updated = await ViolationEvent.findByIdAndUpdate(
                   violation._id,
-                  { driveUrl: uploadRes.webViewLink },
+                  { driveUrl: uploadRes.webViewLink, driveFileId: uploadRes.fileId },
                   { new: true }
                 ).populate('candidateId', 'name email')
                  .populate({ path: 'attemptId', populate: { path: 'examId', select: 'title' } });

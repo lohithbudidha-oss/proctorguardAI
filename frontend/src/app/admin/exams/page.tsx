@@ -362,18 +362,21 @@ export default function AdminExamsPage() {
             <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight">Exam Management</h1>
             <p className="text-slate-500 mt-2">Create assessments, configure test timers, and manage question sets.</p>
           </div>
-          <div className="flex space-x-4">
-            <Link href="/admin/candidates" className="px-5 py-2.5 bg-indigo-600 text-white font-semibold rounded-lg hover:bg-indigo-700 transition shadow-sm">
-              Candidates
+          <div className="flex items-center space-x-3">
+            <Link href="/admin/results" className="px-4 py-2.5 bg-blue-50 text-blue-700 border border-blue-200 font-semibold rounded-lg hover:bg-blue-100 transition shadow-xs text-sm">
+              Results
             </Link>
-            <Link href="/admin/monitoring" className="px-5 py-2.5 bg-white text-slate-700 border border-slate-200 font-semibold rounded-lg hover:bg-slate-50 transition shadow-xs">
-              Exam Candidates
+            <Link href="/admin/violations" className="px-4 py-2.5 bg-rose-50 text-rose-700 border border-rose-200 font-semibold rounded-lg hover:bg-rose-100 transition shadow-xs text-sm">
+              Violations
+            </Link>
+            <Link href="/admin/monitoring" className="px-4 py-2.5 bg-white text-slate-700 border border-slate-200 font-semibold rounded-lg hover:bg-slate-50 transition shadow-xs text-sm">
+              Candidates
             </Link>
             <button 
               onClick={handleOpenCreateModal}
-              className="px-5 py-2.5 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition shadow-sm flex items-center shadow-blue-600/20"
+              className="px-5 py-2.5 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition shadow-sm flex items-center shadow-blue-600/20 text-sm cursor-pointer"
             >
-              <Plus className="w-5 h-5 mr-2" /> Create Exam
+              <Plus className="w-4 h-4 mr-1.5" /> Create Exam
             </button>
           </div>
         </div>

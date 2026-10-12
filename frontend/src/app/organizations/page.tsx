@@ -220,10 +220,9 @@ export default function OrganizationsPage() {
         </section>
 
         {/* CTA Banner */}
-        <section className="py-14 bg-gradient-to-r from-blue-700 to-indigo-800 text-white text-center px-6">
+        <section className="py-10 bg-gradient-to-r from-blue-700 to-indigo-800 text-white text-center px-6">
           <div className="max-w-4xl mx-auto">
-            <h2 className="text-3xl font-black mb-3">Ready to empower your organization?</h2>
-            <p className="text-blue-100 text-base mb-8 max-w-xl mx-auto">
+            <p className="text-blue-100 text-base mb-6 max-w-xl mx-auto font-medium">
               Get started right away by registering your organization administrator account or logging in to create your first proctored exam.
             </p>
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
