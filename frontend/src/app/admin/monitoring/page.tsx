@@ -154,14 +154,52 @@ export default function CandidateExamRecordsPage() {
 
     initSocket.on('violation:alert', (data) => {
       if (data?.candidateId && data?.violation) {
+        const raw = data.violation;
+        const shot = raw.screenshot || raw.snapshotImage || raw.image || '';
+        const formattedViolation = {
+          ...raw,
+          screenshot: shot,
+          snapshotImage: shot
+        };
+
         setCandidates(prev => prev.map(c => {
-          if (c.id === data.candidateId) {
-            const newViolations = [data.violation, ...(c.violations || [])];
+          const matchCand = String(c.id) === String(data.candidateId);
+          const matchAttempt = data.violation.attemptId && (
+            String(c.attemptId) === String(data.violation.attemptId._id || data.violation.attemptId)
+          );
+
+          if (matchCand || matchAttempt) {
+            const exists = (c.violations || []).some((v: any) => (v.id || v._id) && (v.id === formattedViolation._id || v._id === formattedViolation._id));
+            const newViolations = exists 
+              ? (c.violations || []).map((v: any) => ((v.id === formattedViolation._id || v._id === formattedViolation._id) ? { ...v, ...formattedViolation } : v))
+              : [formattedViolation, ...(c.violations || [])];
+
             return {
               ...c,
               violations: newViolations,
-              riskScore: Math.min(100, c.riskScore + (data.violation.severity === 'CRITICAL' ? 40 : 20))
+              riskScore: Math.min(100, c.riskScore + (formattedViolation.severity === 'CRITICAL' ? 40 : 20))
             };
+          }
+          return c;
+        }));
+      }
+    });
+
+    initSocket.on('evidence:snapshot_alert', (data) => {
+      const shot = data?.image || data?.screenshot || '';
+      if (shot) {
+        setCandidates(prev => prev.map(c => {
+          const matchCand = data.candidateId && String(c.id) === String(data.candidateId);
+          const matchAttempt = data.attemptId && String(c.attemptId) === String(data.attemptId);
+
+          if (matchCand || matchAttempt) {
+            const updatedViolations = (c.violations || []).map((v: any) => {
+              if (!v.screenshot || v.type === data.type) {
+                return { ...v, screenshot: shot, snapshotImage: shot };
+              }
+              return v;
+            });
+            return { ...c, violations: updatedViolations };
           }
           return c;
         }));

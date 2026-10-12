@@ -16,7 +16,11 @@ interface AuthenticatedSocket extends Socket {
   };
 }
 
+let ioInstance: Server | null = null;
+export const getIO = (): Server | null => ioInstance;
+
 export const setupSockets = (io: Server) => {
+  ioInstance = io;
   // Authentication middleware for sockets
   io.use(async (socket: AuthenticatedSocket, next) => {
     const token = socket.handshake.auth.token || socket.handshake.headers['authorization'];
@@ -87,45 +91,25 @@ export const setupSockets = (io: Server) => {
         }
 
         const screenshot = data.screenshot || data.image || data.snapshotImage || '';
-        let driveUrl = '';
         const driveFolderUrl = `https://drive.google.com/drive/folders/1P_3yKzFloiMrF8Pe1XFl9Lh-nqvPTit1?usp=sharing`;
 
-        // Sync violation proof screenshot to Google Drive folder
-        if (screenshot) {
-          try {
-            const candidate = await User.findById(userId);
-            const exam = await Exam.findById(attempt.examId);
-            const uploadRes = await googleDriveService.uploadViolationImage(
-              screenshot,
-              candidate?.name || 'Candidate',
-              exam?.title || 'Exam',
-              data.type || 'VIOLATION',
-              new Date()
-            );
-            if (uploadRes?.webViewLink) {
-              driveUrl = uploadRes.webViewLink;
-            }
-          } catch (uploadErr) {
-            console.warn('[GoogleDrive] Socket screenshot sync warning:', uploadErr);
-          }
-        }
-
+        // 1. Immediately create and save violation in database
         const violation = new ViolationEvent({
           attemptId: data.attemptId,
           candidateId: userId,
-          type: data.type,
-          severity: data.severity,
+          type: data.type || 'VIOLATION',
+          severity: data.severity || 'CRITICAL',
           source: data.source || 'BROWSER',
           detectedAt: new Date(),
           actionTaken: data.actionTaken || 'LOG',
           description: data.description || '',
           screenshot,
           snapshotImage: screenshot,
-          driveUrl: driveUrl || undefined,
           driveFolderUrl
         });
         await violation.save();
 
+        // 2. Immediately populate and broadcast to all proctors & admins
         const populatedViolation = await ViolationEvent.findById(violation._id)
           .populate('candidateId', 'name email')
           .populate({ path: 'attemptId', populate: { path: 'examId', select: 'title' } });
@@ -134,6 +118,41 @@ export const setupSockets = (io: Server) => {
           candidateId: userId,
           violation: populatedViolation || violation
         });
+
+        // Also emit snapshot alert for instant proof lightbox
+        if (screenshot) {
+          io.to('proctors').emit('evidence:snapshot_alert', {
+            candidateId: userId,
+            attemptId: data.attemptId,
+            type: data.type,
+            severity: data.severity || 'CRITICAL',
+            description: data.description,
+            image: screenshot,
+            screenshot
+          });
+        }
+
+        // 3. Sync to Google Drive asynchronously in background (never blocks socket delivery)
+        if (screenshot) {
+          (async () => {
+            try {
+              const candidate = await User.findById(userId);
+              const exam = await Exam.findById(attempt.examId);
+              const uploadRes = await googleDriveService.uploadViolationImage(
+                screenshot,
+                candidate?.name || 'Candidate',
+                exam?.title || 'Exam',
+                data.type || 'VIOLATION',
+                new Date()
+              );
+              if (uploadRes?.webViewLink) {
+                await ViolationEvent.findByIdAndUpdate(violation._id, { driveUrl: uploadRes.webViewLink });
+              }
+            } catch (uploadErr) {
+              console.warn('[GoogleDrive] Async screenshot sync warning:', uploadErr);
+            }
+          })();
+        }
       } catch (err) {
         console.error('Socket violation save error', err);
       }
@@ -147,42 +166,79 @@ export const setupSockets = (io: Server) => {
         const attempt = await Attempt.findOne({ _id: data.attemptId });
         if (!attempt || ['SUBMITTED', 'AUTO_SUBMITTED', 'FORCE_SUBMITTED', 'COMPLETED', 'TERMINATED', 'INVALIDATED'].includes(attempt.status)) return;
 
-        // If a recent violation exists without screenshot, attach this screenshot to it
-        if (data.image) {
+        const img = data.image || data.screenshot || data.snapshotImage || '';
+
+        if (img) {
+          // If a recent violation exists, attach this screenshot to it
           const recentViolation = await ViolationEvent.findOne({
             attemptId: data.attemptId,
             candidateId: userId,
             type: data.type
           }).sort({ detectedAt: -1 });
 
-          if (recentViolation && !recentViolation.screenshot) {
-            recentViolation.screenshot = data.image;
+          if (recentViolation) {
+            recentViolation.screenshot = img;
+            recentViolation.snapshotImage = img;
             if (data.description && !recentViolation.description) {
               recentViolation.description = data.description;
             }
+            await recentViolation.save();
 
-            // Sync to Google Drive
+            const populatedViolation = await ViolationEvent.findById(recentViolation._id)
+              .populate('candidateId', 'name email')
+              .populate({ path: 'attemptId', populate: { path: 'examId', select: 'title' } });
+
+            io.to('proctors').emit('violation:alert', {
+              candidateId: userId,
+              violation: populatedViolation || recentViolation
+            });
+          } else {
+            // If no violation was logged yet, create one now with this snapshot proof
+            const fallbackViolation = new ViolationEvent({
+              attemptId: data.attemptId,
+              candidateId: userId,
+              type: data.type || 'VIOLATION',
+              severity: data.severity || 'CRITICAL',
+              source: data.source || 'AI',
+              detectedAt: new Date(),
+              actionTaken: 'LOG',
+              description: data.description || 'Proctor surveillance snapshot captured.',
+              screenshot: img,
+              snapshotImage: img,
+              driveFolderUrl: `https://drive.google.com/drive/folders/1P_3yKzFloiMrF8Pe1XFl9Lh-nqvPTit1?usp=sharing`
+            });
+            await fallbackViolation.save();
+
+            const populatedFallback = await ViolationEvent.findById(fallbackViolation._id)
+              .populate('candidateId', 'name email')
+              .populate({ path: 'attemptId', populate: { path: 'examId', select: 'title' } });
+
+            io.to('proctors').emit('violation:alert', {
+              candidateId: userId,
+              violation: populatedFallback || fallbackViolation
+            });
+          }
+
+          // Background Google Drive sync
+          (async () => {
             try {
               const candidate = await User.findById(userId);
               const exam = await Exam.findById(attempt.examId);
-              const uploadRes = await googleDriveService.uploadViolationImage(
-                data.image,
+              await googleDriveService.uploadViolationImage(
+                img,
                 candidate?.name || 'Candidate',
                 exam?.title || 'Exam',
                 data.type || 'EVIDENCE',
                 new Date()
               );
-              if (uploadRes?.webViewLink) {
-                recentViolation.driveUrl = uploadRes.webViewLink;
-              }
             } catch (e) {}
-
-            await recentViolation.save();
-          }
+          })();
         }
 
         io.to('proctors').emit('evidence:snapshot_alert', {
           candidateId: userId,
+          image: img,
+          screenshot: img,
           ...data
         });
       } catch (err) {

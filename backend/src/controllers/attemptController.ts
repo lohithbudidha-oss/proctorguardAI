@@ -9,6 +9,7 @@ import Question from '../models/Question';
 import User from '../models/User';
 import { googleDriveService } from '../services/googleDriveService';
 import { AuthRequest } from '../middleware/authMiddleware';
+import { getIO } from '../sockets/proctorSocket';
 
 export const startAttempt = async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
@@ -466,46 +467,77 @@ export const recordViolation = async (req: AuthRequest, res: Response, next: Nex
       return res.status(200).json({ success: false, message: 'Exam attempt finalized. Violation detection is closed.' });
     }
 
-    let driveUrl = '';
+    const shot = screenshot || req.body.image || req.body.snapshotImage || '';
     const driveFolderUrl = `https://drive.google.com/drive/folders/1P_3yKzFloiMrF8Pe1XFl9Lh-nqvPTit1?usp=sharing`;
 
-    // Upload violation image to Google Drive folder: 1P_3yKzFloiMrF8Pe1XFl9Lh-nqvPTit1
-    if (screenshot) {
-      try {
-        const candidate = await User.findById(candidateId);
-        const exam = await Exam.findById(attempt.examId);
-        const uploadRes = await googleDriveService.uploadViolationImage(
-          screenshot,
-          candidate?.name || 'Candidate',
-          exam?.title || 'Exam',
-          type,
-          new Date()
-        );
-        if (uploadRes?.webViewLink) {
-          driveUrl = uploadRes.webViewLink;
-        }
-      } catch (uploadErr) {
-        console.warn('[GoogleDrive] Violation screenshot sync warning:', uploadErr);
-      }
-    }
-
+    // 1. Save violation immediately to MongoDB
     const violation = new ViolationEvent({
       attemptId,
       candidateId,
-      type,
-      severity,
+      type: type || 'VIOLATION',
+      severity: severity || 'CRITICAL',
       source: source || 'BROWSER',
       detectedAt: new Date(),
       actionTaken: 'LOG',
       description: description || '',
-      screenshot: screenshot || '',
-      snapshotImage: screenshot || '',
-      driveUrl: driveUrl || undefined,
+      screenshot: shot,
+      snapshotImage: shot,
       driveFolderUrl
     });
     await violation.save();
 
-    res.status(200).json({ success: true, violation, driveUrl, driveFolderUrl });
+    // 2. Broadcast immediately to all connected proctors & admins via socket
+    try {
+      const io = getIO();
+      if (io) {
+        const populatedViolation = await ViolationEvent.findById(violation._id)
+          .populate('candidateId', 'name email')
+          .populate({ path: 'attemptId', populate: { path: 'examId', select: 'title' } });
+
+        io.to('proctors').emit('violation:alert', {
+          candidateId,
+          violation: populatedViolation || violation
+        });
+
+        if (shot) {
+          io.to('proctors').emit('evidence:snapshot_alert', {
+            candidateId,
+            attemptId,
+            type: type || 'VIOLATION',
+            severity: severity || 'CRITICAL',
+            description,
+            image: shot,
+            screenshot: shot
+          });
+        }
+      }
+    } catch (socketBroadcastErr) {
+      console.warn('[AttemptController] Real-time socket broadcast warning:', socketBroadcastErr);
+    }
+
+    // 3. Upload violation screenshot asynchronously to Google Drive folder: 1P_3yKzFloiMrF8Pe1XFl9Lh-nqvPTit1
+    if (shot) {
+      (async () => {
+        try {
+          const candidate = await User.findById(candidateId);
+          const exam = await Exam.findById(attempt.examId);
+          const uploadRes = await googleDriveService.uploadViolationImage(
+            shot,
+            candidate?.name || 'Candidate',
+            exam?.title || 'Exam',
+            type || 'VIOLATION',
+            new Date()
+          );
+          if (uploadRes?.webViewLink) {
+            await ViolationEvent.findByIdAndUpdate(violation._id, { driveUrl: uploadRes.webViewLink });
+          }
+        } catch (uploadErr) {
+          console.warn('[GoogleDrive] Violation screenshot sync warning:', uploadErr);
+        }
+      })();
+    }
+
+    res.status(200).json({ success: true, violation, driveFolderUrl });
   } catch (err) {
     next(err);
   }

@@ -99,14 +99,39 @@ export default function ViolationQueuePage() {
 
     socket.on('violation:alert', (data) => {
       if (data?.violation) {
+        const raw = data.violation;
         const newV = {
-          ...data.violation,
-          screenshot: data.violation.screenshot || data.violation.snapshotImage || data.violation.image,
-          snapshotImage: data.violation.screenshot || data.violation.snapshotImage || data.violation.image
+          ...raw,
+          screenshot: raw.screenshot || raw.snapshotImage || raw.image || '',
+          snapshotImage: raw.snapshotImage || raw.screenshot || raw.image || ''
         };
-        setViolations((prev) => [newV, ...prev]);
+        setViolations((prev) => {
+          const exists = prev.some((v) => v._id && newV._id && v._id === newV._id);
+          if (exists) {
+            return prev.map((v) => (v._id === newV._id ? { ...v, ...newV } : v));
+          }
+          return [newV, ...prev];
+        });
         setActiveRealtimeAlert(newV);
         setTimeout(() => setActiveRealtimeAlert(null), 6000);
+      }
+    });
+
+    socket.on('evidence:snapshot_alert', (data) => {
+      const shot = data?.image || data?.screenshot || '';
+      if (shot) {
+        setViolations((prev) => {
+          const targetIdx = prev.findIndex((v) => {
+            const matchAttempt = data.attemptId && (v.attemptId?._id === data.attemptId || v.attemptId === data.attemptId);
+            return matchAttempt && (!v.screenshot || v.type === data.type);
+          });
+          if (targetIdx !== -1) {
+            const updated = [...prev];
+            updated[targetIdx] = { ...updated[targetIdx], screenshot: shot, snapshotImage: shot };
+            return updated;
+          }
+          return prev;
+        });
       }
     });
 

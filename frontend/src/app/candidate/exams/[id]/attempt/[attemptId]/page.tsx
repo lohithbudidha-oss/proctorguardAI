@@ -35,6 +35,7 @@ function AttemptContent() {
   const [screenSessionId, setScreenSessionId] = useState<string | undefined>();
 
   const [socket, setSocket] = useState<ReturnType<typeof import('socket.io-client').io> | null>(null);
+  const socketRef = useRef<any>(null);
   const [warnings, setWarnings] = useState<string[]>([]);
   const [showWarningModal, setShowWarningModal] = useState(false);
   const [showReviewCatalogModal, setShowReviewCatalogModal] = useState(false);
@@ -226,6 +227,7 @@ function AttemptContent() {
     });
 
     setSocket(initSocket);
+    socketRef.current = initSocket;
 
     // Request full screen
     const enterFullscreen = async () => {
@@ -377,8 +379,9 @@ function AttemptContent() {
   }, [isLoading, examStatus, attemptId, examId]);
 
   const requestAdminReview = (reason: string) => {
-    if (socket) {
-      socket.emit('violation:created', { attemptId, type: 'MANUAL_REVIEW', severity: 'CRITICAL', source: 'AI', actionTaken: 'LOG', description: reason });
+    const activeSocket = socketRef.current || socket;
+    if (activeSocket) {
+      activeSocket.emit('violation:created', { attemptId, type: 'MANUAL_REVIEW', severity: 'CRITICAL', source: 'AI', actionTaken: 'LOG', description: reason });
     }
   };
 
@@ -613,7 +616,7 @@ function AttemptContent() {
 
         screenshot = canvas.toDataURL('image/jpeg', 0.65);
 
-        // Client-side cache persistence for instant review
+        // Client-side cache persistence for instant review (capped at 10 to protect storage quota)
         try {
           if (typeof window !== 'undefined') {
             const cacheKey = 'pg_violation_evidence';
@@ -626,7 +629,7 @@ function AttemptContent() {
               screenshot,
               detectedAt: new Date().toISOString()
             });
-            localStorage.setItem(cacheKey, JSON.stringify(existing.slice(0, 50)));
+            localStorage.setItem(cacheKey, JSON.stringify(existing.slice(0, 10)));
           }
         } catch (e) {}
 
@@ -648,9 +651,10 @@ function AttemptContent() {
       console.error('Failed to capture evidence snapshot', err);
     }
 
-    // 1. Emit socket violation with screenshot
-    if (socket) {
-      socket.emit('violation:created', { 
+    // 1. Emit socket violation with screenshot proof via active socket ref
+    const activeSocket = socketRef.current || socket;
+    if (activeSocket) {
+      activeSocket.emit('violation:created', { 
         attemptId, 
         type, 
         severity, 
@@ -662,7 +666,7 @@ function AttemptContent() {
         snapshotImage: screenshot
       });
       if (screenshot) {
-        socket.emit('evidence:snapshot', { 
+        activeSocket.emit('evidence:snapshot', { 
           attemptId, 
           type, 
           severity, 
@@ -680,6 +684,7 @@ function AttemptContent() {
       source: 'BROWSER',
       description: message,
       screenshot,
+      image: screenshot,
       snapshotImage: screenshot
     }).catch(err => console.error('REST violation report error:', err));
   }

@@ -99,8 +99,8 @@ export const getLiveCandidates = async (req: Request, res: Response, next: NextF
               severity: v.severity,
               detectedAt: v.detectedAt,
               description: v.description || '',
-              screenshot: v.screenshot || '',
-              snapshotImage: v.screenshot || '',
+              screenshot: v.screenshot || v.snapshotImage || '',
+              snapshotImage: v.snapshotImage || v.screenshot || '',
               actionTaken: v.actionTaken
             })),
             camera: 'STARTED',
