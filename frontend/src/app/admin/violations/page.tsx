@@ -778,16 +778,16 @@ export default function ViolationQueuePage() {
             </div>
           ) : (
             <div className="overflow-x-auto">
-              <table className="w-full text-left border-collapse">
+              <table className="w-full text-left border-collapse table-auto">
                 <thead>
-                  <tr className="bg-slate-50/80 border-b border-slate-200 text-slate-500 text-xs font-extrabold uppercase tracking-wider">
-                    <th className="p-4 align-middle text-left min-w-[200px]">Candidate</th>
-                    <th className="p-4 align-middle text-left min-w-[260px]">Exams Written</th>
-                    <th className="p-4 align-middle text-center min-w-[180px]">Violations Committed</th>
-                    <th className="p-4 align-middle text-center min-w-[130px]">Highest Severity</th>
-                    <th className="p-4 align-middle text-center min-w-[160px]">Evidence Proofs</th>
-                    <th className="p-4 align-middle text-center min-w-[140px]">Latest Infraction</th>
-                    <th className="p-4 align-middle text-center min-w-[140px]">Action</th>
+                  <tr className="bg-slate-50/80 border-b border-slate-200 text-slate-500 text-xs font-bold uppercase tracking-wider">
+                    <th className="px-3.5 py-3 align-middle text-left">Candidate</th>
+                    <th className="px-3 py-3 align-middle text-left">Exams Written</th>
+                    <th className="px-2 py-3 align-middle text-center">Violations</th>
+                    <th className="px-2 py-3 align-middle text-center">Severity</th>
+                    <th className="px-2 py-3 align-middle text-center">Proofs</th>
+                    <th className="px-2 py-3 align-middle text-center">Latest Infraction</th>
+                    <th className="px-3.5 py-3 align-middle text-center">Action</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 text-sm">
@@ -849,19 +849,19 @@ export default function ViolationQueuePage() {
                         className="hover:bg-rose-50/30 transition-colors group cursor-pointer"
                       >
                         {/* Candidate Column */}
-                        <td className="p-4 align-middle text-left">
-                          <div className="flex items-center space-x-3.5">
-                            <div className="w-10 h-10 rounded-full bg-rose-50 text-rose-700 border border-rose-200 flex items-center justify-center font-extrabold text-sm shrink-0 shadow-2xs group-hover:scale-105 transition-transform">
+                        <td className="px-3.5 py-3 align-middle text-left">
+                          <div className="flex items-center space-x-2.5">
+                            <div className="w-8 h-8 rounded-full bg-rose-50 text-rose-700 border border-rose-200 flex items-center justify-center font-black text-xs shrink-0 shadow-2xs group-hover:scale-105 transition-transform">
                               {initials}
                             </div>
-                            <div>
-                              <div className="font-extrabold text-slate-900 group-hover:text-rose-600 transition-colors flex items-center">
-                                {group.candidateName}
-                                <span className="ml-2 text-[10px] font-bold bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full border border-slate-200">
-                                  {group.totalViolations} {group.totalViolations === 1 ? 'Event' : 'Events'}
+                            <div className="min-w-0">
+                              <div className="font-extrabold text-slate-900 text-xs group-hover:text-rose-600 transition-colors flex items-center">
+                                <span className="truncate max-w-[120px]" title={group.candidateName}>{group.candidateName}</span>
+                                <span className="ml-1.5 text-[9px] font-bold bg-slate-100 text-slate-600 px-1.5 py-0.2 rounded-full border border-slate-200 shrink-0">
+                                  {group.totalViolations}
                                 </span>
                               </div>
-                              <div className="text-xs text-slate-500 font-mono mt-0.5">
+                              <div className="text-[11px] text-slate-500 font-mono truncate max-w-[140px]" title={group.candidateEmail}>
                                 {group.candidateEmail}
                               </div>
                             </div>
@@ -869,23 +869,23 @@ export default function ViolationQueuePage() {
                         </td>
 
                         {/* Exams Written by Candidate */}
-                        <td className="p-4 align-middle text-left">
-                          <div className="flex flex-col gap-2 min-w-[250px] max-w-[290px]">
+                        <td className="px-3 py-3 align-middle text-left">
+                          <div className="flex flex-col gap-1.5 max-w-[215px]">
                             {/* Summary Badge */}
-                            <div className="flex items-center space-x-2">
-                              <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-black bg-blue-50 text-blue-700 border border-blue-200 shadow-2xs">
-                                <BookOpen className="w-3.5 h-3.5 mr-1.5 text-blue-500 shrink-0" />
-                                <span>{group.examsWrittenCount} {group.examsWrittenCount === 1 ? 'Exam Attempt' : 'Exam Attempts'}</span>
+                            <div className="flex items-center space-x-1.5">
+                              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-black bg-blue-50 text-blue-700 border border-blue-200 shadow-2xs">
+                                <BookOpen className="w-3 h-3 mr-1 text-blue-500 shrink-0" />
+                                <span>{group.examsWrittenCount} {group.examsWrittenCount === 1 ? 'Attempt' : 'Attempts'}</span>
                                 {uniqueExams.length > 0 && (
-                                  <span className="ml-1.5 text-[10px] font-bold text-blue-600/90 pl-1.5 border-l border-blue-200">
-                                    {uniqueExams.length} {uniqueExams.length === 1 ? 'Subject' : 'Subjects'}
+                                  <span className="ml-1 text-[9px] font-bold text-blue-600/90 pl-1 border-l border-blue-200">
+                                    {uniqueExams.length} {uniqueExams.length === 1 ? 'Sub' : 'Subs'}
                                   </span>
                                 )}
                               </span>
                             </div>
 
                             {/* Structured Distinct Exam Cards */}
-                            <div className="space-y-1.5 max-h-[140px] overflow-y-auto pr-1">
+                            <div className="space-y-1 max-h-[110px] overflow-y-auto pr-0.5">
                               {uniqueExams.map((ue) => (
                                 <button
                                   key={ue.key}
@@ -896,20 +896,20 @@ export default function ViolationQueuePage() {
                                     setSelectedExamKey(ue.targetKey);
                                   }}
                                   title={`Click to check violations for "${ue.title}" (${ue.attemptsCount} attempt${ue.attemptsCount > 1 ? 's' : ''})`}
-                                  className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg border text-xs text-left transition-all group/item cursor-pointer ${
+                                  className={`w-full flex items-center justify-between px-2 py-1 rounded-md border text-[11px] text-left transition-all group/item cursor-pointer ${
                                     ue.violationsCount > 0
                                       ? 'bg-rose-50/70 hover:bg-rose-100/80 border-rose-200 text-rose-950 shadow-2xs'
                                       : 'bg-slate-50 hover:bg-slate-100/90 border-slate-200 text-slate-800 shadow-2xs'
                                   }`}
                                 >
                                   {/* Left: Exam title + attempt count multiplier */}
-                                  <div className="flex items-center space-x-1.5 min-w-0 flex-1 mr-2">
-                                    <span className="font-bold truncate text-slate-800 group-hover/item:text-slate-900" title={ue.title}>
+                                  <div className="flex items-center space-x-1 min-w-0 flex-1 mr-1.5">
+                                    <span className="font-bold truncate text-slate-800 group-hover/item:text-slate-900 text-[11px]" title={ue.title}>
                                       {ue.title}
                                     </span>
                                     {ue.attemptsCount > 1 && (
                                       <span
-                                        className="shrink-0 text-[10px] font-extrabold px-1.5 py-0.2 rounded-md bg-slate-200/80 text-slate-700 border border-slate-300/60"
+                                        className="shrink-0 text-[9px] font-extrabold px-1 py-0.2 rounded bg-slate-200/80 text-slate-700 border border-slate-300/60"
                                         title={`${ue.attemptsCount} attempts`}
                                       >
                                         &times;{ue.attemptsCount}
@@ -920,13 +920,13 @@ export default function ViolationQueuePage() {
                                   {/* Right: Uniform status badge */}
                                   <div className="shrink-0 flex items-center">
                                     {ue.violationsCount > 0 ? (
-                                      <span className="inline-flex items-center text-[10px] font-black px-2 py-0.5 rounded-full bg-rose-100 text-rose-700 border border-rose-200 shadow-2xs">
-                                        <AlertTriangle className="w-2.5 h-2.5 mr-1 text-rose-600 shrink-0" />
+                                      <span className="inline-flex items-center text-[9px] font-black px-1.5 py-0.2 rounded-full bg-rose-100 text-rose-700 border border-rose-200 shadow-2xs">
+                                        <AlertTriangle className="w-2.5 h-2.5 mr-0.5 text-rose-600 shrink-0" />
                                         {ue.violationsCount} Flagged
                                       </span>
                                     ) : (
-                                      <span className="inline-flex items-center text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 shadow-2xs">
-                                        <CheckCircle2 className="w-2.5 h-2.5 mr-1 text-emerald-600 shrink-0" />
+                                      <span className="inline-flex items-center text-[9px] font-bold px-1.5 py-0.2 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 shadow-2xs">
+                                        <CheckCircle2 className="w-2.5 h-2.5 mr-0.5 text-emerald-600 shrink-0" />
                                         Clean
                                       </span>
                                     )}
@@ -938,31 +938,32 @@ export default function ViolationQueuePage() {
                         </td>
 
                         {/* Violations Summary */}
-                        <td className="p-4 align-middle text-center">
-                          <div className="flex flex-col items-center justify-center gap-1.5">
-                            <div className="flex items-center justify-center space-x-2">
-                              <span className="font-black text-xs text-rose-700 bg-rose-50 px-2.5 py-0.5 rounded-md border border-rose-200">
+                        <td className="px-2 py-3 align-middle text-center">
+                          <div className="inline-flex flex-col items-center justify-center gap-1">
+                            <div className="inline-flex items-center space-x-1">
+                              <span className="font-black text-xs text-rose-700 bg-rose-50 px-2 py-0.5 rounded border border-rose-200">
                                 {group.totalViolations} Violations
                               </span>
                               {group.criticalCount > 0 && (
-                                <span className="text-[10px] font-bold text-rose-600">
-                                  ({group.criticalCount} Critical)
+                                <span className="text-[10px] font-extrabold text-rose-600">
+                                  ({group.criticalCount} crit)
                                 </span>
                               )}
                             </div>
                             {/* Type tags */}
-                            <div className="flex flex-wrap justify-center gap-1 max-w-xs">
+                            <div className="flex flex-wrap justify-center gap-1 max-w-[130px]">
                               {group.uniqueTypes.slice(0, 2).map((t) => (
                                 <span 
                                   key={t}
-                                  className="text-[10px] font-semibold text-slate-600 bg-slate-100 px-2 py-0.5 rounded border border-slate-200 truncate max-w-[140px]"
+                                  className="text-[9px] font-bold text-slate-600 bg-slate-100 px-1.5 py-0.2 rounded border border-slate-200 truncate max-w-[100px]"
+                                  title={t.replace(/_/g, ' ')}
                                 >
                                   {t.replace(/_/g, ' ')}
                                 </span>
                               ))}
                               {group.uniqueTypes.length > 2 && (
-                                <span className="text-[10px] font-bold text-slate-400 bg-slate-50 px-1.5 py-0.5 rounded border border-slate-200">
-                                  +{group.uniqueTypes.length - 2} more
+                                <span className="text-[9px] font-bold text-slate-400 bg-slate-50 px-1 py-0.2 rounded border border-slate-200">
+                                  +{group.uniqueTypes.length - 2}
                                 </span>
                               )}
                             </div>
@@ -970,20 +971,18 @@ export default function ViolationQueuePage() {
                         </td>
 
                         {/* Highest Severity Badge */}
-                        <td className="p-4 align-middle text-center">
-                          <div className="flex items-center justify-center">
-                            <span className={`text-xs font-extrabold px-3 py-1 rounded-full border inline-block ${getSeverityBadge(group.highestSeverity)}`}>
-                              {group.highestSeverity}
-                            </span>
-                          </div>
+                        <td className="px-2 py-3 align-middle text-center">
+                          <span className={`text-[10px] font-extrabold px-2.5 py-0.5 rounded-full border inline-block ${getSeverityBadge(group.highestSeverity)}`}>
+                            {group.highestSeverity}
+                          </span>
                         </td>
 
                         {/* Evidence Proofs Column */}
-                        <td className="p-4 align-middle text-center">
-                          <div className="flex items-center justify-center">
+                        <td className="px-2 py-3 align-middle text-center">
+                          <div className="inline-flex items-center justify-center">
                             {group.latestScreenshot ? (
-                              <div className="flex items-center space-x-2.5 text-left">
-                                <div className="relative w-12 h-10 rounded-lg overflow-hidden border border-slate-200 bg-slate-900 shrink-0 shadow-2xs">
+                              <div className="flex items-center space-x-2 text-left">
+                                <div className="relative w-9 h-8 rounded-md overflow-hidden border border-slate-200 bg-slate-900 shrink-0 shadow-2xs">
                                   <img 
                                     src={group.latestScreenshot} 
                                     alt="Proof thumbnail" 
@@ -991,35 +990,35 @@ export default function ViolationQueuePage() {
                                   />
                                 </div>
                                 <div>
-                                  <span className="inline-flex items-center text-xs font-bold text-indigo-700">
-                                    <Camera className="w-3.5 h-3.5 mr-1" />
-                                    {group.proofCount} Proof {group.proofCount === 1 ? 'Image' : 'Images'}
+                                  <span className="inline-flex items-center text-[11px] font-bold text-indigo-700 whitespace-nowrap">
+                                    <Camera className="w-3 h-3 mr-1" />
+                                    {group.proofCount} {group.proofCount === 1 ? 'Proof' : 'Proofs'}
                                   </span>
-                                  <span className="text-[10px] text-slate-400 block">Available</span>
+                                  <span className="text-[9px] text-slate-400 block">Available</span>
                                 </div>
                               </div>
                             ) : (
-                              <span className="text-xs text-slate-400 italic inline-flex items-center justify-center">
-                                <Camera className="w-3.5 h-3.5 mr-1 opacity-40" /> No snapshots
+                              <span className="text-[11px] text-slate-400 italic inline-flex items-center justify-center">
+                                <Camera className="w-3 h-3 mr-1 opacity-40" /> None
                               </span>
                             )}
                           </div>
                         </td>
 
                         {/* Latest Infraction */}
-                        <td className="p-4 align-middle text-center text-xs font-mono text-slate-500 whitespace-nowrap">
-                          <div className="inline-flex flex-col items-center justify-center">
-                            <div className="text-slate-800 font-bold">
+                        <td className="px-2 py-3 align-middle text-center text-xs font-mono text-slate-500 whitespace-nowrap">
+                          <div className="inline-flex flex-col items-center justify-center leading-tight">
+                            <span className="text-slate-800 font-bold text-[11px]">
                               {new Date(group.latestViolation.detectedAt).toLocaleDateString()}
-                            </div>
-                            <div className="text-slate-400 mt-0.5">
-                              {new Date(group.latestViolation.detectedAt).toLocaleTimeString()}
-                            </div>
+                            </span>
+                            <span className="text-slate-400 text-[10px] mt-0.5">
+                              {new Date(group.latestViolation.detectedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                            </span>
                           </div>
                         </td>
 
                         {/* Action Column */}
-                        <td className="p-4 align-middle text-center">
+                        <td className="px-3.5 py-3 align-middle text-center whitespace-nowrap">
                           <div className="flex items-center justify-center">
                             <button
                               onClick={(e) => {
@@ -1027,9 +1026,10 @@ export default function ViolationQueuePage() {
                                 setSelectedCandidateKey(group.key);
                                 setSelectedExamKey('ALL');
                               }}
-                              className="inline-flex items-center justify-center px-3.5 py-1.5 bg-rose-50 text-rose-700 font-bold text-xs rounded-xl border border-rose-200 shadow-2xs group-hover:bg-rose-600 group-hover:text-white group-hover:border-rose-600 hover:!bg-rose-700 hover:!text-white hover:!border-rose-700 transition-all cursor-pointer active:scale-95"
+                              className="inline-flex items-center justify-center px-3 py-1.5 bg-rose-50 text-rose-700 hover:bg-rose-600 hover:text-white font-bold text-xs rounded-lg border border-rose-200 hover:border-rose-600 shadow-2xs transition-all cursor-pointer active:scale-95"
+                              title={`View ${group.totalViolations} violations for ${group.candidateName}`}
                             >
-                              View Violations ({group.totalViolations})
+                              <span>View ({group.totalViolations})</span>
                               <ChevronRight className="w-3.5 h-3.5 ml-1" />
                             </button>
                           </div>
