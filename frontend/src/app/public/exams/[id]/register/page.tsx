@@ -80,10 +80,10 @@ function RegistrationForm() {
           </div>
           <div>
             <div className="flex justify-between items-center mb-1">
-              <label className="block text-sm font-medium text-slate-700">Email Address</label>
+              <label className="block text-sm font-medium text-slate-700">Email Address (@gmail.com only)</label>
               {formData.email && emailValidation.isValid && (
                 <span className="text-[11px] font-bold text-emerald-600 flex items-center">
-                  <CheckCircle2 className="w-3 h-3 mr-1" /> Valid Format
+                  <CheckCircle2 className="w-3 h-3 mr-1" /> Valid @gmail.com
                 </span>
               )}
             </div>
@@ -106,7 +106,7 @@ function RegistrationForm() {
                   }
                 }}
                 onBlur={() => setEmailTouched(true)}
-                placeholder="candidate@example.com"
+                placeholder="candidate@gmail.com"
               />
               {emailTouched && !emailValidation.isValid && (
                 <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none text-rose-500">
@@ -127,11 +127,11 @@ function RegistrationForm() {
             ) : formData.email && emailValidation.isValid ? (
               <p className="text-xs text-emerald-600 font-semibold flex items-center pt-1 animate-in fade-in">
                 <CheckCircle2 className="w-3.5 h-3.5 mr-1 shrink-0" />
-                Valid candidate email address
+                Valid @gmail.com address
               </p>
             ) : (
               <p className="text-xs text-slate-400 pt-0.5">
-                We will send your examination credentials and results to this email.
+                Only @gmail.com email addresses are accepted for examination registration.
               </p>
             )}
           </div>

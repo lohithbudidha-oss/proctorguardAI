@@ -14,16 +14,15 @@ if (!JWT_SECRET || JWT_SECRET === 'supersecretjwtkey_replace_in_production') {
   }
 }
 
-// Strict email format validator ensuring valid username, @ symbol, domain name, and at least 2-letter TLD
-const EMAIL_REGEX = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+// Strict Gmail email format validator ensuring valid username and @gmail.com domain only
+const GMAIL_EMAIL_REGEX = /^[a-zA-Z0-9._%+-]+@gmail\.com$/i;
 
 const registerSchema = z.object({
   name: z.string().trim().min(2, 'Name must be at least 2 characters').max(100),
   email: z.string()
     .trim()
     .toLowerCase()
-    .email('Please enter a valid email address format')
-    .regex(EMAIL_REGEX, 'Please enter a valid email address with a valid domain extension (e.g. name@example.com)'),
+    .regex(GMAIL_EMAIL_REGEX, 'Only @gmail.com email addresses are accepted (e.g. yourname@gmail.com)'),
   password: z.string().min(8, 'Password must be at least 8 characters').max(100),
 });
 
@@ -142,8 +141,7 @@ const publicRegisterSchema = z.object({
   email: z.string()
     .trim()
     .toLowerCase()
-    .email('Please enter a valid email address format')
-    .regex(EMAIL_REGEX, 'Please enter a valid email address with a valid domain extension (e.g. name@example.com)'),
+    .regex(GMAIL_EMAIL_REGEX, 'Only @gmail.com email addresses are accepted (e.g. yourname@gmail.com)'),
   phone: z.string().optional()
 });
 

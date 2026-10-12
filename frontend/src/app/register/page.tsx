@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 import { ShieldCheck, Mail, Lock, User, ArrowRight, Activity, BookOpen, Eye, EyeOff, CheckCircle2, AlertCircle } from 'lucide-react';
 import api from '@/lib/api';
 
-// Comprehensive candidate email validation helper
+// Comprehensive candidate email validation helper strictly accepting @gmail.com only
 export function validateCandidateEmail(val: string): { isValid: boolean; message: string } {
   const trimmed = val.trim();
   if (!trimmed) {
@@ -16,7 +16,7 @@ export function validateCandidateEmail(val: string): { isValid: boolean; message
     return { isValid: false, message: 'Email address cannot contain spaces.' };
   }
   if (!trimmed.includes('@')) {
-    return { isValid: false, message: 'Email must contain an "@" symbol (e.g. name@domain.com).' };
+    return { isValid: false, message: 'Email must contain "@gmail.com" (e.g. candidate@gmail.com).' };
   }
   const parts = trimmed.split('@');
   if (parts.length !== 2) {
@@ -24,22 +24,14 @@ export function validateCandidateEmail(val: string): { isValid: boolean; message
   }
   const [localPart, domainPart] = parts;
   if (!localPart || localPart.length === 0) {
-    return { isValid: false, message: 'Email must have a username before "@" (e.g. candidate@domain.com).' };
+    return { isValid: false, message: 'Please enter a username before "@gmail.com".' };
   }
-  if (!domainPart || domainPart.length === 0) {
-    return { isValid: false, message: 'Email must have a domain after "@" (e.g. domain.com).' };
+  if (domainPart.toLowerCase() !== 'gmail.com') {
+    return { isValid: false, message: 'Only @gmail.com email addresses are accepted (e.g. candidate@gmail.com).' };
   }
-  if (!domainPart.includes('.')) {
-    return { isValid: false, message: 'Domain must include an extension (e.g. .com, .edu, .org, .in).' };
-  }
-  const domainParts = domainPart.split('.');
-  const tld = domainParts[domainParts.length - 1];
-  if (!tld || tld.length < 2) {
-    return { isValid: false, message: 'Domain extension must be at least 2 characters (e.g. .com, .edu).' };
-  }
-  const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
-  if (!emailRegex.test(trimmed)) {
-    return { isValid: false, message: 'Please enter a valid email format (e.g. candidate@example.com).' };
+  const gmailRegex = /^[a-zA-Z0-9._%+-]+@gmail\.com$/i;
+  if (!gmailRegex.test(trimmed)) {
+    return { isValid: false, message: 'Please enter a valid Gmail address (e.g. candidate@gmail.com).' };
   }
   return { isValid: true, message: '' };
 }
@@ -184,10 +176,10 @@ export default function RegisterPage() {
 
             <div className="space-y-1">
               <div className="flex justify-between items-center">
-                <label className="text-sm font-semibold text-slate-700">Email Address</label>
+                <label className="text-sm font-semibold text-slate-700">Email Address (@gmail.com only)</label>
                 {email && emailValidation.isValid && (
                   <span className="text-[11px] font-bold text-emerald-600 flex items-center">
-                    <CheckCircle2 className="w-3 h-3 mr-1" /> Valid Format
+                    <CheckCircle2 className="w-3 h-3 mr-1" /> Valid @gmail.com
                   </span>
                 )}
               </div>
@@ -219,7 +211,7 @@ export default function RegisterPage() {
                         ? 'border-emerald-400 bg-emerald-50/20 focus:border-emerald-500 focus:ring-emerald-500/20'
                         : 'border-slate-200 bg-slate-50 hover:bg-slate-100 focus:bg-white focus:ring-blue-500/20 focus:border-blue-500'
                   }`}
-                  placeholder="candidate@example.com"
+                  placeholder="candidate@gmail.com"
                   suppressHydrationWarning
                 />
                 {emailTouched && !emailValidation.isValid && (
@@ -241,11 +233,11 @@ export default function RegisterPage() {
               ) : email && emailValidation.isValid ? (
                 <p className="text-xs text-emerald-600 font-semibold flex items-center pt-1 animate-in fade-in">
                   <CheckCircle2 className="w-3.5 h-3.5 mr-1 shrink-0" />
-                  Valid candidate email address
+                  Valid @gmail.com address
                 </p>
               ) : (
                 <p className="text-xs text-slate-400 pt-0.5">
-                  Enter an active email address to receive your exam session credentials.
+                  Only @gmail.com email addresses are accepted for candidate accounts.
                 </p>
               )}
             </div>

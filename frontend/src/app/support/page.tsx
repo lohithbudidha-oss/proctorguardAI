@@ -55,6 +55,10 @@ export default function SupportPage() {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.name || !formData.email || !formData.message) return;
+    if (!/^[a-zA-Z0-9._%+-]+@gmail\.com$/i.test(formData.email.trim())) {
+      alert('Only @gmail.com email addresses are accepted (e.g. yourname@gmail.com).');
+      return;
+    }
     setFormSubmitted(true);
   };
 
@@ -213,11 +217,11 @@ export default function SupportPage() {
                     </div>
 
                     <div>
-                      <label className="block text-xs font-bold text-slate-700 mb-1">Email Address</label>
+                      <label className="block text-xs font-bold text-slate-700 mb-1">Email Address (@gmail.com only)</label>
                       <input
                         type="email"
                         required
-                        placeholder="john@example.com"
+                        placeholder="john@gmail.com"
                         value={formData.email}
                         onChange={e => setFormData({ ...formData, email: e.target.value })}
                         className="w-full px-3.5 py-2 border border-slate-300 rounded-xl text-xs text-slate-900 focus:ring-2 focus:ring-blue-500 outline-none"
