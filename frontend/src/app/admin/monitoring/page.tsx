@@ -24,9 +24,13 @@ import {
   Unlock,
   CheckCircle,
   XCircle,
-  HelpCircle
+  HelpCircle,
+  User,
+  HardDrive,
+  ExternalLink
 } from 'lucide-react';
 import api from '@/lib/api';
+import { getViolationInfo } from '@/lib/violations';
 
 interface ViolationSummary {
   id?: string;
@@ -71,7 +75,16 @@ export default function CandidateExamRecordsPage() {
   const [selectedCandidate, setSelectedCandidate] = useState<CandidateExamRecord | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<'ALL' | 'COMPLETED' | 'IN_PROGRESS'>('ALL');
-  const [selectedProofModal, setSelectedProofModal] = useState<{ image: string; type: string; time: string; desc?: string } | null>(null);
+  const [selectedProofModal, setSelectedProofModal] = useState<{
+    image: string;
+    type: string;
+    time: string;
+    desc?: string;
+    candidateName?: string;
+    candidateEmail?: string;
+    examName?: string;
+    severity?: string;
+  } | null>(null);
   const [loading, setLoading] = useState(true);
 
   const handleLogout = () => {
@@ -472,12 +485,16 @@ export default function CandidateExamRecordsPage() {
                                     image: vWithProof.screenshot || vWithProof.snapshotImage || '',
                                     type: vWithProof.type,
                                     time: vWithProof.timestamp || vWithProof.detectedAt || new Date().toISOString(),
-                                    desc: vWithProof.description
+                                    desc: vWithProof.description,
+                                    candidateName: cand.name,
+                                    candidateEmail: cand.email,
+                                    examName: cand.examName,
+                                    severity: vWithProof.severity
                                   });
                                 }
                               }}
                               className="bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 px-2.5 py-1 rounded-lg font-bold text-xs flex items-center shrink-0 transition shadow-2xs whitespace-nowrap cursor-pointer hover:border-indigo-300"
-                              title="Click to view violation proof screenshot"
+                              title="Click to view violation proof screenshot and incident details"
                             >
                               <Camera className="w-3.5 h-3.5 mr-1 shrink-0 text-indigo-600" />
                               <span>Proof</span>
@@ -660,47 +677,63 @@ export default function CandidateExamRecordsPage() {
                   <div className="space-y-3">
                     {selectedCandidate.violations.map((v, i) => {
                       const proofImg = v.screenshot || v.snapshotImage;
+                      const vInfo = getViolationInfo(v.type, v.description);
 
                       return (
                         <div 
                           key={v.id || v._id || i} 
-                          className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs flex flex-col space-y-2 hover:border-slate-300 transition"
+                          className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs flex flex-col space-y-2.5 hover:border-slate-300 transition"
                         >
                           <div className="flex items-center justify-between">
                             <span className={`text-xs font-extrabold flex items-center ${
                               v.severity === 'CRITICAL' ? 'text-rose-600' : 'text-amber-600'
                             }`}>
                               <AlertTriangle className="w-3.5 h-3.5 mr-1" />
-                              {v.type.replace(/_/g, ' ')}
+                              {vInfo.title}
                             </span>
                             <span className="text-[10px] font-mono text-slate-400">
                               {new Date(v.detectedAt || v.timestamp || new Date().toISOString()).toLocaleTimeString()}
                             </span>
                           </div>
 
-                          {v.description && (
-                            <p className="text-xs text-slate-600">{v.description}</p>
-                          )}
+                          {/* Incident Description: What candidate did during the exam */}
+                          <div className="bg-rose-50/70 p-2.5 rounded-lg border border-rose-200/80 text-xs">
+                            <span className="text-[10px] font-extrabold uppercase text-rose-700 block mb-0.5">
+                              Candidate Action During Exam:
+                            </span>
+                            <p className="text-slate-800 font-medium text-xs leading-relaxed">
+                              {vInfo.actionDone}
+                            </p>
+                            {v.description && v.description !== vInfo.actionDone && (
+                              <p className="text-slate-500 font-mono text-[11px] mt-1.5 pt-1 border-t border-rose-200/50">
+                                Log: {v.description}
+                              </p>
+                            )}
+                          </div>
 
                           {/* Screenshot Proof Preview */}
                           {proofImg && (
-                            <div className="mt-2">
+                            <div className="mt-1">
                               <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1 flex items-center">
-                                <Camera className="w-3 h-3 mr-1 text-blue-600" /> Screenshot Proof:
+                                <Camera className="w-3 h-3 mr-1 text-blue-600" /> Screenshot Proof Evidence:
                               </span>
                               <div 
                                 onClick={() => setSelectedProofModal({
                                   image: proofImg,
                                   type: v.type,
                                   time: new Date(v.detectedAt || v.timestamp || new Date().toISOString()).toLocaleString(),
-                                  desc: v.description
+                                  desc: v.description,
+                                  candidateName: selectedCandidate.name,
+                                  candidateEmail: selectedCandidate.email,
+                                  examName: selectedCandidate.examName,
+                                  severity: v.severity
                                 })}
                                 className="relative rounded-lg overflow-hidden border border-slate-200 bg-slate-100 cursor-pointer group/img max-h-36 shadow-xs"
                               >
                                 <img src={proofImg} alt="Violation Proof" className="w-full h-auto object-cover" />
                                 <div className="absolute inset-0 bg-slate-900/20 group-hover/img:bg-slate-900/40 transition-colors flex items-center justify-center">
                                   <span className="bg-rose-600 text-white text-[10px] font-bold px-2 py-1 rounded shadow flex items-center">
-                                    <Eye className="w-3 h-3 mr-1" /> Enlarge Proof
+                                    <Eye className="w-3 h-3 mr-1" /> Enlarge Proof & Details
                                   </span>
                                 </div>
                               </div>
@@ -746,49 +779,151 @@ export default function CandidateExamRecordsPage() {
       )}
 
       {/* Proof Zoom Modal */}
-      {selectedProofModal && (
-        <div className="fixed inset-0 z-[120] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
-          <div className="bg-white border border-slate-200 rounded-2xl max-w-2xl w-full overflow-hidden shadow-2xl flex flex-col">
-            <div className="bg-slate-50 px-6 py-4 border-b border-slate-200 flex items-center justify-between">
-              <div>
-                <h3 className="text-base font-extrabold text-slate-900 flex items-center">
-                  <Camera className="w-4 h-4 mr-2 text-rose-600" />
-                  Violation Screenshot Evidence
-                </h3>
-                <p className="text-xs text-slate-500 font-mono mt-0.5">
-                  {selectedProofModal.type.replace(/_/g, ' ')} &bull; {selectedProofModal.time}
-                </p>
+      {selectedProofModal && (() => {
+        const info = getViolationInfo(selectedProofModal.type, selectedProofModal.desc);
+        return (
+          <div className="fixed inset-0 z-[120] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+            <div className="bg-white border border-slate-200 rounded-3xl max-w-2xl w-full max-h-[92vh] overflow-y-auto shadow-2xl flex flex-col custom-scrollbar">
+              <div className="bg-slate-50 px-6 py-4 border-b border-slate-200 flex items-center justify-between sticky top-0 z-10">
+                <div className="flex items-center space-x-3">
+                  <div className={`p-2 rounded-xl ${
+                    selectedProofModal.severity === 'CRITICAL' ? 'bg-rose-100 text-rose-600' : 'bg-amber-100 text-amber-600'
+                  }`}>
+                    <Camera className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3 className="text-base font-extrabold text-slate-900 flex items-center">
+                      Violation Screenshot Evidence
+                      {selectedProofModal.severity && (
+                        <span className={`ml-2.5 text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-full border ${
+                          selectedProofModal.severity === 'CRITICAL' 
+                            ? 'bg-rose-100 text-rose-700 border-rose-200' 
+                            : 'bg-amber-100 text-amber-700 border-amber-200'
+                        }`}>
+                          {selectedProofModal.severity}
+                        </span>
+                      )}
+                    </h3>
+                    <p className="text-xs text-slate-500 font-mono mt-0.5">
+                      {info.title} &bull; {selectedProofModal.time}
+                    </p>
+                  </div>
+                </div>
+                <button 
+                  onClick={() => setSelectedProofModal(null)}
+                  className="text-slate-400 hover:text-slate-700 p-2 rounded-xl hover:bg-slate-100 transition"
+                >
+                  <X className="w-5 h-5" />
+                </button>
               </div>
-              <button 
-                onClick={() => setSelectedProofModal(null)}
-                className="text-slate-400 hover:text-slate-700 p-2 rounded-lg hover:bg-slate-100 transition"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
 
-            <div className="p-6 bg-slate-50/50 flex flex-col items-center">
-              <div className="w-full rounded-xl overflow-hidden border border-slate-200 bg-slate-950">
-                <img src={selectedProofModal.image} alt="Enlarged Proof" className="w-full max-h-[460px] object-contain mx-auto" />
+              {/* Modal Body Along With Incident Description */}
+              <div className="p-6 bg-slate-50/50 flex flex-col space-y-4">
+                <div className="w-full relative rounded-2xl overflow-hidden border border-slate-200 bg-slate-950 shadow-inner">
+                  <img 
+                    src={selectedProofModal.image} 
+                    alt="Violation Evidence" 
+                    className="w-full max-h-[440px] object-contain mx-auto" 
+                  />
+                  <div className="absolute top-3 left-3 bg-rose-600/90 text-white text-[11px] font-extrabold px-2.5 py-1 rounded-md shadow-lg uppercase tracking-wider flex items-center">
+                    <ShieldAlert className="w-3.5 h-3.5 mr-1.5" />
+                    Surveillance Snapshot
+                  </div>
+                </div>
+
+                {/* Violation Description & Candidate Action Callout (Directly along with image) */}
+                <div className="w-full bg-rose-50/80 border border-rose-200 rounded-2xl p-4.5 shadow-xs">
+                  <div className="flex items-start gap-3.5">
+                    <div className="p-2.5 bg-rose-100 text-rose-700 rounded-xl shrink-0 mt-0.5">
+                      <AlertTriangle className="w-5 h-5" />
+                    </div>
+                    <div className="flex-1">
+                      <div className="flex items-center justify-between flex-wrap gap-2 mb-2">
+                        <span className="text-xs font-black uppercase tracking-wider text-rose-800 flex items-center">
+                          Candidate Violation: {info.title}
+                        </span>
+                        <span className="text-[11px] font-bold text-slate-600 font-mono bg-white px-2.5 py-0.5 rounded-full border border-rose-200">
+                          {info.categoryLabel}
+                        </span>
+                      </div>
+
+                      {/* Explicit description of what violation was done by candidate during exam */}
+                      <div className="bg-white rounded-xl p-3.5 border border-rose-200/90 shadow-2xs mb-3">
+                        <span className="text-[10px] font-extrabold uppercase tracking-wider text-rose-700 block mb-1">
+                          What Candidate Did During Exam:
+                        </span>
+                        <p className="text-xs font-bold text-slate-900 leading-relaxed">
+                          {info.actionDone}
+                        </p>
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 text-xs">
+                        <div className="bg-white/80 p-2.5 rounded-lg border border-rose-100">
+                          <span className="font-extrabold text-slate-500 block text-[10px] uppercase">Examination Rule Breached:</span>
+                          <span className="text-slate-800 font-medium">{info.ruleBreached}</span>
+                        </div>
+                        {selectedProofModal.desc && (
+                          <div className="bg-white/80 p-2.5 rounded-lg border border-rose-100">
+                            <span className="font-extrabold text-slate-500 block text-[10px] uppercase">Telemetry Event Log:</span>
+                            <span className="text-slate-800 font-medium font-mono">{selectedProofModal.desc}</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Candidate & Exam Metadata Grid */}
+                {(selectedProofModal.candidateName || selectedProofModal.examName) && (
+                  <div className="w-full grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs bg-white p-3.5 rounded-xl border border-slate-200 shadow-2xs">
+                    {selectedProofModal.candidateName && (
+                      <div className="flex items-center space-x-2">
+                        <User className="w-4 h-4 text-slate-400 shrink-0" />
+                        <div>
+                          <span className="text-slate-500 block font-semibold text-[11px]">Candidate:</span>
+                          <span className="text-slate-900 font-extrabold">{selectedProofModal.candidateName}</span>
+                          {selectedProofModal.candidateEmail && (
+                            <span className="text-slate-400 ml-1.5 font-mono text-[11px]">({selectedProofModal.candidateEmail})</span>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                    {selectedProofModal.examName && (
+                      <div className="flex items-center space-x-2">
+                        <BookOpen className="w-4 h-4 text-slate-400 shrink-0" />
+                        <div>
+                          <span className="text-slate-500 block font-semibold text-[11px]">Exam:</span>
+                          <span className="text-slate-900 font-extrabold">{selectedProofModal.examName}</span>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
-              {selectedProofModal.desc && (
-                <p className="text-xs text-slate-600 mt-4 text-center">
-                  {selectedProofModal.desc}
-                </p>
-              )}
-            </div>
 
-            <div className="bg-slate-50 px-6 py-3 border-t border-slate-200 flex justify-end">
-              <button 
-                onClick={() => setSelectedProofModal(null)}
-                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold transition shadow-sm"
-              >
-                Done
-              </button>
+              {/* Modal Footer */}
+              <div className="bg-slate-50 px-6 py-3.5 border-t border-slate-200 flex items-center justify-between sticky bottom-0">
+                <a
+                  href="https://drive.google.com/drive/folders/1P_3yKzFloiMrF8Pe1XFl9Lh-nqvPTit1?usp=sharing"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center px-3.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold transition shadow-xs"
+                >
+                  <HardDrive className="w-3.5 h-3.5 mr-1.5" />
+                  View Drive Archive
+                  <ExternalLink className="w-3 h-3 ml-1 opacity-70" />
+                </a>
+                <button 
+                  onClick={() => setSelectedProofModal(null)}
+                  className="px-5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-lg text-xs font-bold transition border border-slate-200 shadow-xs"
+                >
+                  Close
+                </button>
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
     </div>
   );
 }
