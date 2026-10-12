@@ -5,6 +5,9 @@ import Exam from '../models/Exam';
 import Answer from '../models/Answer';
 import Result from '../models/Result';
 import ViolationEvent from '../models/ViolationEvent';
+import Question from '../models/Question';
+import User from '../models/User';
+import { googleDriveService } from '../services/googleDriveService';
 import { AuthRequest } from '../middleware/authMiddleware';
 
 export const startAttempt = async (req: AuthRequest, res: Response, next: NextFunction) => {
@@ -73,8 +76,6 @@ export const startAttempt = async (req: AuthRequest, res: Response, next: NextFu
     next(err);
   }
 };
-
-import Question from '../models/Question';
 
 export const getAttempt = async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
@@ -251,6 +252,32 @@ export const evaluateAttempt = async (attemptId: string, candidateId: string) =>
     });
     
     await result.save();
+
+    // Sync Examination Submission and Answers Report to Google Drive Folder: 1P_3yKzFloiMrF8Pe1XFl9Lh-nqvPTit1
+    try {
+      const candidate = await User.findById(candidateId);
+      const exam = await Exam.findById(attempt.examId);
+      const driveUpload = await googleDriveService.uploadExamSubmission(
+        { id: candidateId, name: candidate?.name || 'Candidate', email: candidate?.email },
+        { id: attempt.examId.toString(), title: exam?.title || 'Exam', duration: exam?.duration, totalMarks },
+        questions,
+        answers,
+        result,
+        violations
+      );
+
+      result.driveReportUrl = driveUpload.htmlResult.webViewLink;
+      result.driveJsonUrl = driveUpload.jsonResult.webViewLink;
+      result.driveFolderUrl = `https://drive.google.com/drive/folders/1P_3yKzFloiMrF8Pe1XFl9Lh-nqvPTit1?usp=sharing`;
+      await result.save();
+
+      attempt.driveReportUrl = driveUpload.htmlResult.webViewLink;
+      attempt.driveFolderUrl = result.driveFolderUrl;
+      await attempt.save();
+    } catch (driveErr) {
+      console.warn('[GoogleDrive] Syncing exam answers report error:', driveErr);
+    }
+
     return result;
 };
 
@@ -265,6 +292,29 @@ export const recordViolation = async (req: AuthRequest, res: Response, next: Nex
       return res.status(404).json({ success: false, message: 'Attempt not found' });
     }
 
+    let driveUrl = '';
+    const driveFolderUrl = `https://drive.google.com/drive/folders/1P_3yKzFloiMrF8Pe1XFl9Lh-nqvPTit1?usp=sharing`;
+
+    // Upload violation image to Google Drive folder: 1P_3yKzFloiMrF8Pe1XFl9Lh-nqvPTit1
+    if (screenshot) {
+      try {
+        const candidate = await User.findById(candidateId);
+        const exam = await Exam.findById(attempt.examId);
+        const uploadRes = await googleDriveService.uploadViolationImage(
+          screenshot,
+          candidate?.name || 'Candidate',
+          exam?.title || 'Exam',
+          type,
+          new Date()
+        );
+        if (uploadRes?.webViewLink) {
+          driveUrl = uploadRes.webViewLink;
+        }
+      } catch (uploadErr) {
+        console.warn('[GoogleDrive] Violation screenshot sync warning:', uploadErr);
+      }
+    }
+
     const violation = new ViolationEvent({
       attemptId,
       candidateId,
@@ -275,11 +325,60 @@ export const recordViolation = async (req: AuthRequest, res: Response, next: Nex
       actionTaken: 'LOG',
       description: description || '',
       screenshot: screenshot || '',
-      snapshotImage: screenshot || ''
+      snapshotImage: screenshot || '',
+      driveUrl: driveUrl || undefined,
+      driveFolderUrl
     });
     await violation.save();
 
-    res.status(200).json({ success: true, violation });
+    res.status(200).json({ success: true, violation, driveUrl, driveFolderUrl });
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const recordCandidateProof = async (req: AuthRequest, res: Response, next: NextFunction) => {
+  try {
+    const { attemptId } = req.params;
+    const { image, proofType, deviceInfo } = req.body;
+    const candidateId = req.user?.userId;
+
+    const attempt = await Attempt.findOne({ _id: attemptId, candidateId });
+    if (!attempt) {
+      return res.status(404).json({ success: false, message: 'Attempt not found' });
+    }
+
+    const candidate = await User.findById(candidateId);
+    const exam = await Exam.findById(attempt.examId);
+    const driveFolderUrl = `https://drive.google.com/drive/folders/1P_3yKzFloiMrF8Pe1XFl9Lh-nqvPTit1?usp=sharing`;
+
+    let driveLink = driveFolderUrl;
+    if (image) {
+      try {
+        const uploadRes = await googleDriveService.uploadCandidateProof(
+          image,
+          { id: candidateId, name: candidate?.name || 'Candidate', email: candidate?.email },
+          exam?.title || 'Exam',
+          proofType || 'Identity_Verification'
+        );
+        if (uploadRes?.webViewLink) {
+          driveLink = uploadRes.webViewLink;
+        }
+      } catch (err) {
+        console.warn('[GoogleDrive] Candidate proof upload warning:', err);
+      }
+    }
+
+    attempt.candidateProofUrl = driveLink;
+    attempt.driveFolderUrl = driveFolderUrl;
+    await attempt.save();
+
+    res.status(200).json({
+      success: true,
+      message: 'Candidate proof linked to Google Drive successfully',
+      candidateProofUrl: driveLink,
+      driveFolderUrl
+    });
   } catch (err) {
     next(err);
   }

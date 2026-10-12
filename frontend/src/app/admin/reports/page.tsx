@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { ArrowLeft, CheckCircle2, FileText, Check, X, ShieldAlert } from 'lucide-react';
+import { ArrowLeft, CheckCircle2, FileText, Check, X, ShieldAlert, ExternalLink, HardDrive } from 'lucide-react';
 import api from '@/lib/api';
 
 export default function ResultsVerificationPage() {
@@ -36,16 +36,36 @@ export default function ResultsVerificationPage() {
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col py-10 px-8">
       <div className="max-w-7xl mx-auto w-full">
-        <Link href="/admin/monitoring" className="text-blue-600 font-semibold flex items-center mb-6 hover:underline w-max">
-          <ArrowLeft className="w-4 h-4 mr-2" /> Back to Candidates
-        </Link>
+        <div className="flex items-center justify-between mb-6">
+          <Link href="/admin/monitoring" className="text-blue-600 font-semibold flex items-center hover:underline w-max">
+            <ArrowLeft className="w-4 h-4 mr-2" /> Back to Candidates
+          </Link>
+
+          <a 
+            href="https://drive.google.com/drive/folders/1P_3yKzFloiMrF8Pe1XFl9Lh-nqvPTit1?usp=sharing"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-lg text-sm font-semibold shadow-sm transition-all"
+          >
+            <HardDrive className="w-4 h-4 mr-2" />
+            Open Google Drive Folder
+            <ExternalLink className="w-3.5 h-3.5 ml-1.5 opacity-80" />
+          </a>
+        </div>
         
-        <div className="mb-8">
-          <h1 className="text-3xl font-extrabold text-slate-800 flex items-center">
-            <FileText className="w-8 h-8 mr-3 text-blue-500" />
-            Results & Verification
-          </h1>
-          <p className="text-slate-500 mt-2 text-lg">Verify candidate exam results and violations before releasing them</p>
+        <div className="mb-8 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+          <div>
+            <h1 className="text-3xl font-extrabold text-slate-800 flex items-center">
+              <FileText className="w-8 h-8 mr-3 text-blue-500" />
+              Results & Verification
+            </h1>
+            <p className="text-slate-500 mt-2 text-lg">Verify candidate exam results, submitted answers, and violations linked to Google Drive</p>
+          </div>
+          
+          <div className="bg-blue-50 border border-blue-200 rounded-lg px-4 py-2.5 text-xs text-blue-800 flex items-center">
+            <HardDrive className="w-4 h-4 mr-2 text-blue-600 flex-shrink-0" />
+            <span>Drive Folder ID: <strong className="font-mono">1P_3yKzFloiMrF8Pe1XFl9Lh-nqvPTit1</strong></span>
+          </div>
         </div>
 
         <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
@@ -109,12 +129,23 @@ export default function ResultsVerificationPage() {
                           {r.status}
                         </span>
                       </td>
-                      <td className="p-4 text-right space-x-2">
+                      <td className="p-4 text-right space-x-2 whitespace-nowrap">
+                        <a
+                          href={r.driveReportUrl || r.driveFolderUrl || 'https://drive.google.com/drive/folders/1P_3yKzFloiMrF8Pe1XFl9Lh-nqvPTit1?usp=sharing'}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="px-3 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded-lg text-xs font-semibold inline-flex items-center transition-colors"
+                          title="View candidate answers sheet and proctoring report on Google Drive"
+                        >
+                          <FileText className="w-3.5 h-3.5 mr-1 text-blue-600" />
+                          Answers (Drive)
+                          <ExternalLink className="w-3 h-3 ml-1 opacity-70" />
+                        </a>
                         {r.status === 'PENDING' && (
                           <>
                             <button 
                               onClick={() => verifyResult(r._id, 'APPROVED')}
-                              className="px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 rounded-lg text-sm font-medium transition-colors inline-flex items-center"
+                              className="px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 rounded-lg text-sm font-medium transition-colors inline-flex items-center ml-2"
                             >
                               <Check className="w-4 h-4 mr-1" /> Approve
                             </button>

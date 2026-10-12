@@ -4,6 +4,8 @@ import User, { Role } from '../models/User';
 import Attempt, { AttemptStatus } from '../models/Attempt';
 import ViolationEvent from '../models/ViolationEvent';
 import Session from '../models/Session';
+import Exam from '../models/Exam';
+import { googleDriveService } from '../services/googleDriveService';
 
 const JWT_SECRET = process.env.JWT_SECRET;
 
@@ -84,6 +86,30 @@ export const setupSockets = (io: Server) => {
           return;
         }
 
+        const screenshot = data.screenshot || data.image || data.snapshotImage || '';
+        let driveUrl = '';
+        const driveFolderUrl = `https://drive.google.com/drive/folders/1P_3yKzFloiMrF8Pe1XFl9Lh-nqvPTit1?usp=sharing`;
+
+        // Sync violation proof screenshot to Google Drive folder
+        if (screenshot) {
+          try {
+            const candidate = await User.findById(userId);
+            const exam = await Exam.findById(attempt.examId);
+            const uploadRes = await googleDriveService.uploadViolationImage(
+              screenshot,
+              candidate?.name || 'Candidate',
+              exam?.title || 'Exam',
+              data.type || 'VIOLATION',
+              new Date()
+            );
+            if (uploadRes?.webViewLink) {
+              driveUrl = uploadRes.webViewLink;
+            }
+          } catch (uploadErr) {
+            console.warn('[GoogleDrive] Socket screenshot sync warning:', uploadErr);
+          }
+        }
+
         const violation = new ViolationEvent({
           attemptId: data.attemptId,
           candidateId: userId,
@@ -93,8 +119,10 @@ export const setupSockets = (io: Server) => {
           detectedAt: new Date(),
           actionTaken: data.actionTaken || 'LOG',
           description: data.description || '',
-          screenshot: data.screenshot || data.image || data.snapshotImage || '',
-          snapshotImage: data.screenshot || data.image || data.snapshotImage || ''
+          screenshot,
+          snapshotImage: screenshot,
+          driveUrl: driveUrl || undefined,
+          driveFolderUrl
         });
         await violation.save();
 
@@ -132,6 +160,23 @@ export const setupSockets = (io: Server) => {
             if (data.description && !recentViolation.description) {
               recentViolation.description = data.description;
             }
+
+            // Sync to Google Drive
+            try {
+              const candidate = await User.findById(userId);
+              const exam = await Exam.findById(attempt.examId);
+              const uploadRes = await googleDriveService.uploadViolationImage(
+                data.image,
+                candidate?.name || 'Candidate',
+                exam?.title || 'Exam',
+                data.type || 'EVIDENCE',
+                new Date()
+              );
+              if (uploadRes?.webViewLink) {
+                recentViolation.driveUrl = uploadRes.webViewLink;
+              }
+            } catch (e) {}
+
             await recentViolation.save();
           }
         }

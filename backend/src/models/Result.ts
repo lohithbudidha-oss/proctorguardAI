@@ -17,6 +17,9 @@ export interface IResult extends Document {
   riskScore: number;
   violations: number;
   status: 'PENDING' | 'APPROVED' | 'REJECTED';
+  driveReportUrl?: string;
+  driveJsonUrl?: string;
+  driveFolderUrl?: string;
   createdAt: Date;
 }
 
@@ -36,7 +39,10 @@ const ResultSchema: Schema = new Schema({
   timeTaken: { type: Number, required: true },
   riskScore: { type: Number, default: 0 },
   violations: { type: Number, default: 0 },
-  status: { type: String, enum: ['PENDING', 'APPROVED', 'REJECTED'], default: 'PENDING' }
+  status: { type: String, enum: ['PENDING', 'APPROVED', 'REJECTED'], default: 'PENDING' },
+  driveReportUrl: { type: String },
+  driveJsonUrl: { type: String },
+  driveFolderUrl: { type: String }
 }, { timestamps: true });
 
 export default mongoose.model<IResult>('Result', ResultSchema);

@@ -45,6 +45,8 @@ export interface IViolationEvent extends Document {
   description?: string;
   screenshot?: string;
   snapshotImage?: string;
+  driveUrl?: string;
+  driveFolderUrl?: string;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -65,7 +67,9 @@ const ViolationEventSchema: Schema = new Schema({
   notes: { type: String },
   description: { type: String },
   screenshot: { type: String },
-  snapshotImage: { type: String }
+  snapshotImage: { type: String },
+  driveUrl: { type: String },
+  driveFolderUrl: { type: String }
 }, { timestamps: true, strict: false });
 
 export default mongoose.model<IViolationEvent>('ViolationEvent', ViolationEventSchema);

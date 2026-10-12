@@ -261,6 +261,25 @@ export const uploadSnapshot = async (req: AuthRequest, res: Response, next: Next
     const storageKey = `evidence/${attemptId}/${Date.now()}.jpg`;
     await storageService.uploadChunk(storageKey, req.file.buffer, req.file.mimetype);
 
+    // Also sync to Google Drive folder: 1P_3yKzFloiMrF8Pe1XFl9Lh-nqvPTit1
+    let driveLink = '';
+    try {
+      const candidate = await User.findById(userId);
+      const exam = await Exam.findById(attempt.examId);
+      const uploadRes = await googleDriveService.uploadViolationImage(
+        req.file.buffer,
+        candidate?.name || 'Candidate',
+        exam?.title || 'Exam',
+        severity || 'SNAPSHOT',
+        new Date()
+      );
+      if (uploadRes?.webViewLink) {
+        driveLink = uploadRes.webViewLink;
+      }
+    } catch (e) {
+      console.warn('[GoogleDrive] Evidence snapshot upload error:', e);
+    }
+
     const evidence = new Evidence({
       attemptId,
       candidateId: userId,
@@ -271,7 +290,8 @@ export const uploadSnapshot = async (req: AuthRequest, res: Response, next: Next
       mimeType: req.file.mimetype,
       byteSize: req.file.size,
       severity,
-      description
+      description,
+      driveUrl: driveLink || undefined
     });
     await evidence.save();
 
@@ -286,7 +306,7 @@ export const uploadSnapshot = async (req: AuthRequest, res: Response, next: Next
       userAgent: req.headers['user-agent']
     });
 
-    res.status(200).json({ success: true, evidenceId: evidence._id });
+    res.status(200).json({ success: true, evidenceId: evidence._id, driveLink });
   } catch (err) {
     next(err);
   }

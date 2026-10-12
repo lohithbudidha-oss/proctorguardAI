@@ -18,7 +18,8 @@ import {
   User, 
   BookOpen, 
   ExternalLink,
-  ShieldCheck
+  ShieldCheck,
+  HardDrive
 } from 'lucide-react';
 import api from '@/lib/api';
 
@@ -44,6 +45,8 @@ interface ViolationItem {
   description?: string;
   screenshot?: string;
   snapshotImage?: string;
+  driveUrl?: string;
+  driveFolderUrl?: string;
 }
 
 export default function ViolationQueuePage() {
@@ -215,6 +218,16 @@ export default function ViolationQueuePage() {
         </div>
 
         <div className="flex items-center space-x-3">
+          <a
+            href="https://drive.google.com/drive/folders/1P_3yKzFloiMrF8Pe1XFl9Lh-nqvPTit1?usp=sharing"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-xs font-semibold shadow-sm inline-flex items-center transition"
+          >
+            <HardDrive className="w-3.5 h-3.5 mr-1.5" />
+            Google Drive Vault
+            <ExternalLink className="w-3 h-3 ml-1 opacity-70" />
+          </a>
           <button 
             onClick={fetchViolations}
             className="px-3.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white rounded-lg text-xs font-semibold border border-slate-700 transition"
@@ -517,6 +530,16 @@ export default function ViolationQueuePage() {
                 Log ID: {selectedProof._id}
               </span>
               <div className="flex space-x-3">
+                <a
+                  href={selectedProof.driveUrl || selectedProof.driveFolderUrl || 'https://drive.google.com/drive/folders/1P_3yKzFloiMrF8Pe1XFl9Lh-nqvPTit1?usp=sharing'}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-xs font-bold transition"
+                >
+                  <HardDrive className="w-4 h-4 mr-1.5" />
+                  View in Google Drive
+                  <ExternalLink className="w-3.5 h-3.5 ml-1 opacity-70" />
+                </a>
                 {selectedProof.screenshot && (
                   <a 
                     href={selectedProof.screenshot} 

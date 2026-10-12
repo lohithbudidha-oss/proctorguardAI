@@ -284,6 +284,38 @@ function AttemptContent() {
         }
 
         setStreamsStarted(true); // Now we can safely attach security listeners
+
+        // Capture Candidate Identity Proof snapshot and sync to Google Drive
+        setTimeout(() => {
+          try {
+            const video = videoRef.current;
+            if (video && video.videoWidth > 0 && video.videoHeight > 0) {
+              const c = document.createElement('canvas');
+              c.width = video.videoWidth;
+              c.height = video.videoHeight;
+              const ctx = c.getContext('2d');
+              if (ctx) {
+                ctx.drawImage(video, 0, 0, c.width, c.height);
+                ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
+                ctx.fillRect(0, c.height - 30, c.width, 30);
+                ctx.fillStyle = '#10b981';
+                ctx.font = 'bold 12px sans-serif';
+                ctx.fillText(`[CANDIDATE IDENTITY PROOF] Attempt: ${attemptId} | ${new Date().toISOString()}`, 10, c.height - 10);
+                const proofImg = c.toDataURL('image/jpeg', 0.85);
+                api.post(`/candidate/attempts/${attemptId}/proof`, {
+                  image: proofImg,
+                  proofType: 'Candidate_Identity_Proof',
+                  deviceInfo: {
+                    userAgent: navigator.userAgent,
+                    resolution: `${window.screen.width}x${window.screen.height}`
+                  }
+                }).catch(() => {});
+              }
+            }
+          } catch (e) {
+            console.warn('Candidate proof capture warning:', e);
+          }
+        }, 3000);
       } catch (err) {
         handleViolation('MEDIA_STOPPED', 'CRITICAL', 'Camera/Screen access denied or lost');
       }

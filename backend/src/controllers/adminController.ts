@@ -199,3 +199,14 @@ export const verifyResult = async (req: Request, res: Response, next: NextFuncti
     next(err);
   }
 };
+
+export const getDriveStatus = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { googleDriveService } = require('../services/googleDriveService');
+    const status = googleDriveService.getDriveStatus();
+    res.status(200).json({ success: true, ...status });
+  } catch (err) {
+    next(err);
+  }
+};
+

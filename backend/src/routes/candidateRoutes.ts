@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { startAttempt, saveAnswer, submitAttempt, getAttempt, recordViolation } from '../controllers/attemptController';
+import { startAttempt, saveAnswer, submitAttempt, getAttempt, recordViolation, recordCandidateProof } from '../controllers/attemptController';
 import { authenticate, requireRole } from '../middleware/authMiddleware';
 import { Role } from '../models/User';
 
@@ -14,6 +14,7 @@ router.post('/exams/:examId/start', startAttempt);
 router.post('/attempts/:attemptId/answers', saveAnswer);
 router.post('/attempts/:attemptId/submit', submitAttempt);
 router.post('/attempts/:attemptId/violations', recordViolation);
+router.post('/attempts/:attemptId/proof', recordCandidateProof);
 
 import { getAssignedExams, getExamDetails, getAttemptResult } from '../controllers/candidateController';
 

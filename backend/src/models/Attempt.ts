@@ -29,6 +29,9 @@ export interface IAttempt extends Document {
   score?: number;
   percentage?: number;
   resultStatus?: 'PASS' | 'FAIL';
+  candidateProofUrl?: string;
+  driveReportUrl?: string;
+  driveFolderUrl?: string;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -45,7 +48,10 @@ const AttemptSchema: Schema = new Schema({
   status: { type: String, enum: Object.values(AttemptStatus), default: AttemptStatus.IN_PROGRESS },
   score: { type: Number },
   percentage: { type: Number },
-  resultStatus: { type: String, enum: ['PASS', 'FAIL'] }
+  resultStatus: { type: String, enum: ['PASS', 'FAIL'] },
+  candidateProofUrl: { type: String },
+  driveReportUrl: { type: String },
+  driveFolderUrl: { type: String }
 }, { timestamps: true });
 
 export default mongoose.model<IAttempt>('Attempt', AttemptSchema);
