@@ -948,7 +948,7 @@ export default function ViolationQueuePage() {
                               setSelectedCandidateKey(group.key);
                               setSelectedExamKey('ALL');
                             }}
-                            className="inline-flex items-center px-3.5 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 font-bold text-xs rounded-xl border border-rose-200 transition-colors shadow-2xs group-hover:bg-rose-600 group-hover:text-white group-hover:border-rose-600"
+                            className="inline-flex items-center px-3.5 py-1.5 bg-rose-50 text-rose-700 font-bold text-xs rounded-xl border border-rose-200 shadow-2xs group-hover:bg-rose-600 group-hover:text-white group-hover:border-rose-600 hover:!bg-rose-700 hover:!text-white hover:!border-rose-700 transition-all cursor-pointer active:scale-95"
                           >
                             View Violations ({group.totalViolations})
                             <ChevronRight className="w-3.5 h-3.5 ml-1" />
