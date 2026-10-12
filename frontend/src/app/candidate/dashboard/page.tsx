@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { ShieldCheck, FileText, CheckCircle2, Clock, Calendar, ArrowRight, Bell, UserCircle } from 'lucide-react';
+import { ShieldCheck, FileText, CheckCircle2, Clock, Calendar, ArrowRight, Bell, UserCircle, LogOut, X } from 'lucide-react';
 import api from '@/lib/api';
 
 export default function CandidateDashboard() {
@@ -11,6 +11,7 @@ export default function CandidateDashboard() {
   const [loading, setLoading] = useState(true);
   const [currentTime, setCurrentTime] = useState('');
   const [showNotifications, setShowNotifications] = useState(false);
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
 
   const [exams, setExams] = useState<{ id: string; title: string; duration: number; status: string; scheduledFor: string; resultStatus?: string; attemptId?: string }[]>([]);
 
@@ -105,13 +106,13 @@ export default function CandidateDashboard() {
               )}
             </div>
             <div className="h-6 w-px bg-slate-200"></div>
-            <div className="flex items-center space-x-3 group cursor-pointer" onClick={handleLogout}>
+            <div className="flex items-center space-x-3 group cursor-pointer" onClick={() => setShowLogoutConfirm(true)}>
               <div className="text-right hidden md:block">
-                <p className="text-sm font-bold text-slate-800 group-hover:text-blue-600 transition-colors">Sign Out</p>
+                <p className="text-sm font-bold text-slate-800 group-hover:text-rose-600 transition-colors">Sign Out</p>
                 <p className="text-xs text-slate-500 font-medium">{currentTime}</p>
               </div>
-              <div className="w-10 h-10 bg-slate-100 rounded-full flex items-center justify-center border border-slate-200 group-hover:border-blue-300 transition-colors">
-                <UserCircle className="w-6 h-6 text-slate-500 group-hover:text-blue-600" />
+              <div className="w-10 h-10 bg-slate-100 rounded-full flex items-center justify-center border border-slate-200 group-hover:border-rose-300 group-hover:bg-rose-50 transition-colors">
+                <UserCircle className="w-6 h-6 text-slate-500 group-hover:text-rose-600 transition-colors" />
               </div>
             </div>
           </div>
@@ -216,6 +217,44 @@ export default function CandidateDashboard() {
           ))}
         </div>
       </main>
+
+      {/* Sign Out Confirmation Modal */}
+      {showLogoutConfirm && (
+        <div className="fixed inset-0 z-[120] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 animate-in fade-in duration-150">
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-2xl max-w-md w-full p-6 transform transition-all animate-in zoom-in-95 duration-150">
+            <div className="flex items-start space-x-4">
+              <div className="w-12 h-12 rounded-xl bg-rose-50 border border-rose-200 text-rose-600 flex items-center justify-center shrink-0">
+                <LogOut className="w-6 h-6" />
+              </div>
+              <div className="flex-1">
+                <h3 className="text-lg font-black text-slate-900">Sign Out of Candidate Portal?</h3>
+                <p className="text-xs text-slate-500 mt-1.5 leading-relaxed">
+                  Are you sure you want to sign out? You will need to log back in to access your assessments, waiting rooms, or examination results.
+                </p>
+              </div>
+            </div>
+
+            <div className="mt-6 flex items-center justify-end space-x-3">
+              <button
+                onClick={() => setShowLogoutConfirm(false)}
+                className="px-4 py-2.5 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => {
+                  setShowLogoutConfirm(false);
+                  handleLogout();
+                }}
+                className="px-5 py-2.5 rounded-xl text-xs font-extrabold bg-rose-600 hover:bg-rose-700 text-white shadow-sm shadow-rose-600/20 transition-all flex items-center cursor-pointer"
+              >
+                <LogOut className="w-3.5 h-3.5 mr-1.5" />
+                Yes, Sign Out
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
