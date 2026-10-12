@@ -2,6 +2,8 @@ import { Request, Response, NextFunction } from 'express';
 import mongoose from 'mongoose';
 import Exam, { ExamStatus } from '../models/Exam';
 
+const EMOJI_REGEX = /(?:\p{Extended_Pictographic}|\p{Emoji_Presentation}|\uD83C[\uDF00-\uDFFF]|\uD83D[\uDC00-\uDE4F]|\uD83D[\uDE80-\uDEFF]|[\u2600-\u26FF\u2700-\u27BF])/u;
+
 export const createExam = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { title, description, instructions, duration, ...rest } = req.body;
@@ -12,11 +14,35 @@ export const createExam = async (req: Request, res: Response, next: NextFunction
     if (title.trim().length > 250) {
       return res.status(400).json({ success: false, message: 'Exam title cannot exceed 250 characters.' });
     }
-    if (description && typeof description === 'string' && description.trim().length > 250) {
-      return res.status(400).json({ success: false, message: 'Exam description cannot exceed 250 characters.' });
+    if (EMOJI_REGEX.test(title)) {
+      return res.status(400).json({ success: false, message: 'Emojis are not accepted in the exam creation form.' });
     }
-    if (instructions && typeof instructions === 'string' && instructions.trim().length > 250) {
-      return res.status(400).json({ success: false, message: 'Exam guidelines & instructions cannot exceed 250 characters.' });
+    if (!/^[a-zA-Z]/.test(title.trim())) {
+      return res.status(400).json({ success: false, message: 'Exam title must start with an alphabet letter (A-Z). Numbers and special characters are not accepted initially.' });
+    }
+
+    if (description && typeof description === 'string' && description.trim()) {
+      if (description.trim().length > 250) {
+        return res.status(400).json({ success: false, message: 'Exam description cannot exceed 250 characters.' });
+      }
+      if (EMOJI_REGEX.test(description)) {
+        return res.status(400).json({ success: false, message: 'Emojis are not accepted in exam description.' });
+      }
+      if (!/^[a-zA-Z]/.test(description.trim())) {
+        return res.status(400).json({ success: false, message: 'Exam description must start with an alphabet letter (A-Z). Numbers and special characters are not accepted initially.' });
+      }
+    }
+
+    if (instructions && typeof instructions === 'string' && instructions.trim()) {
+      if (instructions.trim().length > 250) {
+        return res.status(400).json({ success: false, message: 'Exam guidelines & instructions cannot exceed 250 characters.' });
+      }
+      if (EMOJI_REGEX.test(instructions)) {
+        return res.status(400).json({ success: false, message: 'Emojis are not accepted in guidelines & instructions.' });
+      }
+      if (!/^[a-zA-Z]/.test(instructions.trim())) {
+        return res.status(400).json({ success: false, message: 'Exam guidelines & instructions must start with an alphabet letter (A-Z). Numbers and special characters are not accepted initially.' });
+      }
     }
 
     const exam = new Exam({
@@ -76,19 +102,37 @@ export const updateExam = async (req: Request, res: Response, next: NextFunction
       if (updateData.title.trim().length > 250) {
         return res.status(400).json({ success: false, message: 'Exam title cannot exceed 250 characters.' });
       }
+      if (EMOJI_REGEX.test(updateData.title)) {
+        return res.status(400).json({ success: false, message: 'Emojis are not accepted in the exam title.' });
+      }
+      if (!/^[a-zA-Z]/.test(updateData.title.trim())) {
+        return res.status(400).json({ success: false, message: 'Exam title must start with an alphabet letter (A-Z). Numbers and special characters are not accepted initially.' });
+      }
       updateData.title = updateData.title.trim();
     }
 
-    if (updateData.description !== undefined && typeof updateData.description === 'string') {
+    if (updateData.description !== undefined && typeof updateData.description === 'string' && updateData.description.trim()) {
       if (updateData.description.trim().length > 250) {
         return res.status(400).json({ success: false, message: 'Exam description cannot exceed 250 characters.' });
+      }
+      if (EMOJI_REGEX.test(updateData.description)) {
+        return res.status(400).json({ success: false, message: 'Emojis are not accepted in exam description.' });
+      }
+      if (!/^[a-zA-Z]/.test(updateData.description.trim())) {
+        return res.status(400).json({ success: false, message: 'Exam description must start with an alphabet letter (A-Z). Numbers and special characters are not accepted initially.' });
       }
       updateData.description = updateData.description.trim();
     }
 
-    if (updateData.instructions !== undefined && typeof updateData.instructions === 'string') {
+    if (updateData.instructions !== undefined && typeof updateData.instructions === 'string' && updateData.instructions.trim()) {
       if (updateData.instructions.trim().length > 250) {
         return res.status(400).json({ success: false, message: 'Exam guidelines & instructions cannot exceed 250 characters.' });
+      }
+      if (EMOJI_REGEX.test(updateData.instructions)) {
+        return res.status(400).json({ success: false, message: 'Emojis are not accepted in guidelines & instructions.' });
+      }
+      if (!/^[a-zA-Z]/.test(updateData.instructions.trim())) {
+        return res.status(400).json({ success: false, message: 'Exam guidelines & instructions must start with an alphabet letter (A-Z). Numbers and special characters are not accepted initially.' });
       }
       updateData.instructions = updateData.instructions.trim();
     }

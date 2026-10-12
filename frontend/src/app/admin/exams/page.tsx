@@ -33,6 +33,62 @@ interface Exam {
 
 const PRESET_DURATIONS = [15, 30, 45, 60, 90, 120, 180];
 
+// Comprehensive Emoji Regex matching pictographic, presentation emojis, flags, symbols, and surrogates
+const EMOJI_REGEX = /(?:\p{Extended_Pictographic}|\p{Emoji_Presentation}|\uD83C[\uDF00-\uDFFF]|\uD83D[\uDC00-\uDE4F]|\uD83D[\uDE80-\uDEFF]|[\u2600-\u26FF\u2700-\u27BF])/u;
+const EMOJI_GLOBAL_REGEX = /(?:\p{Extended_Pictographic}|\p{Emoji_Presentation}|\uD83C[\uDF00-\uDFFF]|\uD83D[\uDC00-\uDE4F]|\uD83D[\uDE80-\uDEFF]|[\u2600-\u26FF\u2700-\u27BF])/gu;
+
+// Intercepts key presses at the initial position to block numbers, spaces, and special characters immediately
+const handleInitialKeyBlock = (
+  e: React.KeyboardEvent<HTMLInputElement | HTMLTextAreaElement>,
+  currentVal: string,
+  fieldLabel: string,
+  setError: (err: string | undefined) => void
+) => {
+  const isAtStart = (e.currentTarget.selectionStart === 0 && e.currentTarget.selectionEnd === 0) || currentVal.length === 0;
+
+  // Printable single character typed by user at position 0
+  if (isAtStart && e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) {
+    if (!/^[a-zA-Z]$/.test(e.key)) {
+      e.preventDefault();
+      setError(`${fieldLabel} must start with an alphabet letter (A-Z). Numbers and special characters are not accepted initially.`);
+    }
+  }
+};
+
+// Sanitizes input on change, rejecting emojis and stripping initial numbers / special characters
+const handleSanitizedChange = (
+  rawVal: string,
+  fieldLabel: string,
+  setValue: (clean: string) => void,
+  setError: (err: string | undefined) => void
+) => {
+  let hadEmoji = false;
+  let hadInitialInvalid = false;
+
+  if (EMOJI_REGEX.test(rawVal)) {
+    hadEmoji = true;
+  }
+
+  // Remove any emojis
+  let clean = rawVal.replace(EMOJI_GLOBAL_REGEX, '');
+
+  // If text starts with non-letter characters (numbers, special chars, leading spaces)
+  if (clean.length > 0 && !/^[a-zA-Z]/.test(clean)) {
+    hadInitialInvalid = true;
+    clean = clean.replace(/^[^a-zA-Z]+/, '');
+  }
+
+  setValue(clean);
+
+  if (hadEmoji) {
+    setError('Emojis are not accepted in the exam form.');
+  } else if (hadInitialInvalid) {
+    setError(`${fieldLabel} must start with an alphabet letter (A-Z). Numbers and special characters are not accepted initially.`);
+  } else {
+    setError(undefined);
+  }
+};
+
 export default function AdminExamsPage() {
   const router = useRouter();
   const [exams, setExams] = useState<Exam[]>([]);
@@ -123,14 +179,30 @@ export default function AdminExamsPage() {
       errors.title = 'Please enter an exam title.';
     } else if (createTitle.trim().length > 250) {
       errors.title = `Exam title cannot exceed 250 characters (currently ${createTitle.trim().length}).`;
+    } else if (EMOJI_REGEX.test(createTitle)) {
+      errors.title = 'Emojis are not accepted in the exam creation form.';
+    } else if (!/^[a-zA-Z]/.test(createTitle.trim())) {
+      errors.title = 'Exam title must start with an alphabet letter (A-Z). Numbers and special characters are not accepted initially.';
     }
 
-    if (createDescription.trim().length > 250) {
-      errors.description = `Description cannot exceed 250 characters (currently ${createDescription.trim().length}).`;
+    if (createDescription.trim()) {
+      if (createDescription.trim().length > 250) {
+        errors.description = `Description cannot exceed 250 characters (currently ${createDescription.trim().length}).`;
+      } else if (EMOJI_REGEX.test(createDescription)) {
+        errors.description = 'Emojis are not accepted in the description.';
+      } else if (!/^[a-zA-Z]/.test(createDescription.trim())) {
+        errors.description = 'Description must start with an alphabet letter (A-Z). Numbers and special characters are not accepted initially.';
+      }
     }
 
-    if (createInstructions.trim().length > 250) {
-      errors.instructions = `Exam guidelines & instructions cannot exceed 250 characters (currently ${createInstructions.trim().length}).`;
+    if (createInstructions.trim()) {
+      if (createInstructions.trim().length > 250) {
+        errors.instructions = `Exam guidelines & instructions cannot exceed 250 characters (currently ${createInstructions.trim().length}).`;
+      } else if (EMOJI_REGEX.test(createInstructions)) {
+        errors.instructions = 'Emojis are not accepted in guidelines & instructions.';
+      } else if (!/^[a-zA-Z]/.test(createInstructions.trim())) {
+        errors.instructions = 'Exam guidelines & instructions must start with an alphabet letter (A-Z). Numbers and special characters are not accepted initially.';
+      }
     }
 
     const durationNum = Number(createDuration);
@@ -183,14 +255,30 @@ export default function AdminExamsPage() {
       errors.title = 'Please enter an exam title.';
     } else if (editTitle.trim().length > 250) {
       errors.title = `Exam title cannot exceed 250 characters (currently ${editTitle.trim().length}).`;
+    } else if (EMOJI_REGEX.test(editTitle)) {
+      errors.title = 'Emojis are not accepted in the exam title.';
+    } else if (!/^[a-zA-Z]/.test(editTitle.trim())) {
+      errors.title = 'Exam title must start with an alphabet letter (A-Z). Numbers and special characters are not accepted initially.';
     }
 
-    if (editDescription.trim().length > 250) {
-      errors.description = `Description cannot exceed 250 characters (currently ${editDescription.trim().length}).`;
+    if (editDescription.trim()) {
+      if (editDescription.trim().length > 250) {
+        errors.description = `Description cannot exceed 250 characters (currently ${editDescription.trim().length}).`;
+      } else if (EMOJI_REGEX.test(editDescription)) {
+        errors.description = 'Emojis are not accepted in the description.';
+      } else if (!/^[a-zA-Z]/.test(editDescription.trim())) {
+        errors.description = 'Description must start with an alphabet letter (A-Z). Numbers and special characters are not accepted initially.';
+      }
     }
 
-    if (editInstructions.trim().length > 250) {
-      errors.instructions = `Exam guidelines & instructions cannot exceed 250 characters (currently ${editInstructions.trim().length}).`;
+    if (editInstructions.trim()) {
+      if (editInstructions.trim().length > 250) {
+        errors.instructions = `Exam guidelines & instructions cannot exceed 250 characters (currently ${editInstructions.trim().length}).`;
+      } else if (EMOJI_REGEX.test(editInstructions)) {
+        errors.instructions = 'Emojis are not accepted in guidelines & instructions.';
+      } else if (!/^[a-zA-Z]/.test(editInstructions.trim())) {
+        errors.instructions = 'Exam guidelines & instructions must start with an alphabet letter (A-Z). Numbers and special characters are not accepted initially.';
+      }
     }
 
     const durationNum = Number(editDuration);
@@ -468,10 +556,8 @@ export default function AdminExamsPage() {
                   maxLength={250}
                   placeholder="e.g., Software Engineering Aptitude & Logic Assessment"
                   value={createTitle}
-                  onChange={e => {
-                    setCreateTitle(e.target.value);
-                    if (createErrors.title) setCreateErrors(prev => ({ ...prev, title: undefined }));
-                  }}
+                  onKeyDown={e => handleInitialKeyBlock(e, createTitle, 'Exam title', err => setCreateErrors(prev => ({ ...prev, title: err })))}
+                  onChange={e => handleSanitizedChange(e.target.value, 'Exam title', setCreateTitle, err => setCreateErrors(prev => ({ ...prev, title: err })))}
                   className={`w-full px-4 py-2.5 border rounded-xl focus:ring-2 focus:ring-blue-500 text-slate-900 text-sm font-medium outline-none transition ${
                     createErrors.title ? 'border-rose-400 bg-rose-50/20' : 'border-slate-300 focus:border-blue-500'
                   }`}
@@ -482,7 +568,7 @@ export default function AdminExamsPage() {
                   </p>
                 )}
                 <p className="text-[11px] text-slate-500 mt-1">
-                  Suggestion: Up to 250 characters suggested for a clear assessment title.
+                  Must start with an alphabet letter (A-Z). Numbers, special characters initially & emojis are not accepted (max 250 chars).
                 </p>
               </div>
 
@@ -558,10 +644,8 @@ export default function AdminExamsPage() {
                   maxLength={250}
                   placeholder="Provide a brief overview of syllabus or purpose (max 250 chars suggested)..."
                   value={createDescription}
-                  onChange={e => {
-                    setCreateDescription(e.target.value);
-                    if (createErrors.description) setCreateErrors(prev => ({ ...prev, description: undefined }));
-                  }}
+                  onKeyDown={e => handleInitialKeyBlock(e, createDescription, 'Description', err => setCreateErrors(prev => ({ ...prev, description: err })))}
+                  onChange={e => handleSanitizedChange(e.target.value, 'Description', setCreateDescription, err => setCreateErrors(prev => ({ ...prev, description: err })))}
                   className={`w-full px-4 py-2 border rounded-xl focus:ring-2 focus:ring-blue-500 text-slate-900 text-sm outline-none transition resize-none ${
                     createErrors.description ? 'border-rose-400 bg-rose-50/20' : 'border-slate-300 focus:border-blue-500'
                   }`}
@@ -572,7 +656,7 @@ export default function AdminExamsPage() {
                   </p>
                 )}
                 <p className="text-[11px] text-slate-500 mt-1">
-                  Suggestion: Up to 250 characters suggested for syllabus summary & assessment objective.
+                  Must start with an alphabet letter (A-Z). Numbers, special characters initially & emojis are not accepted (max 250 chars).
                 </p>
               </div>
 
@@ -596,10 +680,8 @@ export default function AdminExamsPage() {
                   maxLength={250}
                   placeholder="e.g. Scientific calculators allowed, each question carries equal weightage (max 250 chars suggested)..."
                   value={createInstructions}
-                  onChange={e => {
-                    setCreateInstructions(e.target.value);
-                    if (createErrors.instructions) setCreateErrors(prev => ({ ...prev, instructions: undefined }));
-                  }}
+                  onKeyDown={e => handleInitialKeyBlock(e, createInstructions, 'Exam guidelines & instructions', err => setCreateErrors(prev => ({ ...prev, instructions: err })))}
+                  onChange={e => handleSanitizedChange(e.target.value, 'Exam guidelines & instructions', setCreateInstructions, err => setCreateErrors(prev => ({ ...prev, instructions: err })))}
                   className={`w-full px-4 py-2 border rounded-xl focus:ring-2 focus:ring-blue-500 text-slate-900 text-sm outline-none transition resize-none ${
                     createErrors.instructions ? 'border-rose-400 bg-rose-50/20' : 'border-slate-300 focus:border-blue-500'
                   }`}
@@ -610,7 +692,7 @@ export default function AdminExamsPage() {
                   </p>
                 )}
                 <p className="text-[11px] text-slate-500 mt-1">
-                  Suggestion: Up to 250 characters suggested for exam rules, calculator policies & instructions.
+                  Must start with an alphabet letter (A-Z). Numbers, special characters initially & emojis are not accepted (max 250 chars).
                 </p>
               </div>
 
@@ -679,10 +761,8 @@ export default function AdminExamsPage() {
                   required
                   maxLength={250}
                   value={editTitle}
-                  onChange={e => {
-                    setEditTitle(e.target.value);
-                    if (editErrors.title) setEditErrors(prev => ({ ...prev, title: undefined }));
-                  }}
+                  onKeyDown={e => handleInitialKeyBlock(e, editTitle, 'Exam title', err => setEditErrors(prev => ({ ...prev, title: err })))}
+                  onChange={e => handleSanitizedChange(e.target.value, 'Exam title', setEditTitle, err => setEditErrors(prev => ({ ...prev, title: err })))}
                   className={`w-full px-4 py-2.5 border rounded-xl focus:ring-2 focus:ring-blue-500 text-slate-900 text-sm font-medium outline-none transition ${
                     editErrors.title ? 'border-rose-400 bg-rose-50/20' : 'border-slate-300 focus:border-blue-500'
                   }`}
@@ -693,7 +773,7 @@ export default function AdminExamsPage() {
                   </p>
                 )}
                 <p className="text-[11px] text-slate-500 mt-1">
-                  Suggestion: Up to 250 characters suggested for a clear assessment title.
+                  Must start with an alphabet letter (A-Z). Numbers, special characters initially & emojis are not accepted (max 250 chars).
                 </p>
               </div>
 
@@ -764,10 +844,8 @@ export default function AdminExamsPage() {
                   maxLength={250}
                   placeholder="Provide a brief overview of syllabus or purpose (max 250 chars suggested)..."
                   value={editDescription}
-                  onChange={e => {
-                    setEditDescription(e.target.value);
-                    if (editErrors.description) setEditErrors(prev => ({ ...prev, description: undefined }));
-                  }}
+                  onKeyDown={e => handleInitialKeyBlock(e, editDescription, 'Description', err => setEditErrors(prev => ({ ...prev, description: err })))}
+                  onChange={e => handleSanitizedChange(e.target.value, 'Description', setEditDescription, err => setEditErrors(prev => ({ ...prev, description: err })))}
                   className={`w-full px-4 py-2 border rounded-xl focus:ring-2 focus:ring-blue-500 text-slate-900 text-sm outline-none transition resize-none ${
                     editErrors.description ? 'border-rose-400 bg-rose-50/20' : 'border-slate-300 focus:border-blue-500'
                   }`}
@@ -778,7 +856,7 @@ export default function AdminExamsPage() {
                   </p>
                 )}
                 <p className="text-[11px] text-slate-500 mt-1">
-                  Suggestion: Up to 250 characters suggested for syllabus summary & assessment objective.
+                  Must start with an alphabet letter (A-Z). Numbers, special characters initially & emojis are not accepted (max 250 chars).
                 </p>
               </div>
 
@@ -802,10 +880,8 @@ export default function AdminExamsPage() {
                   maxLength={250}
                   placeholder="e.g. Scientific calculators allowed, each question carries equal weightage (max 250 chars suggested)..."
                   value={editInstructions}
-                  onChange={e => {
-                    setEditInstructions(e.target.value);
-                    if (editErrors.instructions) setEditErrors(prev => ({ ...prev, instructions: undefined }));
-                  }}
+                  onKeyDown={e => handleInitialKeyBlock(e, editInstructions, 'Exam guidelines & instructions', err => setEditErrors(prev => ({ ...prev, instructions: err })))}
+                  onChange={e => handleSanitizedChange(e.target.value, 'Exam guidelines & instructions', setEditInstructions, err => setEditErrors(prev => ({ ...prev, instructions: err })))}
                   className={`w-full px-4 py-2 border rounded-xl focus:ring-2 focus:ring-blue-500 text-slate-900 text-sm outline-none transition resize-none ${
                     editErrors.instructions ? 'border-rose-400 bg-rose-50/20' : 'border-slate-300 focus:border-blue-500'
                   }`}
@@ -816,7 +892,7 @@ export default function AdminExamsPage() {
                   </p>
                 )}
                 <p className="text-[11px] text-slate-500 mt-1">
-                  Suggestion: Up to 250 characters suggested for exam rules, calculator policies & instructions.
+                  Must start with an alphabet letter (A-Z). Numbers, special characters initially & emojis are not accepted (max 250 chars).
                 </p>
               </div>
 
