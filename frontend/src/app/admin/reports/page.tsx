@@ -698,7 +698,42 @@ export default function ResultsVerificationPage() {
                 </div>
               </div>
 
-              <div className="flex items-center space-x-2">
+              <div className="flex items-center space-x-2 flex-wrap gap-y-2">
+                {!driveData?.isConfigured ? (
+                  <a
+                    href={`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'}/api/auth/google/drive-auth`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="px-3.5 py-1.5 bg-amber-500 hover:bg-amber-600 text-white rounded-lg text-xs font-bold transition flex items-center shadow-xs cursor-pointer"
+                    title="Authorize Google Drive account to auto-upload files to folder 1P_3yKzFloiMrF8Pe1XFl9Lh-nqvPTit1"
+                  >
+                    <HardDrive className="w-3.5 h-3.5 mr-1.5" />
+                    Connect Google Drive
+                  </a>
+                ) : (
+                  <button
+                    onClick={async () => {
+                      setLoadingDriveData(true);
+                      try {
+                        const res = await api.post('/admin/drive/sync-pending');
+                        alert(res.data?.message || 'Sync completed!');
+                        const fRes = await api.get('/admin/drive/files');
+                        setDriveData(fRes.data);
+                      } catch (err: any) {
+                        alert(err?.response?.data?.message || 'Sync error');
+                      } finally {
+                        setLoadingDriveData(false);
+                      }
+                    }}
+                    disabled={loadingDriveData}
+                    className="px-3.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-bold transition border border-slate-300 flex items-center cursor-pointer disabled:opacity-50"
+                    title="Auto-sync all pending violation proof images to Google Drive"
+                  >
+                    <RefreshCw className={`w-3.5 h-3.5 mr-1.5 ${loadingDriveData ? 'animate-spin text-blue-600' : ''}`} />
+                    Sync Proofs
+                  </button>
+                )}
+
                 <a
                   href={driveData?.folderUrl || 'https://drive.google.com/drive/folders/1P_3yKzFloiMrF8Pe1XFl9Lh-nqvPTit1?usp=sharing'}
                   target="_blank"

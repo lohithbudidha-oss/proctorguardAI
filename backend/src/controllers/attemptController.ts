@@ -529,7 +529,23 @@ export const recordViolation = async (req: AuthRequest, res: Response, next: Nex
             new Date()
           );
           if (uploadRes?.webViewLink) {
-            await ViolationEvent.findByIdAndUpdate(violation._id, { driveUrl: uploadRes.webViewLink });
+            const updated = await ViolationEvent.findByIdAndUpdate(
+              violation._id, 
+              { driveUrl: uploadRes.webViewLink },
+              { new: true }
+            ).populate('candidateId', 'name email')
+             .populate({ path: 'attemptId', populate: { path: 'examId', select: 'title' } });
+
+            try {
+              const io = getIO();
+              if (io) {
+                io.to('proctors').emit('violation:updated', {
+                  violationId: violation._id,
+                  driveUrl: uploadRes.webViewLink,
+                  violation: updated
+                });
+              }
+            } catch (sockErr) {}
           }
         } catch (uploadErr) {
           console.warn('[GoogleDrive] Violation screenshot sync warning:', uploadErr);

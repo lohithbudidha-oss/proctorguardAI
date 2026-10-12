@@ -24,7 +24,9 @@ import {
   ChevronRight,
   Users,
   Layers,
-  FileText
+  FileText,
+  RefreshCw,
+  CheckCircle
 } from 'lucide-react';
 import api from '@/lib/api';
 import { getViolationInfo } from '@/lib/violations';
@@ -46,7 +48,7 @@ interface ViolationItem {
   };
   type: string;
   severity: 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW';
-  source?: string;
+  source: string;
   actionTaken: string;
   description?: string;
   screenshot?: string;
@@ -88,9 +90,20 @@ export default function ViolationQueuePage() {
   const [selectedCandidateKey, setSelectedCandidateKey] = useState<string | null>(null);
   const [selectedProof, setSelectedProof] = useState<ViolationItem | null>(null);
   const [activeRealtimeAlert, setActiveRealtimeAlert] = useState<ViolationItem | null>(null);
+  const [driveStatus, setDriveStatus] = useState<any>(null);
+  const [syncingDrive, setSyncingDrive] = useState(false);
 
   useEffect(() => {
     fetchViolations();
+    fetchDriveStatus();
+
+    const handleWindowMsg = (e: MessageEvent) => {
+      if (e.data?.type === 'GOOGLE_DRIVE_CONNECTED') {
+        fetchDriveStatus();
+        fetchViolations();
+      }
+    };
+    window.addEventListener('message', handleWindowMsg);
 
     const wsUrl = process.env.NEXT_PUBLIC_WS_URL || (process.env.NEXT_PUBLIC_API_URL ? process.env.NEXT_PUBLIC_API_URL.replace(/\/api\/?$/, '') : 'http://localhost:5000');
     const socket = io(wsUrl, {
@@ -117,6 +130,18 @@ export default function ViolationQueuePage() {
       }
     });
 
+    socket.on('violation:updated', (data) => {
+      if (data?.violationId) {
+        setViolations((prev) =>
+          prev.map((v) =>
+            v._id === data.violationId
+              ? { ...v, ...(data.violation || {}), driveUrl: data.driveUrl || v.driveUrl }
+              : v
+          )
+        );
+      }
+    });
+
     socket.on('evidence:snapshot_alert', (data) => {
       const shot = data?.image || data?.screenshot || '';
       if (shot) {
@@ -136,9 +161,31 @@ export default function ViolationQueuePage() {
     });
 
     return () => {
+      window.removeEventListener('message', handleWindowMsg);
       socket.disconnect();
     };
   }, []);
+
+  const fetchDriveStatus = async () => {
+    try {
+      const res = await api.get('/admin/drive/status');
+      setDriveStatus(res.data);
+    } catch (e) {}
+  };
+
+  const handleSyncPendingProofs = async () => {
+    setSyncingDrive(true);
+    try {
+      const res = await api.post('/admin/drive/sync-pending');
+      alert(res.data?.message || 'Drive sync completed successfully!');
+      fetchViolations();
+      fetchDriveStatus();
+    } catch (e: any) {
+      alert(e?.response?.data?.message || 'Failed to sync with Google Drive');
+    } finally {
+      setSyncingDrive(false);
+    }
+  };
 
   const fetchViolations = async () => {
     try {
@@ -393,7 +440,35 @@ export default function ViolationQueuePage() {
           </div>
         </div>
 
-        <div className="flex items-center space-x-3">
+        <div className="flex items-center space-x-2.5 flex-wrap gap-y-2">
+          {driveStatus?.isConfigured ? (
+            <span className="hidden sm:inline-flex items-center px-3 py-1.5 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-lg text-xs font-semibold">
+              <span className="w-2 h-2 rounded-full bg-emerald-500 mr-2 animate-pulse"></span>
+              Google Drive Auto-Upload Active
+            </span>
+          ) : (
+            <a
+              href={`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'}/api/auth/google/drive-auth`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="px-3.5 py-1.5 bg-amber-500 hover:bg-amber-600 text-white rounded-lg text-xs font-bold shadow-xs inline-flex items-center transition cursor-pointer"
+              title="Click to authorize automatic Google Drive proof uploads to folder 1P_3yKzFloiMrF8Pe1XFl9Lh-nqvPTit1"
+            >
+              <HardDrive className="w-3.5 h-3.5 mr-1.5" />
+              Connect Google Drive
+            </a>
+          )}
+
+          <button
+            onClick={handleSyncPendingProofs}
+            disabled={syncingDrive}
+            className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-bold border border-slate-300 transition flex items-center cursor-pointer disabled:opacity-60"
+            title="Auto-sync all pending violation proof images from database to Google Drive"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 mr-1.5 ${syncingDrive ? 'animate-spin text-blue-600' : ''}`} />
+            Sync Drive
+          </button>
+
           <a
             href="https://drive.google.com/drive/folders/1P_3yKzFloiMrF8Pe1XFl9Lh-nqvPTit1?usp=sharing"
             target="_blank"
@@ -877,9 +952,21 @@ export default function ViolationQueuePage() {
                               <Eye className="w-3.5 h-3.5 mr-1" /> Enlarge Snapshot Proof
                             </button>
                           )}
-                          {(v.driveUrl || v.driveFolderUrl) && (
+                          {v.driveUrl && !v.driveUrl.includes('folders/') ? (
                             <a
-                              href={v.driveUrl || v.driveFolderUrl}
+                              href={v.driveUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="px-2.5 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded-lg text-xs font-bold inline-flex items-center transition border border-emerald-200"
+                              title="Directly view this snapshot proof on Google Drive"
+                            >
+                              <CheckCircle className="w-3.5 h-3.5 mr-1 text-emerald-600" />
+                              View on Drive
+                              <ExternalLink className="w-3 h-3 ml-1 opacity-70" />
+                            </a>
+                          ) : (
+                            <a
+                              href={v.driveUrl || v.driveFolderUrl || 'https://drive.google.com/drive/folders/1P_3yKzFloiMrF8Pe1XFl9Lh-nqvPTit1?usp=sharing'}
                               target="_blank"
                               rel="noopener noreferrer"
                               className="text-xs font-bold text-slate-600 hover:text-slate-800 flex items-center hover:underline"

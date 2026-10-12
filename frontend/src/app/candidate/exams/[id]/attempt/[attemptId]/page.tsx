@@ -385,6 +385,14 @@ function AttemptContent() {
     }
   };
 
+  function triggerAIViolation(type: 'MULTIPLE_FACES' | 'FACE_NOT_FOUND') {
+    if (type === 'MULTIPLE_FACES') {
+      handleViolation('MULTIPLE_FACES', 'CRITICAL', 'Multiple faces detected in the camera frame.');
+    } else if (type === 'FACE_NOT_FOUND') {
+      handleViolation('FACE_NOT_FOUND', 'CRITICAL', 'Candidate face turned away or left the frame.');
+    }
+  }
+
   // AI Face Detection (Mediapipe)
   useEffect(() => {
     let faceDetector: import('@mediapipe/tasks-vision').FaceDetector;
@@ -803,15 +811,6 @@ function AttemptContent() {
       }, 1800);
     }
   }
-
-  // Simulated AI Face Detection Triggers for Local Testing
-  const triggerAIViolation = (type: 'MULTIPLE_FACES' | 'FACE_NOT_FOUND') => {
-    if (type === 'MULTIPLE_FACES') {
-      handleViolation('MULTIPLE_FACES', 'CRITICAL', 'Multiple faces detected in the camera frame.');
-    } else if (type === 'FACE_NOT_FOUND') {
-      handleViolation('FACE_NOT_FOUND', 'CRITICAL', 'Candidate face turned away or left the frame.');
-    }
-  };
 
   const currentQ = questions[currentQuestionIdx];
   const answeredCount = questions.filter(q => answers[q.id] !== undefined && answers[q.id] !== '').length;

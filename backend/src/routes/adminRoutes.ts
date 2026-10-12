@@ -53,6 +53,7 @@ import {
   verifyResult, 
   getDriveStatus, 
   getDriveFiles,
+  syncPendingDriveProofs,
   getCandidateAnswers, 
   getCandidateReportHtml 
 } from '../controllers/adminController';
@@ -66,5 +67,6 @@ router.get('/attempts/:id/report-html', getCandidateReportHtml);
 router.patch('/results/:id/verify', verifyResult);
 router.get('/drive/status', getDriveStatus);
 router.get('/drive/files', getDriveFiles);
+router.post('/drive/sync-pending', syncPendingDriveProofs);
 
 export default router;

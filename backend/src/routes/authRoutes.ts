@@ -29,6 +29,23 @@ router.get('/google/drive-auth', (req, res) => {
   }
 });
 
+router.post('/google/set-token', async (req, res) => {
+  try {
+    const { refreshToken } = req.body;
+    if (!refreshToken) {
+      return res.status(400).json({ success: false, message: 'Refresh token is required' });
+    }
+    const success = await googleDriveService.setRefreshToken(refreshToken);
+    if (success) {
+      return res.status(200).json({ success: true, message: 'Google Drive refresh token configured and saved successfully!' });
+    } else {
+      return res.status(500).json({ success: false, message: 'Failed to configure Google Drive with the provided token.' });
+    }
+  } catch (err: any) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
 router.get('/google/callback', async (req, res) => {
   try {
     const code = req.query.code as string;
@@ -39,17 +56,33 @@ router.get('/google/callback', async (req, res) => {
     res.send(`
       <!DOCTYPE html>
       <html>
-        <head><title>Google Drive Connected</title></head>
-        <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f8fafc; display: flex; align-items: center; justify-content: center; min-height: 100vh; margin: 0;">
-          <div style="background: white; border-radius: 16px; padding: 40px; max-width: 500px; box-shadow: 0 10px 25px rgba(0,0,0,0.05); text-align: center; border: 1px solid #e2e8f0;">
-            <div style="width: 56px; height: 56px; background: #ecfdf5; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 16px auto; font-size: 28px;">✓</div>
-            <h2 style="color: #0f172a; margin: 0 0 8px 0;">Google Drive Connected!</h2>
-            <p style="color: #64748b; font-size: 14px; line-height: 1.5; margin: 0 0 24px 0;">
-              ProctorGuard AI has successfully authorized your Google Drive account. Violation evidence and exam reports will now sync automatically to your Google Drive folder.
+        <head>
+          <title>Google Drive Connected - ProctorGuard AI</title>
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        </head>
+        <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #0f172a; color: #f8fafc; display: flex; align-items: center; justify-content: center; min-height: 100vh; margin: 0; padding: 20px;">
+          <div style="background: #1e293b; border-radius: 20px; padding: 40px; max-width: 480px; width: 100%; box-shadow: 0 20px 40px rgba(0,0,0,0.4); text-align: center; border: 1px solid #334155;">
+            <div style="width: 64px; height: 64px; background: #064e3b; color: #34d399; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 20px auto; font-size: 32px; font-weight: bold; border: 2px solid #059669;">✓</div>
+            <h2 style="color: #ffffff; margin: 0 0 10px 0; font-size: 22px; font-weight: 800;">Google Drive Connected!</h2>
+            <p style="color: #94a3b8; font-size: 14px; line-height: 1.6; margin: 0 0 24px 0;">
+              ProctorGuard AI is now authorized with Google Drive. All candidate violation proofs, surveillance snapshots, and exam answer sheets will automatically sync to folder <strong style="color:#60a5fa; font-family:monospace;">1P_3yKzFloiMrF8Pe1XFl9Lh-nqvPTit1</strong>.
             </p>
-            ${tokens?.refresh_token ? `<div style="background:#f1f5f9; padding:8px 12px; border-radius:8px; font-size:11px; word-break:break-all; font-family:monospace; margin-bottom:20px; color:#334155;"><strong>Refresh Token:</strong> ${tokens.refresh_token}</div>` : ''}
-            <a href="http://localhost:3000/admin/monitoring" style="display: inline-block; padding: 12px 24px; background: #4f46e5; color: white; border-radius: 10px; font-weight: bold; text-decoration: none; font-size: 14px;">Return to Admin Dashboard</a>
+            <div style="display: flex; gap: 12px; justify-content: center;">
+              <a href="http://localhost:3000/admin/violations" style="display: inline-block; padding: 12px 24px; background: #2563eb; color: white; border-radius: 10px; font-weight: bold; text-decoration: none; font-size: 14px;">View Violation Queue</a>
+              <a href="http://localhost:3000/admin/reports" style="display: inline-block; padding: 12px 24px; background: #334155; color: white; border-radius: 10px; font-weight: bold; text-decoration: none; font-size: 14px;">Drive Vault & Reports</a>
+            </div>
+            <p style="color: #64748b; font-size: 12px; margin-top: 20px;">Window will auto-close or redirect shortly...</p>
           </div>
+          <script>
+            try {
+              if (window.opener) {
+                window.opener.postMessage({ type: 'GOOGLE_DRIVE_CONNECTED' }, '*');
+                setTimeout(() => window.close(), 2500);
+              } else {
+                setTimeout(() => { window.location.href = 'http://localhost:3000/admin/violations'; }, 3000);
+              }
+            } catch (e) {}
+          </script>
         </body>
       </html>
     `);

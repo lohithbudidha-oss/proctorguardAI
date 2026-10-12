@@ -206,6 +206,20 @@ export default function CandidateExamRecordsPage() {
       }
     });
 
+    initSocket.on('violation:updated', (data) => {
+      if (data?.violationId && data?.driveUrl) {
+        setCandidates(prev => prev.map(c => {
+          const updatedViolations = (c.violations || []).map((v: any) => {
+            if ((v.id || v._id) && (String(v.id) === String(data.violationId) || String(v._id) === String(data.violationId))) {
+              return { ...v, driveUrl: data.driveUrl };
+            }
+            return v;
+          });
+          return { ...c, violations: updatedViolations };
+        }));
+      }
+    });
+
     return () => {
       initSocket.disconnect();
     };

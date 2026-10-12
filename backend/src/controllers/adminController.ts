@@ -239,7 +239,7 @@ export const getDriveFiles = async (req: Request, res: Response, next: NextFunct
     // 2. Fetch Violations with evidence screenshots
     const violations = await ViolationEvent.find()
       .populate('candidateId', 'name email')
-      .populate('examId', 'title')
+      .populate({ path: 'attemptId', populate: { path: 'examId', select: 'title' } })
       .sort({ detectedAt: -1, createdAt: -1 });
 
     const submissionFiles = results.map((r: any) => ({
@@ -262,22 +262,28 @@ export const getDriveFiles = async (req: Request, res: Response, next: NextFunct
 
     const violationFiles = violations
       .filter((v: any) => Boolean(v.screenshot || v.snapshotImage || v.driveUrl))
-      .map((v: any) => ({
-        id: v._id,
-        name: `[Violation]_${(v.candidateName || v.candidateId?.name || 'Candidate').replace(/\s+/g, '_')}_${v.type}_Proof.jpg`,
-        category: 'Violations',
-        candidateName: v.candidateName || v.candidateId?.name || 'Candidate',
-        candidateEmail: v.candidateEmail || v.candidateId?.email || 'N/A',
-        examTitle: v.examTitle || v.examId?.title || 'Exam',
-        violationType: v.type,
-        severity: v.severity,
-        description: v.description,
-        webViewLink: v.driveUrl || v.screenshot || v.snapshotImage || `https://drive.google.com/drive/folders/${status.linkedFolderId}?usp=sharing`,
-        previewUrl: v.screenshot || v.snapshotImage,
-        createdAt: v.detectedAt || v.createdAt,
-        mimeType: 'image/jpeg',
-        syncedToCloud: Boolean(v.driveUrl && !v.driveUrl.includes('folders/'))
-      }));
+      .map((v: any) => {
+        const candidateName = v.candidateName || v.candidateId?.name || 'Candidate';
+        const candidateEmail = v.candidateEmail || v.candidateId?.email || 'N/A';
+        const examTitle = v.examTitle || v.attemptId?.examId?.title || 'Exam';
+        const violationType = v.type || 'VIOLATION';
+        return {
+          id: v._id,
+          name: `[Violation]_${candidateName.replace(/\s+/g, '_')}_${examTitle.replace(/\s+/g, '_')}_${violationType}_Proof.jpg`,
+          category: 'Violations',
+          candidateName,
+          candidateEmail,
+          examTitle,
+          violationType,
+          severity: v.severity,
+          description: v.description,
+          webViewLink: v.driveUrl || `https://drive.google.com/drive/folders/${status.linkedFolderId}?usp=sharing`,
+          previewUrl: v.screenshot || v.snapshotImage,
+          createdAt: v.detectedAt || v.createdAt,
+          mimeType: 'image/jpeg',
+          syncedToCloud: Boolean(v.driveUrl && !v.driveUrl.includes('folders/'))
+        };
+      });
 
     const allFiles = [...submissionFiles, ...violationFiles];
 
@@ -294,6 +300,23 @@ export const getDriveFiles = async (req: Request, res: Response, next: NextFunct
         violations: violationFiles.length,
       },
       files: allFiles
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const syncPendingDriveProofs = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const syncedCount = await googleDriveService.syncPendingLocalProofsToDrive();
+    const status = googleDriveService.getDriveStatus();
+    res.status(200).json({
+      success: true,
+      syncedCount,
+      isConfigured: status.isConfigured,
+      message: status.isConfigured
+        ? `Successfully synchronized ${syncedCount} violation proof(s) to Google Drive folder ${status.linkedFolderId}.`
+        : `Google Drive is not yet authorized. Violation proofs remain safely preserved in local Drive vault.`
     });
   } catch (err) {
     next(err);

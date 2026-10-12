@@ -99,6 +99,9 @@ export class GoogleDriveService {
           this.drive = google.drive({ version: 'v3', auth: this.oauth2Client });
           this.isConfigured = true;
           console.log(`[GoogleDrive] Initialized Drive client via OAuth2 Client ID: ${process.env.GOOGLE_CLIENT_ID.substring(0, 15)}... Target folder: ${this.folderId}`);
+          setTimeout(() => {
+            this.syncPendingLocalProofsToDrive().catch(() => {});
+          }, 3000);
         } else {
           console.info(`[GoogleDrive] OAuth2 Client ID & Secret configured. To authorize Drive access, visit /api/auth/google/drive-auth`);
         }
@@ -163,7 +166,55 @@ export class GoogleDriveService {
       }
     }
 
+    // Trigger auto-sync of any pending local proofs to Google Drive
+    setTimeout(() => {
+      this.syncPendingLocalProofsToDrive().catch(err => {
+        console.warn('[GoogleDrive] Auto-sync after auth warning:', err);
+      });
+    }, 1500);
+
     return tokens;
+  }
+
+  /**
+   * Directly configure a refresh token (e.g. from Google OAuth Playground or admin manual input)
+   */
+  public async setRefreshToken(refreshToken: string): Promise<boolean> {
+    try {
+      const cleanToken = refreshToken.trim();
+      if (!this.oauth2Client) {
+        const redirectUri = process.env.GOOGLE_REDIRECT_URI || 'http://localhost:5000/api/auth/google/callback';
+        this.oauth2Client = new google.auth.OAuth2(
+          process.env.GOOGLE_CLIENT_ID,
+          process.env.GOOGLE_CLIENT_SECRET,
+          redirectUri
+        );
+      }
+      this.oauth2Client.setCredentials({ refresh_token: cleanToken });
+      this.drive = google.drive({ version: 'v3', auth: this.oauth2Client });
+      this.isConfigured = true;
+      process.env.GOOGLE_REFRESH_TOKEN = cleanToken;
+
+      const envPath = path.join(__dirname, '../../.env');
+      if (fs.existsSync(envPath)) {
+        let envContent = fs.readFileSync(envPath, 'utf-8');
+        if (envContent.includes('GOOGLE_REFRESH_TOKEN=')) {
+          envContent = envContent.replace(/GOOGLE_REFRESH_TOKEN=.*/, `GOOGLE_REFRESH_TOKEN=${cleanToken}`);
+        } else {
+          envContent += `\nGOOGLE_REFRESH_TOKEN=${cleanToken}\n`;
+        }
+        fs.writeFileSync(envPath, envContent, 'utf-8');
+      }
+
+      console.log('[GoogleDrive] Configured and persisted refresh token.');
+      setTimeout(() => {
+        this.syncPendingLocalProofsToDrive().catch(() => {});
+      }, 1500);
+      return true;
+    } catch (e) {
+      console.error('[GoogleDrive] Error setting refresh token:', e);
+      return false;
+    }
   }
 
   /**
@@ -178,6 +229,8 @@ export class GoogleDriveService {
         fields: 'files(id, name, mimeType, webViewLink, webContentLink, createdTime, size, thumbnailLink)',
         orderBy: 'createdTime desc',
         pageSize: 50,
+        supportsAllDrives: true,
+        includeItemsFromAllDrives: true,
       });
       return res.data.files || [];
     } catch (err: any) {
@@ -213,6 +266,8 @@ export class GoogleDriveService {
         q,
         fields: 'files(id, name)',
         spaces: 'drive',
+        supportsAllDrives: true,
+        includeItemsFromAllDrives: true,
       });
 
       if (res.data.files && res.data.files.length > 0) {
@@ -229,6 +284,7 @@ export class GoogleDriveService {
           parents: [this.folderId],
         },
         fields: 'id',
+        supportsAllDrives: true,
       });
 
       const newId = createRes.data.id;
@@ -253,6 +309,12 @@ export class GoogleDriveService {
     
     // Always persist to local vault for 100% resilience
     const localDir = path.join(this.localVaultPath, subfolderName);
+    try {
+      if (!fs.existsSync(localDir)) {
+        fs.mkdirSync(localDir, { recursive: true });
+      }
+    } catch (e) {}
+
     const localPath = path.join(localDir, `${Date.now()}_${cleanFileName}`);
     try {
       fs.writeFileSync(localPath, buffer);
@@ -279,6 +341,7 @@ export class GoogleDriveService {
           requestBody: fileMetadata,
           media,
           fields: 'id, name, webViewLink, webContentLink',
+          supportsAllDrives: true,
         });
 
         const fileId = response.data.id;
@@ -292,6 +355,7 @@ export class GoogleDriveService {
               role: 'reader',
               type: 'anyone',
             },
+            supportsAllDrives: true,
           });
         } catch (permErr) {
           // Non-fatal if domain policies restrict permissions
@@ -321,7 +385,7 @@ export class GoogleDriveService {
   }
 
   /**
-   * Upload violation screenshot proof to Google Drive
+   * Upload violation screenshot proof to Google Drive automatically
    */
   async uploadViolationImage(
     dataUrlOrBuffer: string | Buffer,
@@ -330,6 +394,14 @@ export class GoogleDriveService {
     violationType: string = 'VIOLATION',
     timestamp: Date = new Date()
   ): Promise<DriveUploadResult> {
+    if (!dataUrlOrBuffer) {
+      return {
+        webViewLink: `https://drive.google.com/drive/folders/${this.folderId}?usp=sharing`,
+        fileName: 'empty_violation_proof.jpg',
+        syncedToCloud: false,
+      };
+    }
+
     let buffer: Buffer;
     let mimeType = 'image/jpeg';
 
@@ -345,20 +417,81 @@ export class GoogleDriveService {
           const base64Data = dataUrlOrBuffer.split(',')[1] || dataUrlOrBuffer;
           buffer = Buffer.from(base64Data, 'base64');
         }
+      } else if (fs.existsSync(dataUrlOrBuffer)) {
+        buffer = fs.readFileSync(dataUrlOrBuffer);
       } else {
         buffer = Buffer.from(dataUrlOrBuffer, 'base64');
       }
     } else {
-      throw new Error('Invalid image payload for Google Drive upload');
+      return {
+        webViewLink: `https://drive.google.com/drive/folders/${this.folderId}?usp=sharing`,
+        fileName: 'invalid_payload.jpg',
+        syncedToCloud: false,
+      };
     }
 
     const timeStr = timestamp.toISOString().replace(/[:.]/g, '-');
-    const safeCandidate = candidateName.replace(/\s+/g, '_');
-    const safeExam = examTitle.replace(/\s+/g, '_');
+    const safeCandidate = (candidateName || 'Candidate').replace(/[^a-zA-Z0-9_-]/g, '_');
+    const safeExam = (examTitle || 'Exam').replace(/[^a-zA-Z0-9_-]/g, '_');
+    const safeType = (violationType || 'VIOLATION').replace(/[^a-zA-Z0-9_-]/g, '_');
     const ext = mimeType.includes('png') ? 'png' : 'jpg';
-    const fileName = `[Violation]_${safeCandidate}_${safeExam}_${violationType}_${timeStr}.${ext}`;
+    const fileName = `[Violation]_${safeCandidate}_${safeExam}_${safeType}_${timeStr}.${ext}`;
 
     return await this.uploadFileBuffer(buffer, fileName, mimeType, 'Violations');
+  }
+
+  /**
+   * Synchronize all unsynced violation image proofs from database to Google Drive
+   */
+  public async syncPendingLocalProofsToDrive(): Promise<number> {
+    if (!this.isConfigured || !this.drive) return 0;
+    try {
+      const ViolationEvent = (await import('../models/ViolationEvent')).default;
+      const unSynced = await ViolationEvent.find({
+        $or: [
+          { driveUrl: { $exists: false } },
+          { driveUrl: null },
+          { driveUrl: '' },
+          { driveUrl: { $regex: /drive\.google\.com\/drive\/folders/ } }
+        ],
+        $and: [
+          {
+            $or: [
+              { screenshot: { $exists: true, $ne: '' } },
+              { snapshotImage: { $exists: true, $ne: '' } }
+            ]
+          }
+        ]
+      })
+      .populate('candidateId', 'name email')
+      .populate({ path: 'attemptId', populate: { path: 'examId', select: 'title' } })
+      .limit(50);
+
+      let count = 0;
+      for (const v of unSynced) {
+        const img = v.screenshot || v.snapshotImage;
+        if (!img) continue;
+        const candidateName = (v.candidateId as any)?.name || 'Candidate';
+        const examTitle = (v.attemptId as any)?.examId?.title || 'Exam';
+        try {
+          const res = await this.uploadViolationImage(img, candidateName, examTitle, v.type, v.detectedAt || v.createdAt);
+          if (res.syncedToCloud && res.webViewLink && !res.webViewLink.includes('folders/')) {
+            v.driveUrl = res.webViewLink;
+            await v.save();
+            count++;
+          }
+        } catch (e) {
+          console.warn('[GoogleDrive] Sync error for violation proof:', v._id, e);
+        }
+      }
+      if (count > 0) {
+        console.log(`[GoogleDrive] Automatically synced ${count} violation proofs to Google Drive.`);
+      }
+      return count;
+    } catch (err) {
+      console.warn('[GoogleDrive] syncPendingLocalProofsToDrive error:', err);
+      return 0;
+    }
   }
 
   /**

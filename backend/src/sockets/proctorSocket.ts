@@ -146,7 +146,18 @@ export const setupSockets = (io: Server) => {
                 new Date()
               );
               if (uploadRes?.webViewLink) {
-                await ViolationEvent.findByIdAndUpdate(violation._id, { driveUrl: uploadRes.webViewLink });
+                const updated = await ViolationEvent.findByIdAndUpdate(
+                  violation._id,
+                  { driveUrl: uploadRes.webViewLink },
+                  { new: true }
+                ).populate('candidateId', 'name email')
+                 .populate({ path: 'attemptId', populate: { path: 'examId', select: 'title' } });
+
+                io.to('proctors').emit('violation:updated', {
+                  violationId: violation._id,
+                  driveUrl: uploadRes.webViewLink,
+                  violation: updated
+                });
               }
             } catch (uploadErr) {
               console.warn('[GoogleDrive] Async screenshot sync warning:', uploadErr);
@@ -176,6 +187,8 @@ export const setupSockets = (io: Server) => {
             type: data.type
           }).sort({ detectedAt: -1 });
 
+          let savedViolationId: any = null;
+
           if (recentViolation) {
             recentViolation.screenshot = img;
             recentViolation.snapshotImage = img;
@@ -183,6 +196,7 @@ export const setupSockets = (io: Server) => {
               recentViolation.description = data.description;
             }
             await recentViolation.save();
+            savedViolationId = recentViolation._id;
 
             const populatedViolation = await ViolationEvent.findById(recentViolation._id)
               .populate('candidateId', 'name email')
@@ -208,6 +222,7 @@ export const setupSockets = (io: Server) => {
               driveFolderUrl: `https://drive.google.com/drive/folders/1P_3yKzFloiMrF8Pe1XFl9Lh-nqvPTit1?usp=sharing`
             });
             await fallbackViolation.save();
+            savedViolationId = fallbackViolation._id;
 
             const populatedFallback = await ViolationEvent.findById(fallbackViolation._id)
               .populate('candidateId', 'name email')
@@ -224,14 +239,30 @@ export const setupSockets = (io: Server) => {
             try {
               const candidate = await User.findById(userId);
               const exam = await Exam.findById(attempt.examId);
-              await googleDriveService.uploadViolationImage(
+              const uploadRes = await googleDriveService.uploadViolationImage(
                 img,
                 candidate?.name || 'Candidate',
                 exam?.title || 'Exam',
                 data.type || 'EVIDENCE',
                 new Date()
               );
-            } catch (e) {}
+              if (uploadRes?.webViewLink && savedViolationId) {
+                const updated = await ViolationEvent.findByIdAndUpdate(
+                  savedViolationId,
+                  { driveUrl: uploadRes.webViewLink },
+                  { new: true }
+                ).populate('candidateId', 'name email')
+                 .populate({ path: 'attemptId', populate: { path: 'examId', select: 'title' } });
+
+                io.to('proctors').emit('violation:updated', {
+                  violationId: savedViolationId,
+                  driveUrl: uploadRes.webViewLink,
+                  violation: updated
+                });
+              }
+            } catch (e) {
+              console.warn('[GoogleDrive] Evidence snapshot drive upload error:', e);
+            }
           })();
         }
 
