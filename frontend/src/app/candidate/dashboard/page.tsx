@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { ShieldCheck, FileText, CheckCircle2, Clock, Calendar, ArrowRight, Bell, UserCircle, LogOut, X } from 'lucide-react';
@@ -12,6 +12,7 @@ export default function CandidateDashboard() {
   const [currentTime, setCurrentTime] = useState('');
   const [showNotifications, setShowNotifications] = useState(false);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+  const notificationRef = useRef<HTMLDivElement>(null);
 
   const [exams, setExams] = useState<{ id: string; title: string; duration: number; status: string; scheduledFor: string; resultStatus?: string; attemptId?: string }[]>([]);
 
@@ -47,6 +48,30 @@ export default function CandidateDashboard() {
     return () => clearTimeout(t);
   }, [router]);
 
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (notificationRef.current && !notificationRef.current.contains(event.target as Node)) {
+        setShowNotifications(false);
+      }
+    };
+
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setShowNotifications(false);
+      }
+    };
+
+    if (showNotifications) {
+      document.addEventListener('mousedown', handleClickOutside);
+      document.addEventListener('keydown', handleEscape);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('keydown', handleEscape);
+    };
+  }, [showNotifications]);
+
   const handleLogout = () => {
     localStorage.removeItem('token');
     router.push('/');
@@ -71,22 +96,40 @@ export default function CandidateDashboard() {
           </div>
           
           <div className="flex items-center space-x-6">
-            <div className="relative">
+            <div ref={notificationRef} className="relative">
               <button 
                 onClick={() => setShowNotifications(!showNotifications)}
-                className="text-slate-400 hover:text-blue-600 transition-colors relative"
+                className="text-slate-400 hover:text-blue-600 transition-colors relative p-1.5 rounded-lg hover:bg-slate-100 cursor-pointer"
+                title="Notifications"
               >
                 <Bell className="w-5 h-5" />
                 {notifications.length > 0 && (
-                  <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-red-500 rounded-full animate-pulse border-2 border-white"></span>
+                  <span className="absolute 0 top-0.5 right-0.5 w-2.5 h-2.5 bg-red-500 rounded-full animate-pulse border-2 border-white"></span>
                 )}
               </button>
 
+              {/* Outside click backdrop */}
               {showNotifications && (
-                <div className="absolute right-0 mt-3 w-80 bg-white rounded-xl shadow-2xl border border-slate-100 py-2 z-50 overflow-hidden transform origin-top-right transition-all">
-                  <div className="px-4 py-2 border-b border-slate-100 flex justify-between items-center">
-                    <h3 className="font-bold text-slate-800">Notifications</h3>
-                    <span className="text-xs font-semibold bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">{notifications.length} New</span>
+                <div 
+                  className="fixed inset-0 z-40 bg-transparent cursor-default" 
+                  onClick={() => setShowNotifications(false)} 
+                />
+              )}
+
+              {showNotifications && (
+                <div className="absolute right-0 mt-3 w-80 bg-white rounded-xl shadow-2xl border border-slate-100 py-2 z-50 overflow-hidden transform origin-top-right transition-all animate-in fade-in zoom-in-95 duration-150">
+                  <div className="px-4 py-2.5 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
+                    <div className="flex items-center space-x-2">
+                      <h3 className="font-bold text-slate-800 text-sm">Notifications</h3>
+                      <span className="text-xs font-semibold bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">{notifications.length} New</span>
+                    </div>
+                    <button 
+                      onClick={() => setShowNotifications(false)}
+                      className="p-1 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-200/60 transition-colors cursor-pointer"
+                      title="Close"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
                   </div>
                   <div className="max-h-80 overflow-y-auto">
                     {notifications.length === 0 ? (
@@ -95,7 +138,11 @@ export default function CandidateDashboard() {
                       </div>
                     ) : (
                       notifications.map(notif => (
-                        <div key={notif.id} className="p-4 border-b border-slate-50 hover:bg-slate-50 transition-colors cursor-pointer">
+                        <div 
+                          key={notif.id} 
+                          onClick={() => setShowNotifications(false)}
+                          className="p-4 border-b border-slate-50 hover:bg-slate-50 transition-colors cursor-pointer"
+                        >
                           <p className="text-sm font-bold text-slate-800">{notif.title}</p>
                           <p className="text-xs text-slate-500 mt-1">{notif.message}</p>
                         </div>
