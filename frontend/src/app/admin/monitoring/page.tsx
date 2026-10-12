@@ -332,16 +332,16 @@ export default function CandidateExamRecordsPage() {
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-800 flex font-sans selection:bg-blue-500/20">
-      {/* Sidebar - Sticky full-viewport height so signout is always pinned at the bottom of the visible screen */}
-      <aside className="w-64 bg-white border-r border-slate-200 flex flex-col hidden md:flex shadow-sm z-20 sticky top-0 h-screen shrink-0">
-        <div className="p-6 flex items-center space-x-3 border-b border-slate-100 shrink-0">
+      {/* Sidebar - Flows with page so signout slides along with the page at the bottom */}
+      <aside className="w-64 bg-white border-r border-slate-200 flex flex-col hidden md:flex shadow-sm z-20 relative">
+        <div className="p-6 flex items-center space-x-3 border-b border-slate-100">
           <div className="bg-gradient-to-tr from-blue-600 to-indigo-600 p-2.5 rounded-xl shadow-md shadow-blue-500/20">
             <ShieldAlert className="w-5 h-5 text-white" />
           </div>
           <span className="text-xl font-extrabold text-slate-900 tracking-tight">ProctorGuardAI</span>
         </div>
 
-        <div className="p-4 space-y-1.5 flex-1 overflow-y-auto">
+        <div className="p-4 space-y-1.5">
           <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-3 px-3">Operations</p>
           
           {/* Active Navigation: Exam Candidates */}
@@ -378,8 +378,8 @@ export default function CandidateExamRecordsPage() {
           </div>
         </div>
 
-        {/* Profile & Sign Out - Pinned permanently to bottom of viewport */}
-        <div className="p-4 border-t border-slate-100 bg-slate-50/50 shrink-0">
+        {/* Profile & Sign Out - Positioned at bottom of page, sliding along with page scroll */}
+        <div className="mt-auto p-4 border-t border-slate-100 bg-slate-50/50">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-2.5 min-w-0">
               <div className="w-9 h-9 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center font-bold text-xs border border-blue-200 shrink-0">
