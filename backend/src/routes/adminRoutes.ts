@@ -52,6 +52,7 @@ import {
   getResults, 
   verifyResult, 
   getDriveStatus, 
+  getDriveFiles,
   getCandidateAnswers, 
   getCandidateReportHtml 
 } from '../controllers/adminController';
@@ -64,5 +65,6 @@ router.get('/attempts/:id/answers', getCandidateAnswers);
 router.get('/attempts/:id/report-html', getCandidateReportHtml);
 router.patch('/results/:id/verify', verifyResult);
 router.get('/drive/status', getDriveStatus);
+router.get('/drive/files', getDriveFiles);
 
 export default router;

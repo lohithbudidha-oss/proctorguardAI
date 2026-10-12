@@ -225,6 +225,81 @@ export const getDriveStatus = async (req: Request, res: Response, next: NextFunc
   }
 };
 
+export const getDriveFiles = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const status = googleDriveService.getDriveStatus();
+    const remoteFiles = await googleDriveService.listFilesFromGoogleDrive();
+
+    // 1. Fetch Exam Submissions
+    const results = await Result.find()
+      .populate('candidateId', 'name email')
+      .populate('examId', 'title')
+      .sort({ createdAt: -1 });
+
+    // 2. Fetch Violations with evidence screenshots
+    const violations = await ViolationEvent.find()
+      .populate('candidateId', 'name email')
+      .populate('examId', 'title')
+      .sort({ detectedAt: -1, createdAt: -1 });
+
+    const submissionFiles = results.map((r: any) => ({
+      id: r._id,
+      name: `[Exam-Answers]_${(r.candidateId?.name || 'Candidate').replace(/\s+/g, '_')}_${(r.examId?.title || 'Exam').replace(/\s+/g, '_')}_Report.html`,
+      category: 'Submissions',
+      candidateName: r.candidateId?.name || 'Candidate',
+      candidateEmail: r.candidateId?.email || 'N/A',
+      examTitle: r.examId?.title || 'Exam',
+      score: `${r.obtainedMarks}/${r.totalMarks} (${(r.percentage || 0).toFixed(1)}%)`,
+      pass: r.pass,
+      status: r.status,
+      webViewLink: r.driveReportUrl || `https://drive.google.com/drive/folders/${status.linkedFolderId}?usp=sharing`,
+      htmlReportUrl: `/api/admin/results/${r._id}/report-html`,
+      jsonReportUrl: r.driveJsonUrl || null,
+      createdAt: r.createdAt,
+      mimeType: 'text/html',
+      syncedToCloud: Boolean(r.driveReportUrl && !r.driveReportUrl.includes('folders/'))
+    }));
+
+    const violationFiles = violations
+      .filter((v: any) => Boolean(v.screenshot || v.snapshotImage || v.driveUrl))
+      .map((v: any) => ({
+        id: v._id,
+        name: `[Violation]_${(v.candidateName || v.candidateId?.name || 'Candidate').replace(/\s+/g, '_')}_${v.type}_Proof.jpg`,
+        category: 'Violations',
+        candidateName: v.candidateName || v.candidateId?.name || 'Candidate',
+        candidateEmail: v.candidateEmail || v.candidateId?.email || 'N/A',
+        examTitle: v.examTitle || v.examId?.title || 'Exam',
+        violationType: v.type,
+        severity: v.severity,
+        description: v.description,
+        webViewLink: v.driveUrl || v.screenshot || v.snapshotImage || `https://drive.google.com/drive/folders/${status.linkedFolderId}?usp=sharing`,
+        previewUrl: v.screenshot || v.snapshotImage,
+        createdAt: v.detectedAt || v.createdAt,
+        mimeType: 'image/jpeg',
+        syncedToCloud: Boolean(v.driveUrl && !v.driveUrl.includes('folders/'))
+      }));
+
+    const allFiles = [...submissionFiles, ...violationFiles];
+
+    res.status(200).json({
+      success: true,
+      folderId: status.linkedFolderId,
+      folderUrl: status.folderUrl,
+      isConfigured: status.isConfigured,
+      remoteDriveFilesCount: remoteFiles.length,
+      remoteFiles,
+      summary: {
+        total: allFiles.length,
+        submissions: submissionFiles.length,
+        violations: violationFiles.length,
+      },
+      files: allFiles
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
 export const getCandidateAnswers = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { id } = req.params;

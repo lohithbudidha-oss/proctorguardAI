@@ -143,7 +143,47 @@ export class GoogleDriveService {
     this.oauth2Client.setCredentials(tokens);
     this.drive = google.drive({ version: 'v3', auth: this.oauth2Client });
     this.isConfigured = true;
+
+    if (tokens.refresh_token) {
+      try {
+        process.env.GOOGLE_REFRESH_TOKEN = tokens.refresh_token;
+        const envPath = path.join(__dirname, '../../.env');
+        if (fs.existsSync(envPath)) {
+          let envContent = fs.readFileSync(envPath, 'utf-8');
+          if (envContent.includes('GOOGLE_REFRESH_TOKEN=')) {
+            envContent = envContent.replace(/GOOGLE_REFRESH_TOKEN=.*/, `GOOGLE_REFRESH_TOKEN=${tokens.refresh_token}`);
+          } else {
+            envContent += `\nGOOGLE_REFRESH_TOKEN=${tokens.refresh_token}\n`;
+          }
+          fs.writeFileSync(envPath, envContent, 'utf-8');
+          console.log('[GoogleDrive] Persisted GOOGLE_REFRESH_TOKEN to .env file');
+        }
+      } catch (e) {
+        console.warn('[GoogleDrive] Could not persist refresh token:', e);
+      }
+    }
+
     return tokens;
+  }
+
+  /**
+   * List files directly stored in the Google Drive target folder (if configured)
+   */
+  public async listFilesFromGoogleDrive(): Promise<any[]> {
+    if (!this.isConfigured || !this.drive) return [];
+    try {
+      const q = `'${this.folderId}' in parents and trashed = false`;
+      const res = await this.drive.files.list({
+        q,
+        fields: 'files(id, name, mimeType, webViewLink, webContentLink, createdTime, size, thumbnailLink)',
+        orderBy: 'createdTime desc',
+        pageSize: 50,
+      });
+      return res.data.files || [];
+    } catch (err: any) {
+      console.warn('[GoogleDrive] Could not fetch remote file list:', err?.message || err);
+      return [];
+    }
   }
 
   public getDriveStatus() {
