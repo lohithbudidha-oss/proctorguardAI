@@ -10,7 +10,10 @@ export default function AboutPage() {
           <ShieldCheck className="w-8 h-8" />
           <span className="text-xl font-bold tracking-tight">SecureAssess</span>
         </Link>
-        <nav className="space-x-6">
+        <nav className="space-x-6 hidden md:block text-sm">
+          <Link href="/about" className="text-blue-600 font-bold">How it works</Link>
+          <Link href="/organizations" className="text-slate-600 font-medium hover:text-blue-600 transition-colors">For Organizations</Link>
+          <Link href="/support" className="text-slate-600 font-medium hover:text-blue-600 transition-colors">Support</Link>
           <Link href="/login" className="text-slate-600 font-medium hover:text-blue-600 transition-colors">Login</Link>
         </nav>
       </header>
