@@ -37,7 +37,7 @@ export default function ResultsVerificationPage() {
     <div className="min-h-screen bg-slate-50 flex flex-col py-10 px-8">
       <div className="max-w-7xl mx-auto w-full">
         <Link href="/admin/monitoring" className="text-blue-600 font-semibold flex items-center mb-6 hover:underline w-max">
-          <ArrowLeft className="w-4 h-4 mr-2" /> Back to Monitoring
+          <ArrowLeft className="w-4 h-4 mr-2" /> Back to Candidates
         </Link>
         
         <div className="mb-8">

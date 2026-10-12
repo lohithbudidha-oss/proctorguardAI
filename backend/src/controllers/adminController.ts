@@ -38,40 +38,66 @@ export const approveCandidate = async (req: Request, res: Response, next: NextFu
   }
 };
 
+import Result from '../models/Result';
+import ViolationEvent from '../models/ViolationEvent';
+
 export const getLiveCandidates = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const attempts = await Attempt.find({ 
-      status: { $in: [AttemptStatus.IN_PROGRESS, AttemptStatus.PAUSED, AttemptStatus.LOCKED] },
-      $or: [
-        { expiresAt: { $gt: new Date() } },
-        { expiresAt: { $exists: false } },
-        { expiresAt: null }
-      ]
-    })
+    const attempts = await Attempt.find()
       .populate('candidateId', 'name email')
-      .populate('examId', 'title');
+      .populate('examId', 'title duration scoringRules')
+      .sort({ updatedAt: -1, createdAt: -1 });
 
-    const liveData = attempts
-      .filter((doc: any) => doc.candidateId && doc.examId)
-      .map((doc: any) => {
-        const candidate = doc.candidateId;
-        const exam = doc.examId;
-        return {
-          attemptId: doc._id,
-          candidateId: candidate._id,
-          name: candidate.name,
-          examId: exam._id,
-          examName: exam.title,
-          status: doc.status,
-          startedAt: doc.startedAt,
-          expiresAt: doc.expiresAt,
-          camera: 'STARTED',
-          screen: 'STARTED',
-          riskScore: 0,
-          violations: []
-        };
-    });
-    res.status(200).json({ success: true, candidates: liveData });
+    const attemptsData = await Promise.all(
+      attempts
+        .filter((doc: any) => doc.candidateId && doc.examId)
+        .map(async (doc: any) => {
+          const candidate = doc.candidateId;
+          const exam = doc.examId;
+          const result = await Result.findOne({ attemptId: doc._id });
+          const violations = await ViolationEvent.find({ attemptId: doc._id }).sort({ detectedAt: -1 });
+
+          const riskScore = violations.reduce((acc, v) => acc + (v.severity === 'CRITICAL' ? 40 : v.severity === 'HIGH' ? 20 : 5), 0);
+
+          return {
+            attemptId: doc._id,
+            candidateId: candidate._id,
+            name: candidate.name,
+            email: candidate.email,
+            examId: exam._id,
+            examName: exam.title,
+            status: doc.status,
+            startedAt: doc.startedAt,
+            submittedAt: doc.submittedAt,
+            expiresAt: doc.expiresAt,
+            score: result ? result.obtainedMarks : doc.score ?? 0,
+            totalMarks: result ? result.totalMarks : 0,
+            percentage: result ? result.percentage : doc.percentage ?? 0,
+            resultStatus: result ? (result.pass ? 'PASS' : 'FAIL') : doc.resultStatus ?? 'PENDING',
+            totalQuestions: result ? result.totalQuestions : 0,
+            attempted: result ? result.attempted : 0,
+            correct: result ? result.correct : 0,
+            wrong: result ? result.wrong : 0,
+            unanswered: result ? result.unanswered : 0,
+            timeTaken: result ? result.timeTaken : 0,
+            riskScore: Math.min(100, result?.riskScore ?? riskScore),
+            violations: violations.map(v => ({
+              id: v._id,
+              type: v.type,
+              severity: v.severity,
+              detectedAt: v.detectedAt,
+              description: v.description || '',
+              screenshot: v.screenshot || '',
+              snapshotImage: v.screenshot || '',
+              actionTaken: v.actionTaken
+            })),
+            camera: 'STARTED',
+            screen: 'STARTED'
+          };
+        })
+    );
+
+    res.status(200).json({ success: true, candidates: attemptsData });
   } catch (err) {
     next(err);
   }
@@ -128,8 +154,6 @@ export const forceSubmitAttempt = async (req: Request, res: Response, next: Next
   }
 };
 
-import ViolationEvent from '../models/ViolationEvent';
-
 export const getViolations = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const violations = await ViolationEvent.find()
@@ -143,7 +167,6 @@ export const getViolations = async (req: Request, res: Response, next: NextFunct
     next(err);
   }
 };
-import Result from '../models/Result';
 
 export const getResults = async (req: Request, res: Response, next: NextFunction) => {
   try {

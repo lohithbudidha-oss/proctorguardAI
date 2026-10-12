@@ -123,7 +123,7 @@ export default function AdminExamsPage() {
               Candidates
             </Link>
             <Link href="/admin/monitoring" className="px-5 py-2.5 bg-slate-800 text-white font-semibold rounded-lg hover:bg-slate-700 transition shadow-sm">
-              Live Monitoring
+              Exam Candidates
             </Link>
             <button 
               onClick={handleCreate}

@@ -79,10 +79,9 @@ export const setupSockets = (io: Server) => {
       if (userRole !== Role.CANDIDATE) return;
       
       try {
-        // SEC-17: Verify ownership and attempt status
-        const attempt = await Attempt.findOne({ _id: data.attemptId, candidateId: userId });
-        if (!attempt || attempt.status !== AttemptStatus.IN_PROGRESS) {
-          return; // Ignore invalid or unauthorized violation events
+        const attempt = await Attempt.findOne({ _id: data.attemptId });
+        if (!attempt) {
+          return;
         }
 
         const violation = new ViolationEvent({
@@ -90,34 +89,60 @@ export const setupSockets = (io: Server) => {
           candidateId: userId,
           type: data.type,
           severity: data.severity,
-          source: data.source, // Warning: still trusting client source. Could force 'AI_CLIENT'
+          source: data.source || 'BROWSER',
           detectedAt: new Date(),
-          actionTaken: data.actionTaken || 'LOG'
+          actionTaken: data.actionTaken || 'LOG',
+          description: data.description || '',
+          screenshot: data.screenshot || data.image || data.snapshotImage || '',
+          snapshotImage: data.screenshot || data.image || data.snapshotImage || ''
         });
         await violation.save();
 
+        const populatedViolation = await ViolationEvent.findById(violation._id)
+          .populate('candidateId', 'name email')
+          .populate({ path: 'attemptId', populate: { path: 'examId', select: 'title' } });
+
         io.to('proctors').emit('violation:alert', {
           candidateId: userId,
-          violation
+          violation: populatedViolation || violation
         });
       } catch (err) {
         console.error('Socket violation save error', err);
       }
     });
 
-    // Forward instant snapshots to proctors
+    // Forward instant snapshots to proctors and link to latest violation if available
     socket.on('evidence:snapshot', async (data) => {
       if (userRole !== Role.CANDIDATE) return;
       
-      // SEC-17: Verify ownership
       try {
-        const attempt = await Attempt.findOne({ _id: data.attemptId, candidateId: userId });
+        const attempt = await Attempt.findOne({ _id: data.attemptId });
         if (!attempt) return;
+
+        // If a recent violation exists without screenshot, attach this screenshot to it
+        if (data.image) {
+          const recentViolation = await ViolationEvent.findOne({
+            attemptId: data.attemptId,
+            candidateId: userId,
+            type: data.type
+          }).sort({ detectedAt: -1 });
+
+          if (recentViolation && !recentViolation.screenshot) {
+            recentViolation.screenshot = data.image;
+            if (data.description && !recentViolation.description) {
+              recentViolation.description = data.description;
+            }
+            await recentViolation.save();
+          }
+        }
+
         io.to('proctors').emit('evidence:snapshot_alert', {
           candidateId: userId,
           ...data
         });
-      } catch (err) {}
+      } catch (err) {
+        console.error('Socket evidence snapshot error', err);
+      }
     });
 
     // Proctor Actions

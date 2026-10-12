@@ -42,6 +42,9 @@ export interface IViolationEvent extends Document {
   reviewerId?: mongoose.Types.ObjectId;
   reviewerDecision?: string;
   notes?: string;
+  description?: string;
+  screenshot?: string;
+  snapshotImage?: string;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -59,7 +62,10 @@ const ViolationEventSchema: Schema = new Schema({
   evidenceIds: [{ type: Schema.Types.ObjectId, ref: 'Evidence' }],
   reviewerId: { type: Schema.Types.ObjectId, ref: 'User' },
   reviewerDecision: { type: String },
-  notes: { type: String }
-}, { timestamps: true });
+  notes: { type: String },
+  description: { type: String },
+  screenshot: { type: String },
+  snapshotImage: { type: String }
+}, { timestamps: true, strict: false });
 
 export default mongoose.model<IViolationEvent>('ViolationEvent', ViolationEventSchema);

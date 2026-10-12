@@ -253,3 +253,34 @@ export const evaluateAttempt = async (attemptId: string, candidateId: string) =>
     await result.save();
     return result;
 };
+
+export const recordViolation = async (req: AuthRequest, res: Response, next: NextFunction) => {
+  try {
+    const { attemptId } = req.params;
+    const { type, severity, source, description, screenshot } = req.body;
+    const candidateId = req.user?.userId;
+
+    const attempt = await Attempt.findOne({ _id: attemptId, candidateId });
+    if (!attempt) {
+      return res.status(404).json({ success: false, message: 'Attempt not found' });
+    }
+
+    const violation = new ViolationEvent({
+      attemptId,
+      candidateId,
+      type,
+      severity,
+      source: source || 'BROWSER',
+      detectedAt: new Date(),
+      actionTaken: 'LOG',
+      description: description || '',
+      screenshot: screenshot || '',
+      snapshotImage: screenshot || ''
+    });
+    await violation.save();
+
+    res.status(200).json({ success: true, violation });
+  } catch (err) {
+    next(err);
+  }
+};

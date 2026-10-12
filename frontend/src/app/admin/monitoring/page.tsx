@@ -3,312 +3,247 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import io from 'socket.io-client';
-import { Shield, ShieldAlert, Monitor, VideoOff, CheckCircle2, AlertTriangle, MessageSquare, PauseCircle, XCircle, LogOut, FileText } from 'lucide-react';
+import { 
+  ShieldAlert, 
+  Users, 
+  CheckCircle2, 
+  AlertTriangle, 
+  LogOut, 
+  FileText, 
+  Search, 
+  Clock, 
+  Award, 
+  X, 
+  Eye, 
+  Camera, 
+  ChevronRight,
+  Sparkles,
+  BookOpen,
+  Calendar,
+  Lock,
+  Unlock,
+  CheckCircle,
+  XCircle,
+  HelpCircle
+} from 'lucide-react';
 import api from '@/lib/api';
 
-interface CandidateState {
+interface ViolationSummary {
+  id?: string;
+  _id?: string;
+  type: string;
+  severity: string;
+  detectedAt?: string;
+  timestamp?: string;
+  description?: string;
+  screenshot?: string;
+  snapshotImage?: string;
+  actionTaken?: string;
+}
+
+interface CandidateExamRecord {
   id: string;
-  name: string;
-  exam?: string;
-  status: 'ONLINE' | 'OFFLINE';
-  camera: 'STARTED' | 'STOPPED';
-  screen: 'STARTED' | 'STOPPED';
-  violations: { severity: string; type: string; timestamp?: string; detectedAt?: string; description?: string; snapshotImage?: string; }[];
-  riskScore: number;
-  attemptId?: string;
-}
-
-interface ActiveViolationAlert {
-  candidateId: string;
-  name: string;
-  attemptId?: string;
-  violation: {
-    severity: string;
-    type: string;
-    description?: string;
-    snapshotImage?: string;
-  };
-}
-
-interface LiveCandidateEntry {
-  candidateId: string;
-  name: string;
-  examName: string;
-  status: 'ONLINE' | 'OFFLINE';
-  camera: 'STARTED' | 'STOPPED';
-  screen: 'STARTED' | 'STOPPED';
-  riskScore: number;
-  violations: { severity: string; type: string; timestamp?: string; detectedAt?: string; description?: string; snapshotImage?: string; }[];
   attemptId: string;
+  name: string;
+  email?: string;
+  examName: string;
+  examId?: string;
+  status: string;
+  startedAt?: string;
+  submittedAt?: string;
+  score: number;
+  totalMarks: number;
+  percentage: number;
+  resultStatus?: string;
+  totalQuestions: number;
+  attempted: number;
+  correct: number;
+  wrong: number;
+  unanswered: number;
+  timeTaken: number;
+  riskScore: number;
+  violations: ViolationSummary[];
 }
 
-export default function LiveMonitoringPage() {
+export default function CandidateExamRecordsPage() {
   const router = useRouter();
-  const [candidates, setCandidates] = useState<Record<string, CandidateState>>({});
-
-  const [socket, setSocket] = useState<ReturnType<typeof io> | null>(null);
-  const [selectedCandidate, setSelectedCandidate] = useState<CandidateState | null>(null);
-  const [isStreaming, setIsStreaming] = useState(false);
-  const [activeAlert, setActiveAlert] = useState<ActiveViolationAlert | null>(null);
-
-  const remoteVideoRef = React.useRef<HTMLVideoElement>(null);
-  const peerConnectionRef = React.useRef<RTCPeerConnection | null>(null);
+  const [candidates, setCandidates] = useState<CandidateExamRecord[]>([]);
+  const [selectedCandidate, setSelectedCandidate] = useState<CandidateExamRecord | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState<'ALL' | 'COMPLETED' | 'IN_PROGRESS'>('ALL');
+  const [selectedProofModal, setSelectedProofModal] = useState<{ image: string; type: string; time: string; desc?: string } | null>(null);
+  const [loading, setLoading] = useState(true);
 
   const handleLogout = () => {
     localStorage.removeItem('token');
     router.push('/');
   };
 
-  useEffect(() => {
-    // Fetch real live attempts from DB
+  const fetchCandidateRecords = () => {
     api.get('/admin/live').then(res => {
-      const liveData: Record<string, CandidateState> = {};
-      res.data.candidates.forEach((cand: LiveCandidateEntry) => {
-        liveData[cand.candidateId] = {
-          id: cand.candidateId,
-          name: cand.name,
-          exam: cand.examName,
-          status: cand.status,
-          camera: cand.camera,
-          screen: cand.screen,
-          riskScore: cand.riskScore,
-          violations: cand.violations,
-          attemptId: cand.attemptId
-        };
-      });
-      setCandidates(liveData);
+      const records: CandidateExamRecord[] = (res.data.candidates || []).map((cand: any) => ({
+        id: cand.candidateId || cand.id,
+        attemptId: cand.attemptId,
+        name: cand.name || 'Candidate',
+        email: cand.email || '',
+        examName: cand.examName || cand.exam || 'Assessment',
+        examId: cand.examId,
+        status: cand.status || 'SUBMITTED',
+        startedAt: cand.startedAt,
+        submittedAt: cand.submittedAt,
+        score: cand.score ?? 0,
+        totalMarks: cand.totalMarks ?? 0,
+        percentage: cand.percentage ?? 0,
+        resultStatus: cand.resultStatus || (cand.percentage >= 50 ? 'PASS' : 'FAIL'),
+        totalQuestions: cand.totalQuestions ?? 0,
+        attempted: cand.attempted ?? 0,
+        correct: cand.correct ?? 0,
+        wrong: cand.wrong ?? 0,
+        unanswered: cand.unanswered ?? 0,
+        timeTaken: cand.timeTaken ?? 0,
+        riskScore: cand.riskScore ?? 0,
+        violations: (cand.violations || []).map((v: any) => {
+          let img = v.screenshot || v.snapshotImage || v.image;
+          if (!img && typeof window !== 'undefined') {
+            try {
+              const cached = JSON.parse(localStorage.getItem('pg_violation_evidence') || '[]');
+              const match = cached.find((c: any) => c.attemptId === cand.attemptId && c.type === v.type) ||
+                            cached.find((c: any) => c.type === v.type);
+              if (match?.screenshot) img = match.screenshot;
+            } catch(e) {}
+          }
+          return {
+            ...v,
+            screenshot: img,
+            snapshotImage: img
+          };
+        })
+      }));
+      setCandidates(records);
+      setLoading(false);
     }).catch(err => {
-      console.error('Failed fetching live attempts', err);
+      console.error('Failed fetching candidate records', err);
+      setLoading(false);
       if (err.response && (err.response.status === 401 || err.response.status === 403)) {
         router.push('/login?error=unauthorized');
       }
     });
+  };
+
+  useEffect(() => {
+    fetchCandidateRecords();
 
     const wsUrl = process.env.NEXT_PUBLIC_WS_URL || (process.env.NEXT_PUBLIC_API_URL ? process.env.NEXT_PUBLIC_API_URL.replace(/\/api\/?$/, '') : 'http://localhost:5000');
     const initSocket = io(wsUrl, {
-      auth: { token: localStorage.getItem('token') }
-    });
-
-    initSocket.on('candidate:status_update', (data) => {
-      setCandidates(prev => ({
-        ...prev,
-        [data.candidateId]: { ...prev[data.candidateId], status: data.status }
-      }));
-    });
-
-    initSocket.on('candidate:camera_status', (data) => {
-      setCandidates(prev => ({
-        ...prev,
-        [data.candidateId]: { ...prev[data.candidateId], camera: data.status }
-      }));
+      auth: { token: typeof window !== 'undefined' ? localStorage.getItem('token') : '' }
     });
 
     initSocket.on('violation:alert', (data) => {
-      setCandidates(prev => {
-        const cand = prev[data.candidateId];
-        if (!cand) return prev;
-        
-        let newRisk = cand.riskScore;
-        if (data.violation.severity === 'CRITICAL') newRisk += 40;
-        else if (data.violation.severity === 'HIGH') newRisk += 20;
-        else newRisk += 5;
-
-        // Proactive Alert for High/Critical
-        if (data.violation.severity === 'CRITICAL' || data.violation.severity === 'HIGH') {
-          setActiveAlert({
-            candidateId: data.candidateId,
-            name: cand.name,
-            attemptId: cand.attemptId,
-            violation: data.violation
-          });
-        }
-
-        return {
-          ...prev,
-          [data.candidateId]: { 
-            ...cand, 
-            riskScore: Math.min(100, newRisk),
-            violations: [data.violation, ...cand.violations] 
+      if (data?.candidateId && data?.violation) {
+        setCandidates(prev => prev.map(c => {
+          if (c.id === data.candidateId) {
+            const newViolations = [data.violation, ...(c.violations || [])];
+            return {
+              ...c,
+              violations: newViolations,
+              riskScore: Math.min(100, c.riskScore + (data.violation.severity === 'CRITICAL' ? 40 : 20))
+            };
           }
-        };
-      });
-    });
-
-    initSocket.on('evidence:snapshot_alert', (data) => {
-      setCandidates(prev => {
-        const cand = prev[data.candidateId];
-        if (!cand) return prev;
-        
-        // Prepend the new image-based violation
-        const newViolation = {
-          type: data.type,
-          severity: data.severity,
-          description: data.description,
-          detectedAt: new Date().toISOString(),
-          snapshotImage: data.image
-        };
-        
-        let newRisk = cand.riskScore;
-        if (data.severity === 'CRITICAL') newRisk += 40;
-        else if (data.severity === 'HIGH') newRisk += 20;
-        else newRisk += 5;
-
-        // Proactive Alert for High/Critical
-        if (data.severity === 'CRITICAL' || data.severity === 'HIGH') {
-          setActiveAlert({
-            candidateId: data.candidateId,
-            name: cand.name,
-            attemptId: cand.attemptId,
-            violation: newViolation
-          });
-        }
-
-        return {
-          ...prev,
-          [data.candidateId]: { 
-            ...cand, 
-            riskScore: Math.min(100, newRisk),
-            violations: [newViolation, ...cand.violations] 
-          }
-        };
-      });
-    });
-
-    initSocket.on('webrtc:answer', async (data) => {
-      if (peerConnectionRef.current && data.adminId === initSocket.id) {
-        await peerConnectionRef.current.setRemoteDescription(new RTCSessionDescription(data.answer));
+          return c;
+        }));
       }
     });
-
-    initSocket.on('webrtc:ice-candidate', async (data) => {
-      if (peerConnectionRef.current && data.candidate && 
-          (data.sourceId === selectedCandidate?.id || data.sourceId === selectedCandidate?.attemptId || data.candidateId === selectedCandidate?.id || data.candidateId === selectedCandidate?.attemptId)) {
-        await peerConnectionRef.current.addIceCandidate(new RTCIceCandidate(data.candidate));
-      }
-    });
-
-    // Defer to avoid setState-in-effect lint error
-    setTimeout(() => setSocket(initSocket), 0);
 
     return () => {
       initSocket.disconnect();
-      if (peerConnectionRef.current) peerConnectionRef.current.close();
     };
-  }, [selectedCandidate]);
+  }, []);
 
-  const requestLiveStream = async (candidateId: string) => {
-    if (!socket) return;
-    setIsStreaming(true);
-
-    const pc = new RTCPeerConnection({
-      iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
-    });
-
-    pc.onicecandidate = (event) => {
-      if (event.candidate) {
-        socket.emit('webrtc:ice-candidate', {
-          target: 'CANDIDATE',
-          targetId: candidateId,
-          candidate: event.candidate,
-          sourceId: socket.id
-        });
-      }
-    };
-
-    pc.ontrack = (event) => {
-      if (remoteVideoRef.current && event.streams[0]) {
-        remoteVideoRef.current.srcObject = event.streams[0];
-      }
-    };
-
-    peerConnectionRef.current = pc;
-
-    pc.addTransceiver('video', { direction: 'recvonly' });
-    pc.addTransceiver('audio', { direction: 'recvonly' });
-
-    const offer = await pc.createOffer();
-    await pc.setLocalDescription(offer);
-
-    socket.emit('webrtc:offer', {
-      candidateId,
-      offer,
-      adminId: socket.id
-    });
-  };
-
-  const sendCommand = (candidateId: string, action: string, message?: string) => {
-    if (socket) {
-      socket.emit('admin:command', { candidateId, action, message });
-      alert(`Command ${action} sent to candidate`);
-    }
-  };
-
-
-
-  const getRiskColor = (score: number) => {
-    if (score >= 70) return 'text-red-600 bg-red-100';
-    if (score >= 40) return 'text-amber-600 bg-amber-100';
-    return 'text-green-600 bg-green-100';
-  };
-
-  const handleApiCommand = async (candidateId: string, action: string, attemptId?: string) => {
+  const handleApiCommand = async (attemptId: string, action: string) => {
     if (!attemptId) return;
     try {
       if (action === 'LOCK') await api.post(`/admin/live/${attemptId}/lock`);
       if (action === 'UNLOCK') await api.post(`/admin/live/${attemptId}/unlock`);
       if (action === 'FORCE_SUBMIT') await api.post(`/admin/live/${attemptId}/force-submit`);
-      
-      // Also emit via socket for immediate candidate UI reaction
-      if (socket) {
-        socket.emit('admin:command', { candidateId, action, message: `Exam ${action}` });
-      }
       alert(`Action ${action} executed successfully`);
+      fetchCandidateRecords();
     } catch (err) {
       console.error(err);
       alert('Failed to execute command');
     }
   };
 
-  const handleAlertAction = (action: 'TERMINATE' | 'PAUSE' | 'DISMISS') => {
-    if (!activeAlert) return;
+  const isCompletedStatus = (status: string) => {
+    return ['SUBMITTED', 'COMPLETED', 'AUTO_SUBMITTED', 'FORCE_SUBMITTED'].includes(status);
+  };
 
-    if (action === 'TERMINATE') {
-      handleApiCommand(activeAlert.candidateId, 'FORCE_SUBMIT', activeAlert.attemptId);
-      sendCommand(activeAlert.candidateId, 'TERMINATE', 'Exam terminated by Admin due to violations.');
-    } else if (action === 'PAUSE') {
-      handleApiCommand(activeAlert.candidateId, 'LOCK', activeAlert.attemptId);
-      sendCommand(activeAlert.candidateId, 'PAUSE', 'Exam paused by Admin for review.');
-    }
-    
-    // Dismiss the alert box
-    setActiveAlert(null);
+  const filteredCandidates = candidates.filter(c => {
+    const query = searchQuery.toLowerCase();
+    const matchesQuery = 
+      c.name.toLowerCase().includes(query) ||
+      (c.email && c.email.toLowerCase().includes(query)) ||
+      c.examName.toLowerCase().includes(query);
+
+    const matchesStatus = 
+      statusFilter === 'ALL' ||
+      (statusFilter === 'COMPLETED' && isCompletedStatus(c.status)) ||
+      (statusFilter === 'IN_PROGRESS' && !isCompletedStatus(c.status));
+
+    return matchesQuery && matchesStatus;
+  });
+
+  const totalCandidatesCount = candidates.length;
+  const completedCandidatesCount = candidates.filter(c => isCompletedStatus(c.status)).length;
+  const flaggedCandidatesCount = candidates.filter(c => c.violations && c.violations.length > 0).length;
+
+  const formatSeconds = (secs: number) => {
+    if (!secs || secs <= 0) return 'N/A';
+    const m = Math.floor(secs / 60);
+    const s = secs % 60;
+    return `${m}m ${s}s`;
   };
 
   return (
     <div className="min-h-screen bg-[#0B0F19] text-slate-300 flex font-sans selection:bg-blue-500/30">
       {/* Sidebar */}
-      <div className="w-64 bg-[#0f172a]/80 backdrop-blur-xl border-r border-slate-800 flex flex-col hidden md:flex shadow-2xl z-10 relative">
+      <div className="w-64 bg-[#0f172a]/80 backdrop-blur-xl border-r border-slate-800 flex flex-col hidden md:flex shadow-2xl z-20 relative">
         <div className="p-6 flex items-center space-x-3 border-b border-slate-800/50">
           <div className="bg-gradient-to-tr from-blue-600 to-indigo-600 p-2 rounded-lg shadow-lg shadow-blue-900/20">
             <ShieldAlert className="w-6 h-6 text-white" />
           </div>
           <span className="text-xl font-extrabold text-white tracking-tight">ProctorGuard AI</span>
         </div>
-        <div className="p-4">
+
+        <div className="p-4 space-y-1">
           <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-4 px-2">Operations</p>
-            <div className="bg-blue-600/10 text-blue-400 px-4 py-3 rounded-xl font-semibold cursor-pointer border border-blue-500/20 flex items-center transition-all shadow-[0_0_15px_rgba(37,99,235,0.1)]">
-              <Monitor className="w-5 h-5 mr-3" /> Live Monitoring
-            </div>
-            <div onClick={() => router.push('/admin/exams')} className="text-slate-400 px-4 py-3 rounded-xl font-medium hover:bg-slate-800/50 hover:text-slate-200 cursor-pointer transition-all flex items-center">
-              <FileText className="w-5 h-5 mr-3" /> Exam Management
-            </div>
-            <div onClick={() => router.push('/admin/violations')} className="text-slate-400 px-4 py-3 rounded-xl font-medium hover:bg-slate-800/50 hover:text-slate-200 cursor-pointer transition-all flex items-center">
-              <AlertTriangle className="w-5 h-5 mr-3" /> Violation Queue
-            </div>
-            <div onClick={() => router.push('/admin/reports')} className="text-slate-400 px-4 py-3 rounded-xl font-medium hover:bg-slate-800/50 hover:text-slate-200 cursor-pointer transition-all flex items-center">
-              <CheckCircle2 className="w-5 h-5 mr-3" /> Integrity Reports
-            </div>
+          
+          {/* Active Navigation: Exam Candidates */}
+          <div className="bg-blue-600/10 text-blue-400 px-4 py-3 rounded-xl font-semibold border border-blue-500/20 flex items-center transition-all shadow-[0_0_15px_rgba(37,99,235,0.1)]">
+            <Users className="w-5 h-5 mr-3" /> Exam Candidates
+          </div>
+
+          <div 
+            onClick={() => router.push('/admin/exams')} 
+            className="text-slate-400 px-4 py-3 rounded-xl font-medium hover:bg-slate-800/50 hover:text-slate-200 cursor-pointer transition-all flex items-center"
+          >
+            <FileText className="w-5 h-5 mr-3" /> Exam Management
+          </div>
+
+          <div 
+            onClick={() => router.push('/admin/violations')} 
+            className="text-slate-400 px-4 py-3 rounded-xl font-medium hover:bg-slate-800/50 hover:text-slate-200 cursor-pointer transition-all flex items-center"
+          >
+            <AlertTriangle className="w-5 h-5 mr-3" /> Violation Queue
+          </div>
+
+          <div 
+            onClick={() => router.push('/admin/reports')} 
+            className="text-slate-400 px-4 py-3 rounded-xl font-medium hover:bg-slate-800/50 hover:text-slate-200 cursor-pointer transition-all flex items-center"
+          >
+            <CheckCircle2 className="w-5 h-5 mr-3" /> Integrity Reports
+          </div>
         </div>
+
         <div className="mt-auto p-6 border-t border-slate-800/50">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-3">
@@ -320,7 +255,11 @@ export default function LiveMonitoringPage() {
                 <p className="text-xs text-slate-500">Security Officer</p>
               </div>
             </div>
-            <button onClick={handleLogout} className="p-2 text-slate-500 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors" title="Sign Out">
+            <button 
+              onClick={handleLogout} 
+              className="p-2 text-slate-500 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors" 
+              title="Sign Out"
+            >
               <LogOut className="w-5 h-5" />
             </button>
           </div>
@@ -330,311 +269,478 @@ export default function LiveMonitoringPage() {
       {/* Main Content */}
       <div className="flex-1 flex flex-col relative overflow-hidden">
         {/* Background Ambient Lights */}
-        <div className="absolute top-[-20%] left-[-10%] w-[50%] h-[50%] bg-blue-900/20 blur-[120px] rounded-full pointer-events-none" />
+        <div className="absolute top-[-20%] left-[-10%] w-[50%] h-[50%] bg-blue-900/15 blur-[120px] rounded-full pointer-events-none" />
         <div className="absolute bottom-[-20%] right-[-10%] w-[50%] h-[50%] bg-indigo-900/10 blur-[120px] rounded-full pointer-events-none" />
 
-        <header className="bg-[#0f172a]/60 backdrop-blur-md border-b border-slate-800/60 p-5 flex justify-between items-center px-8 z-10 sticky top-0">
+        {/* Top Header */}
+        <header className="bg-[#0f172a]/60 backdrop-blur-md border-b border-slate-800/60 p-5 px-8 z-10 sticky top-0 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           <div>
-            <h1 className="text-2xl font-extrabold text-white tracking-tight">Live Examination Grid</h1>
-            <p className="text-sm text-slate-400 mt-1 font-medium">Real-time behavior analysis and remote proctoring</p>
+            <h1 className="text-2xl font-extrabold text-white tracking-tight flex items-center">
+              <Users className="w-6 h-6 mr-3 text-blue-400" />
+              Candidate Examination Records
+            </h1>
+            <p className="text-sm text-slate-400 mt-1 font-medium">
+              Performance overview and detailed information of candidates who wrote examinations
+            </p>
           </div>
-          <div className="flex space-x-4">
-            <div className="flex items-center text-sm font-bold text-emerald-400 bg-emerald-500/10 px-4 py-2 rounded-full border border-emerald-500/20 shadow-[0_0_10px_rgba(16,185,129,0.1)]">
-              <span className="w-2 h-2 bg-emerald-400 rounded-full mr-2 animate-pulse"></span> 
-              Active Sessions: {Object.values(candidates).filter(c => c.status === 'ONLINE').length}
+
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="flex items-center text-xs font-bold text-blue-400 bg-blue-500/10 px-3.5 py-1.5 rounded-full border border-blue-500/20">
+              <span className="w-2 h-2 bg-blue-400 rounded-full mr-2"></span> 
+              Total Candidates: {totalCandidatesCount}
             </div>
-            <div className="flex items-center text-sm font-bold text-red-400 bg-red-500/10 px-4 py-2 rounded-full border border-red-500/20 shadow-[0_0_10px_rgba(239,68,68,0.1)]">
-              <span className="w-2 h-2 bg-red-500 rounded-full mr-2 animate-pulse"></span> 
-              Critical Risk: {Object.values(candidates).filter(c => c.riskScore >= 70).length}
+            <div className="flex items-center text-xs font-bold text-emerald-400 bg-emerald-500/10 px-3.5 py-1.5 rounded-full border border-emerald-500/20">
+              <span className="w-2 h-2 bg-emerald-400 rounded-full mr-2"></span> 
+              Exams Completed: {completedCandidatesCount}
+            </div>
+            <div className="flex items-center text-xs font-bold text-rose-400 bg-rose-500/10 px-3.5 py-1.5 rounded-full border border-rose-500/20">
+              <span className="w-2 h-2 bg-rose-500 rounded-full mr-2"></span> 
+              Flagged Violations: {flaggedCandidatesCount}
             </div>
           </div>
         </header>
 
-        <main className="flex-1 p-8 overflow-y-auto z-10 custom-scrollbar">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-            {Object.values(candidates).map(candidate => (
-              <div 
-                key={candidate.id} 
-                onClick={() => setSelectedCandidate(candidate)}
-                className={`bg-[#131c31]/80 backdrop-blur-sm rounded-2xl border-2 cursor-pointer transition-all duration-300 group hover:-translate-y-1 ${
-                  candidate.riskScore >= 70 
-                    ? 'border-red-500/50 shadow-[0_8px_30px_rgba(239,68,68,0.15)]' 
-                    : 'border-slate-800 hover:border-blue-500/50 hover:shadow-[0_8px_30px_rgba(37,99,235,0.1)]'
-                }`}
-              >
-                {/* Mock Camera Feed Area */}
-                <div className="aspect-video bg-slate-900 rounded-t-xl relative overflow-hidden">
-                  {candidate.camera === 'STARTED' ? (
-                    <>
-                      <div className="absolute inset-0 bg-gradient-to-t from-[#131c31] to-transparent z-10 opacity-60" />
-                      <div className="absolute inset-0 flex items-center justify-center">
-                        {/* Simulation of a face tracking box */}
-                        <div className="w-32 h-32 border border-emerald-500/30 rounded-lg absolute flex items-center justify-center group-hover:border-emerald-400/60 transition-colors">
-                          <div className="w-full h-[1px] bg-emerald-500/20 absolute top-1/2 animate-scan" />
-                        </div>
-                        <span className="text-slate-600 font-medium z-0">[Encrypted Stream Active]</span>
-                      </div>
-                    </>
-                  ) : (
-                    <div className="absolute inset-0 flex flex-col items-center justify-center text-slate-600 bg-slate-900">
-                      <VideoOff className="w-8 h-8 mb-2 opacity-50" />
-                      <span className="text-xs font-semibold uppercase tracking-wider">Feed Offline</span>
-                    </div>
-                  )}
-                  
-                  {/* Status Badges Overlay */}
-                  <div className="absolute top-3 left-3 z-20 flex space-x-2">
-                    <div className={`w-3 h-3 rounded-full ${candidate.status === 'ONLINE' ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.6)] animate-pulse' : 'bg-slate-600'}`}></div>
-                  </div>
-
-                  <div className="absolute top-3 right-3 z-20">
-                    <div className={`px-2.5 py-1 rounded-md text-xs font-extrabold uppercase tracking-wider backdrop-blur-md shadow-lg flex items-center border ${
-                      candidate.riskScore >= 70 ? 'bg-red-500/20 text-red-400 border-red-500/30' :
-                      candidate.riskScore >= 40 ? 'bg-amber-500/20 text-amber-400 border-amber-500/30' :
-                      'bg-emerald-500/20 text-emerald-400 border-emerald-500/30'
-                    }`}>
-                      Risk Score: {candidate.riskScore}
-                    </div>
-                  </div>
-                </div>
-
-                <div className="p-5">
-                  <div className="mb-4">
-                    <h3 className="font-bold text-white text-lg truncate group-hover:text-blue-400 transition-colors">{candidate.name}</h3>
-                    <p className="text-xs text-slate-500 font-mono mt-1 flex items-center">
-                      <ShieldAlert className="w-3 h-3 mr-1 opacity-70" /> {candidate.id.substring(0, 12)}...
-                    </p>
-                  </div>
-
-                  <div className="flex flex-wrap gap-2 text-xs font-semibold">
-                    <span className={`px-2.5 py-1.5 rounded-lg flex items-center border ${candidate.camera === 'STARTED' ? 'bg-blue-500/10 text-blue-400 border-blue-500/20' : 'bg-slate-800 text-slate-400 border-slate-700'}`}>
-                      <VideoOff className="w-3.5 h-3.5 mr-1.5" /> Cam
-                    </span>
-                    <span className={`px-2.5 py-1.5 rounded-lg flex items-center border ${candidate.screen === 'STARTED' ? 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20' : 'bg-slate-800 text-slate-400 border-slate-700'}`}>
-                      <Monitor className="w-3.5 h-3.5 mr-1.5" /> Screen
-                    </span>
-                    <span className={`px-2.5 py-1.5 rounded-lg flex items-center border ${candidate.violations.length > 0 ? 'bg-red-500/10 text-red-400 border-red-500/20' : 'bg-slate-800 text-slate-400 border-slate-700'}`}>
-                      <AlertTriangle className="w-3.5 h-3.5 mr-1.5" /> {candidate.violations.length} Flags
-                    </span>
-                  </div>
-                </div>
-              </div>
-            ))}
-            
-            {Object.keys(candidates).length === 0 && (
-              <div className="col-span-full flex flex-col items-center justify-center py-32 text-slate-500">
-                <ShieldAlert className="w-16 h-16 mb-4 opacity-20" />
-                <h3 className="text-xl font-bold text-slate-400">No Active Sessions</h3>
-                <p className="text-sm mt-2">Candidates currently engaged in examinations will appear here.</p>
-              </div>
-            )}
+        {/* Filter and Search Bar */}
+        <div className="px-8 pt-6 pb-2 z-10 flex flex-col sm:flex-row gap-4 justify-between items-center">
+          <div className="relative w-full sm:w-80">
+            <Search className="w-4 h-4 absolute left-3 top-3 text-slate-500" />
+            <input 
+              type="text" 
+              placeholder="Search candidate name, email, exam..." 
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full bg-[#131c31] border border-slate-700/80 rounded-xl pl-9 pr-4 py-2 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 transition"
+            />
           </div>
+
+          <div className="flex items-center space-x-2 bg-[#131c31] p-1 rounded-xl border border-slate-800 text-xs font-semibold w-full sm:w-auto">
+            <button 
+              onClick={() => setStatusFilter('ALL')}
+              className={`px-3.5 py-1.5 rounded-lg transition-colors ${
+                statusFilter === 'ALL' 
+                  ? 'bg-blue-600 text-white shadow-sm' 
+                  : 'text-slate-400 hover:text-white'
+              }`}
+            >
+              All Candidates ({candidates.length})
+            </button>
+            <button 
+              onClick={() => setStatusFilter('COMPLETED')}
+              className={`px-3.5 py-1.5 rounded-lg transition-colors ${
+                statusFilter === 'COMPLETED' 
+                  ? 'bg-blue-600 text-white shadow-sm' 
+                  : 'text-slate-400 hover:text-white'
+              }`}
+            >
+              Submitted / Written ({completedCandidatesCount})
+            </button>
+            <button 
+              onClick={() => setStatusFilter('IN_PROGRESS')}
+              className={`px-3.5 py-1.5 rounded-lg transition-colors ${
+                statusFilter === 'IN_PROGRESS' 
+                  ? 'bg-blue-600 text-white shadow-sm' 
+                  : 'text-slate-400 hover:text-white'
+              }`}
+            >
+              In Progress ({candidates.length - completedCandidatesCount})
+            </button>
+          </div>
+        </div>
+
+        {/* Candidate Exam Info Cards Grid */}
+        <main className="flex-1 p-8 overflow-y-auto z-10 custom-scrollbar">
+          {loading ? (
+            <div className="py-24 flex flex-col items-center justify-center text-slate-400">
+              <div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mb-4" />
+              <p className="font-semibold text-sm">Loading candidates exam info...</p>
+            </div>
+          ) : filteredCandidates.length === 0 ? (
+            <div className="py-28 flex flex-col items-center justify-center text-slate-500">
+              <Users className="w-16 h-16 mb-4 opacity-20" />
+              <h3 className="text-xl font-bold text-slate-300">No Candidate Records Found</h3>
+              <p className="text-sm mt-2 max-w-sm text-center">
+                {searchQuery || statusFilter !== 'ALL'
+                  ? 'No candidates match your current search and status filter.'
+                  : 'Candidates who have taken or are taking exams will appear here with full exam info.'}
+              </p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3 gap-6">
+              {filteredCandidates.map(cand => {
+                const isCompleted = isCompletedStatus(cand.status);
+                const isSelected = selectedCandidate?.id === cand.id;
+
+                return (
+                  <div 
+                    key={cand.attemptId || cand.id} 
+                    onClick={() => setSelectedCandidate(cand)}
+                    className={`bg-[#131c31]/90 backdrop-blur-sm rounded-2xl border-2 cursor-pointer transition-all duration-300 p-6 flex flex-col justify-between group hover:-translate-y-1 ${
+                      isSelected 
+                        ? 'border-blue-500 shadow-[0_8px_30px_rgba(37,99,235,0.25)]' 
+                        : cand.riskScore >= 60 
+                          ? 'border-rose-900/50 hover:border-rose-500/50 hover:shadow-[0_8px_30px_rgba(239,68,68,0.15)]' 
+                          : 'border-slate-800 hover:border-blue-500/50 hover:shadow-[0_8px_30px_rgba(37,99,235,0.1)]'
+                    }`}
+                  >
+                    {/* Top Row: Candidate Name & Status Badge */}
+                    <div>
+                      <div className="flex items-start justify-between mb-3">
+                        <div className="flex items-center space-x-3">
+                          <div className={`w-12 h-12 rounded-xl flex items-center justify-center font-black text-lg border ${
+                            isCompleted 
+                              ? 'bg-blue-600/20 text-blue-400 border-blue-500/30' 
+                              : 'bg-amber-600/20 text-amber-400 border-amber-500/30'
+                          }`}>
+                            {cand.name.charAt(0).toUpperCase()}
+                          </div>
+                          <div>
+                            <h3 className="font-extrabold text-white text-lg group-hover:text-blue-400 transition-colors line-clamp-1">
+                              {cand.name}
+                            </h3>
+                            <p className="text-xs text-slate-400 font-mono mt-0.5">
+                              {cand.email || `ID: ${cand.id.substring(0, 10)}...`}
+                            </p>
+                          </div>
+                        </div>
+
+                        <span className={`px-2.5 py-1 rounded-full text-[11px] font-extrabold uppercase tracking-wide border ${
+                          isCompleted
+                            ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30'
+                            : 'bg-amber-500/10 text-amber-400 border-amber-500/30 animate-pulse'
+                        }`}>
+                          {cand.status.replace(/_/g, ' ')}
+                        </span>
+                      </div>
+
+                      {/* Exam Title */}
+                      <div className="bg-[#0f172a] rounded-xl p-3 border border-slate-800/80 mb-4 flex items-center space-x-2">
+                        <BookOpen className="w-4 h-4 text-blue-400 shrink-0" />
+                        <span className="text-xs font-bold text-slate-200 line-clamp-1">{cand.examName}</span>
+                      </div>
+
+                      {/* Performance Metric Box */}
+                      <div className="grid grid-cols-2 gap-3 mb-4">
+                        <div className="bg-slate-900/60 p-3 rounded-xl border border-slate-800">
+                          <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">Score / Result</span>
+                          <div className="flex items-baseline mt-1 space-x-1">
+                            <span className="text-lg font-black text-white">
+                              {cand.percentage ? `${cand.percentage.toFixed(0)}%` : `${cand.score} Marks`}
+                            </span>
+                            {cand.resultStatus && (
+                              <span className={`text-[10px] font-extrabold px-1.5 py-0.5 rounded ${
+                                cand.resultStatus === 'PASS' 
+                                  ? 'bg-emerald-500/20 text-emerald-400' 
+                                  : 'bg-rose-500/20 text-rose-400'
+                              }`}>
+                                {cand.resultStatus}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+
+                        <div className="bg-slate-900/60 p-3 rounded-xl border border-slate-800">
+                          <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">Duration</span>
+                          <span className="text-lg font-black text-white mt-1 block">
+                            {formatSeconds(cand.timeTaken)}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Bottom Row: Violation Badges & Action */}
+                    <div className="pt-3 border-t border-slate-800/70 flex items-center justify-between">
+                      <div className="flex items-center space-x-2 text-xs">
+                        <span className={`px-2.5 py-1 rounded-lg font-bold flex items-center border ${
+                          cand.violations.length > 0 
+                            ? 'bg-rose-500/10 text-rose-400 border-rose-500/20' 
+                            : 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
+                        }`}>
+                          <AlertTriangle className="w-3.5 h-3.5 mr-1" />
+                          {cand.violations.length} Flags
+                        </span>
+
+                        {cand.violations.some(v => v.screenshot || v.snapshotImage) && (
+                          <span className="bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 px-2 py-1 rounded-lg font-bold text-[10px] flex items-center">
+                            <Camera className="w-3 h-3 mr-1" /> Proof
+                          </span>
+                        )}
+                      </div>
+
+                      <span className="text-xs font-bold text-blue-400 group-hover:text-blue-300 flex items-center">
+                        View Exam Info <ChevronRight className="w-4 h-4 ml-1" />
+                      </span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </main>
       </div>
 
-      {/* Detail Panel - Sliding Glassmorphic Overlay */}
+      {/* Side Slide-in: Detailed Candidate Exam Information Panel */}
       {selectedCandidate && (
         <>
-          <div className="fixed inset-0 bg-[#0f172a]/60 backdrop-blur-sm z-40 lg:hidden" onClick={() => setSelectedCandidate(null)} />
+          <div 
+            className="fixed inset-0 bg-[#0f172a]/70 backdrop-blur-sm z-40 lg:hidden" 
+            onClick={() => setSelectedCandidate(null)} 
+          />
           <div className="fixed lg:relative right-0 top-0 bottom-0 w-full max-w-md bg-[#131c31]/95 backdrop-blur-2xl border-l border-slate-800 shadow-2xl flex flex-col z-50 transform transition-transform duration-300">
             
-            <div className="p-6 border-b border-slate-800 flex justify-between items-center bg-[#0f172a]/80">
-              <div>
-                <h2 className="font-extrabold text-xl text-white">{selectedCandidate.name}</h2>
-                <div className="flex items-center mt-1 space-x-2">
-                  <div className={`w-2 h-2 rounded-full ${selectedCandidate.status === 'ONLINE' ? 'bg-emerald-500' : 'bg-slate-500'}`} />
-                  <span className="text-xs font-semibold text-slate-400">{selectedCandidate.status}</span>
+            {/* Drawer Header */}
+            <div className="p-6 border-b border-slate-800 flex justify-between items-center bg-[#0f172a]/90">
+              <div className="flex items-center space-x-3">
+                <div className="w-10 h-10 rounded-xl bg-blue-600/20 border border-blue-500/30 flex items-center justify-center font-bold text-blue-400 text-lg">
+                  {selectedCandidate.name.charAt(0).toUpperCase()}
+                </div>
+                <div>
+                  <h2 className="font-extrabold text-lg text-white">{selectedCandidate.name}</h2>
+                  <p className="text-xs text-slate-400 font-mono">{selectedCandidate.email || selectedCandidate.id}</p>
                 </div>
               </div>
-              <button onClick={() => setSelectedCandidate(null)} className="text-slate-500 hover:text-white transition-colors p-2 hover:bg-slate-800 rounded-full">
-                <XCircle className="w-6 h-6" />
+              <button 
+                onClick={() => setSelectedCandidate(null)} 
+                className="text-slate-400 hover:text-white transition-colors p-2 hover:bg-slate-800 rounded-full"
+              >
+                <X className="w-5 h-5" />
               </button>
             </div>
             
             <div className="p-6 flex flex-col space-y-6 flex-1 overflow-y-auto custom-scrollbar">
               
-              {/* Primary Video Action */}
-              <button 
-                onClick={() => requestLiveStream(selectedCandidate.id)}
-                disabled={isStreaming}
-                className="w-full relative overflow-hidden group flex items-center justify-center p-4 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl shadow-[0_0_20px_rgba(37,99,235,0.3)] hover:shadow-[0_0_30px_rgba(37,99,235,0.5)] transition-all font-bold disabled:opacity-70 disabled:cursor-not-allowed"
-              >
-                <div className="absolute inset-0 bg-white/20 translate-y-full group-hover:translate-y-0 transition-transform duration-300" />
-                <Monitor className="w-5 h-5 mr-2 relative z-10" /> 
-                <span className="relative z-10">{isStreaming ? 'Establishing Secure Tunnel...' : 'Initialize Live Surveillance'}</span>
-              </button>
+              {/* Exam Info Card */}
+              <div className="bg-[#0f172a] rounded-2xl p-5 border border-slate-800">
+                <div className="flex items-center justify-between mb-3">
+                  <span className="text-xs font-bold uppercase tracking-wider text-slate-400">Exam Details</span>
+                  <span className={`text-[11px] font-extrabold uppercase px-2 py-0.5 rounded-full border ${
+                    isCompletedStatus(selectedCandidate.status)
+                      ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30'
+                      : 'bg-amber-500/20 text-amber-400 border-amber-500/30'
+                  }`}>
+                    {selectedCandidate.status.replace(/_/g, ' ')}
+                  </span>
+                </div>
+                
+                <h4 className="font-extrabold text-white text-base mb-3">{selectedCandidate.examName}</h4>
+                
+                <div className="space-y-2 text-xs text-slate-300">
+                  {selectedCandidate.startedAt && (
+                    <div className="flex justify-between">
+                      <span className="text-slate-500 flex items-center"><Calendar className="w-3.5 h-3.5 mr-1" /> Started At:</span>
+                      <span className="font-mono">{new Date(selectedCandidate.startedAt).toLocaleString()}</span>
+                    </div>
+                  )}
+                  {selectedCandidate.submittedAt && (
+                    <div className="flex justify-between">
+                      <span className="text-slate-500 flex items-center"><CheckCircle className="w-3.5 h-3.5 mr-1" /> Submitted At:</span>
+                      <span className="font-mono">{new Date(selectedCandidate.submittedAt).toLocaleString()}</span>
+                    </div>
+                  )}
+                  <div className="flex justify-between">
+                    <span className="text-slate-500 flex items-center"><Clock className="w-3.5 h-3.5 mr-1" /> Time Taken:</span>
+                    <span className="font-bold text-white">{formatSeconds(selectedCandidate.timeTaken)}</span>
+                  </div>
+                </div>
+              </div>
 
-              {isStreaming && (
-                <div className="aspect-video bg-black rounded-xl overflow-hidden relative shadow-2xl border border-slate-700">
-                  <video ref={remoteVideoRef} autoPlay playsInline className="w-full h-full object-cover"></video>
-                  <div className="absolute top-3 left-3 bg-red-500 text-white text-[10px] font-bold px-2 py-1 rounded shadow-[0_0_10px_rgba(239,68,68,0.8)] animate-pulse">LIVE INCIDENT FEED</div>
-                  
-                  {/* Fake UI Overlay for high-end look */}
-                  <div className="absolute bottom-3 left-3 right-3 flex justify-between items-center text-[10px] text-white/70 font-mono">
-                    <span>CH-01 // WEBRTC</span>
-                    <span>REC_ACTV // 00:00:00</span>
+              {/* Performance Scorecard */}
+              <div className="bg-[#0f172a] rounded-2xl p-5 border border-slate-800">
+                <div className="flex items-center justify-between mb-4">
+                  <span className="text-xs font-bold uppercase tracking-wider text-slate-400">Performance Scorecard</span>
+                  {selectedCandidate.resultStatus && (
+                    <span className={`text-xs font-black px-2.5 py-0.5 rounded-full border ${
+                      selectedCandidate.resultStatus === 'PASS' 
+                        ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30' 
+                        : 'bg-rose-500/20 text-rose-400 border-rose-500/30'
+                    }`}>
+                      {selectedCandidate.resultStatus}
+                    </span>
+                  )}
+                </div>
+
+                <div className="grid grid-cols-2 gap-3 mb-4">
+                  <div className="bg-slate-900/80 p-3 rounded-xl border border-slate-800">
+                    <span className="text-[10px] font-bold uppercase text-slate-500">Marks Obtained</span>
+                    <div className="text-xl font-black text-white mt-0.5">
+                      {selectedCandidate.score} <span className="text-xs text-slate-500 font-normal">/ {selectedCandidate.totalMarks || 100}</span>
+                    </div>
+                  </div>
+                  <div className="bg-slate-900/80 p-3 rounded-xl border border-slate-800">
+                    <span className="text-[10px] font-bold uppercase text-slate-500">Percentage</span>
+                    <div className="text-xl font-black text-blue-400 mt-0.5">
+                      {selectedCandidate.percentage ? `${selectedCandidate.percentage.toFixed(1)}%` : 'N/A'}
+                    </div>
+                  </div>
+                </div>
+
+                {selectedCandidate.totalQuestions > 0 && (
+                  <div className="grid grid-cols-3 gap-2 text-center text-xs pt-3 border-t border-slate-800">
+                    <div className="bg-emerald-500/10 p-2 rounded-lg border border-emerald-500/20">
+                      <span className="text-emerald-400 font-bold block text-sm">{selectedCandidate.correct}</span>
+                      <span className="text-[10px] text-emerald-500/80 uppercase font-bold">Correct</span>
+                    </div>
+                    <div className="bg-rose-500/10 p-2 rounded-lg border border-rose-500/20">
+                      <span className="text-rose-400 font-bold block text-sm">{selectedCandidate.wrong}</span>
+                      <span className="text-[10px] text-rose-500/80 uppercase font-bold">Wrong</span>
+                    </div>
+                    <div className="bg-slate-800 p-2 rounded-lg border border-slate-700">
+                      <span className="text-slate-300 font-bold block text-sm">{selectedCandidate.unanswered}</span>
+                      <span className="text-[10px] text-slate-400 uppercase font-bold">Skipped</span>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Integrity & Violations Proof */}
+              <div>
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center">
+                    <ShieldAlert className="w-4 h-4 mr-1.5 text-rose-500" />
+                    Violation Proof & Telemetry ({selectedCandidate.violations.length})
+                  </h3>
+                  <button 
+                    onClick={() => router.push('/admin/violations')}
+                    className="text-xs font-bold text-rose-400 hover:text-rose-300 hover:underline"
+                  >
+                    View All in Queue &rarr;
+                  </button>
+                </div>
+
+                {selectedCandidate.violations.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center py-8 bg-[#0f172a] rounded-2xl border border-slate-800 border-dashed text-center p-4">
+                    <CheckCircle2 className="w-8 h-8 text-emerald-400 mb-2" />
+                    <p className="text-white text-xs font-bold">Nominal Integrity</p>
+                    <p className="text-slate-500 text-[11px] mt-1">No violations or anomalies recorded during this examination.</p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {selectedCandidate.violations.map((v, i) => {
+                      const proofImg = v.screenshot || v.snapshotImage;
+
+                      return (
+                        <div 
+                          key={v.id || v._id || i} 
+                          className="bg-[#0f172a] p-4 rounded-xl border border-slate-800 flex flex-col space-y-2 hover:border-slate-700 transition"
+                        >
+                          <div className="flex items-center justify-between">
+                            <span className={`text-xs font-extrabold flex items-center ${
+                              v.severity === 'CRITICAL' ? 'text-rose-400' : 'text-amber-400'
+                            }`}>
+                              <AlertTriangle className="w-3.5 h-3.5 mr-1" />
+                              {v.type.replace(/_/g, ' ')}
+                            </span>
+                            <span className="text-[10px] font-mono text-slate-500">
+                              {new Date(v.detectedAt || v.timestamp || new Date().toISOString()).toLocaleTimeString()}
+                            </span>
+                          </div>
+
+                          {v.description && (
+                            <p className="text-xs text-slate-400">{v.description}</p>
+                          )}
+
+                          {/* Screenshot Proof Preview */}
+                          {proofImg && (
+                            <div className="mt-2">
+                              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1 flex items-center">
+                                <Camera className="w-3 h-3 mr-1 text-blue-400" /> Screenshot Proof:
+                              </span>
+                              <div 
+                                onClick={() => setSelectedProofModal({
+                                  image: proofImg,
+                                  type: v.type,
+                                  time: new Date(v.detectedAt || v.timestamp || new Date().toISOString()).toLocaleString(),
+                                  desc: v.description
+                                })}
+                                className="relative rounded-lg overflow-hidden border border-slate-700 bg-black cursor-pointer group/img max-h-36 shadow-md"
+                              >
+                                <img src={proofImg} alt="Violation Proof" className="w-full h-auto object-cover" />
+                                <div className="absolute inset-0 bg-black/40 group-hover/img:bg-black/10 transition-colors flex items-center justify-center">
+                                  <span className="bg-rose-600/90 text-white text-[10px] font-bold px-2 py-1 rounded shadow flex items-center">
+                                    <Eye className="w-3 h-3 mr-1" /> Enlarge Proof
+                                  </span>
+                                </div>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+
+              {/* Exam Actions for In-Progress sessions */}
+              {!isCompletedStatus(selectedCandidate.status) && (
+                <div className="bg-[#0f172a] rounded-2xl p-4 border border-slate-800">
+                  <span className="text-xs font-bold uppercase tracking-wider text-slate-400 block mb-3">Admin Actions</span>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button 
+                      onClick={() => handleApiCommand(selectedCandidate.attemptId, 'LOCK')}
+                      className="flex items-center justify-center p-2.5 bg-slate-800 text-slate-300 rounded-lg text-xs font-bold border border-slate-700 hover:bg-slate-700 transition"
+                    >
+                      <Lock className="w-3.5 h-3.5 mr-1.5" /> Lock Console
+                    </button>
+                    <button 
+                      onClick={() => handleApiCommand(selectedCandidate.attemptId, 'UNLOCK')}
+                      className="flex items-center justify-center p-2.5 bg-slate-800 text-slate-300 rounded-lg text-xs font-bold border border-slate-700 hover:bg-slate-700 transition"
+                    >
+                      <Unlock className="w-3.5 h-3.5 mr-1.5" /> Unlock Console
+                    </button>
+                    <button 
+                      onClick={() => handleApiCommand(selectedCandidate.attemptId, 'FORCE_SUBMIT')}
+                      className="col-span-2 flex items-center justify-center p-2.5 bg-rose-600/20 text-rose-400 rounded-lg text-xs font-bold border border-rose-500/30 hover:bg-rose-600/30 transition"
+                    >
+                      <AlertTriangle className="w-3.5 h-3.5 mr-1.5" /> Finalize & Submit Exam
+                    </button>
                   </div>
                 </div>
               )}
 
-              {/* Control Deck */}
-              <div>
-                <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">Tactical Controls</h3>
-                <div className="grid grid-cols-2 gap-3">
-                  <button 
-                    onClick={() => router.push(`/admin/evidence/${selectedCandidate.attemptId}`)}
-                    className="flex flex-col items-center justify-center p-4 bg-slate-800/50 text-blue-400 rounded-xl border border-blue-500/20 hover:bg-blue-500/10 transition-colors"
-                  >
-                    <MessageSquare className="w-5 h-5 mb-2" />
-                    <span className="text-xs font-bold">Evidence Vault</span>
-                  </button>
-                  <button 
-                    onClick={() => sendCommand(selectedCandidate.id, 'PAUSE', 'Exam paused for security review.')}
-                    className="flex flex-col items-center justify-center p-4 bg-slate-800/50 text-amber-400 rounded-xl border border-amber-500/20 hover:bg-amber-500/10 transition-colors"
-                  >
-                    <PauseCircle className="w-5 h-5 mb-2" />
-                    <span className="text-xs font-bold">Halt Session</span>
-                  </button>
-                  <button 
-                    onClick={() => sendCommand(selectedCandidate.id, 'RESUME', 'Exam resumed')}
-                    className="flex flex-col items-center justify-center p-4 bg-emerald-500/10 text-emerald-400 rounded-xl border border-emerald-500/20 hover:bg-emerald-500/20 transition-colors"
-                  >
-                    <CheckCircle2 className="w-5 h-5 mb-2" />
-                    <span className="text-xs font-bold">
-                      Resume Session
-                    </span>
-                  </button>
-                  <button 
-                    onClick={() => handleApiCommand(selectedCandidate.id, 'LOCK', selectedCandidate.attemptId ?? '')}
-                    className="flex flex-col items-center justify-center p-4 bg-slate-800/50 text-slate-300 rounded-xl border border-slate-600 hover:bg-slate-700 transition-colors"
-                  >
-                    <ShieldAlert className="w-5 h-5 mb-2" />
-                    <span className="text-xs font-bold">Lock Console</span>
-                  </button>
-                  <button 
-                    onClick={() => handleApiCommand(selectedCandidate.id, 'UNLOCK', selectedCandidate.attemptId ?? '')}
-                    className="flex flex-col items-center justify-center p-4 bg-slate-800/50 text-slate-300 rounded-xl border border-slate-600 hover:bg-slate-700 transition-colors"
-                  >
-                    <CheckCircle2 className="w-5 h-5 mb-2" />
-                    <span className="text-xs font-bold">Unlock Console</span>
-                  </button>
-                  
-                  <button 
-                    onClick={() => sendCommand(selectedCandidate.id, 'TERMINATE', 'Exam terminated due to severe policy violations.')}
-                    className="col-span-2 flex items-center justify-center p-4 bg-red-500/10 text-red-400 rounded-xl border border-red-500/30 hover:bg-red-500/20 transition-all hover:shadow-[0_0_15px_rgba(239,68,68,0.2)]"
-                  >
-                    <AlertTriangle className="w-5 h-5 mr-2" />
-                    <span className="text-sm font-bold tracking-wide">EMERGENCY TERMINATE</span>
-                  </button>
-                </div>
-              </div>
-
-              {/* Timeline */}
-              <div className="flex-1">
-                <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">Violation Telemetry</h3>
-                {selectedCandidate.violations.length === 0 ? (
-                  <div className="flex flex-col items-center justify-center py-8 bg-slate-800/30 rounded-xl border border-slate-800 border-dashed">
-                    <CheckCircle2 className="w-8 h-8 text-emerald-500/50 mb-2" />
-                    <p className="text-slate-400 text-xs font-medium">Session integrity nominal.</p>
-                  </div>
-                ) : (
-                  <div className="space-y-3 relative before:absolute before:inset-0 before:ml-5 before:-translate-x-px md:before:mx-auto md:before:translate-x-0 before:h-full before:w-0.5 before:bg-gradient-to-b before:from-transparent before:via-slate-700 before:to-transparent">
-                    {selectedCandidate.violations.map((v, i) => (
-                      <div key={i} className={`relative flex items-center justify-between md:justify-normal md:odd:flex-row-reverse group is-active`}>
-                        <div className={`flex items-center justify-center w-10 h-10 rounded-full border-4 border-[#131c31] bg-slate-800 text-slate-500 shadow shrink-0 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2 ${
-                          v.severity === 'CRITICAL' ? 'bg-red-500/20 text-red-400 border-red-900/50' : 
-                          v.severity === 'HIGH' ? 'bg-amber-500/20 text-amber-400 border-amber-900/50' : ''
-                        }`}>
-                          <AlertTriangle className="w-4 h-4" />
-                        </div>
-                        <div className={`w-[calc(100%-4rem)] md:w-[calc(50%-2.5rem)] p-4 rounded-xl border shadow-sm ${
-                          v.severity === 'CRITICAL' ? 'bg-red-500/5 border-red-500/20' : 
-                          v.severity === 'HIGH' ? 'bg-amber-500/5 border-amber-500/20' : 'bg-slate-800/50 border-slate-700'
-                        }`}>
-                          <div className="flex justify-between items-center mb-1">
-                            <span className={`font-bold text-sm ${v.severity === 'CRITICAL' ? 'text-red-400' : v.severity === 'HIGH' ? 'text-amber-400' : 'text-slate-300'}`}>{v.type}</span>
-                          </div>
-                          <div className="text-slate-500 text-xs font-mono mb-2">{new Date(v.timestamp || v.detectedAt || new Date().toISOString()).toLocaleTimeString()}</div>
-                          <div className="text-slate-400 text-xs mb-2">{v.description || 'Source: AI Detection'}</div>
-                          {v.snapshotImage && (
-                            <div className="mt-2 rounded overflow-hidden border border-slate-700 shadow-md">
-                              <img src={v.snapshotImage} alt="Violation Evidence" className="w-full h-auto" />
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
             </div>
           </div>
         </>
       )}
 
-      {/* Proactive Violation Alert Modal */}
-      {activeAlert && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-md p-4">
-          <div className="bg-[#131c31] border-2 border-red-500/50 rounded-2xl shadow-[0_0_50px_rgba(239,68,68,0.3)] max-w-lg w-full overflow-hidden animate-in fade-in zoom-in duration-300">
-            <div className="bg-red-500/10 p-6 flex flex-col items-center text-center border-b border-red-500/20">
-              <div className="w-16 h-16 bg-red-500/20 rounded-full flex items-center justify-center mb-4">
-                <ShieldAlert className="w-8 h-8 text-red-500 animate-pulse" />
+      {/* Proof Zoom Modal */}
+      {selectedProofModal && (
+        <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/90 backdrop-blur-md p-4 animate-in fade-in duration-200">
+          <div className="bg-slate-900 border border-slate-700 rounded-2xl max-w-2xl w-full overflow-hidden shadow-2xl flex flex-col">
+            <div className="bg-slate-950 px-6 py-4 border-b border-slate-800 flex items-center justify-between">
+              <div>
+                <h3 className="text-base font-extrabold text-white flex items-center">
+                  <Camera className="w-4 h-4 mr-2 text-rose-500" />
+                  Violation Screenshot Evidence
+                </h3>
+                <p className="text-xs text-slate-400 font-mono mt-0.5">
+                  {selectedProofModal.type.replace(/_/g, ' ')} &bull; {selectedProofModal.time}
+                </p>
               </div>
-              <h2 className="text-2xl font-black text-white uppercase tracking-wider text-red-500">Security Alert</h2>
-              <p className="text-red-400 font-medium mt-1">Immediate action required</p>
+              <button 
+                onClick={() => setSelectedProofModal(null)}
+                className="text-slate-400 hover:text-white p-2 rounded-lg hover:bg-slate-800 transition"
+              >
+                <X className="w-5 h-5" />
+              </button>
             </div>
-            
-            <div className="p-6">
-              <div className="bg-[#0f172a] rounded-xl p-4 border border-slate-700 mb-6">
-                <div className="flex justify-between items-center mb-3">
-                  <span className="text-slate-400 font-bold uppercase text-xs">Candidate</span>
-                  <span className="text-white font-bold">{activeAlert.name}</span>
-                </div>
-                <div className="flex justify-between items-center mb-3">
-                  <span className="text-slate-400 font-bold uppercase text-xs">Violation Type</span>
-                  <span className={`font-bold ${activeAlert.violation.severity === 'CRITICAL' ? 'text-red-400' : 'text-amber-400'}`}>
-                    {activeAlert.violation.type}
-                  </span>
-                </div>
-                {activeAlert.violation.description && (
-                  <div className="flex justify-between items-center">
-                    <span className="text-slate-400 font-bold uppercase text-xs">Details</span>
-                    <span className="text-slate-300 text-sm text-right ml-4">{activeAlert.violation.description}</span>
-                  </div>
-                )}
+
+            <div className="p-6 bg-slate-950/60 flex flex-col items-center">
+              <div className="w-full rounded-xl overflow-hidden border border-slate-800 bg-black">
+                <img src={selectedProofModal.image} alt="Enlarged Proof" className="w-full max-h-[460px] object-contain mx-auto" />
               </div>
-              
-              {activeAlert.violation.snapshotImage && (
-                <div className="mb-6 rounded-lg overflow-hidden border border-slate-700 shadow-md">
-                  <img src={activeAlert.violation.snapshotImage} alt="Violation Evidence Snapshot" className="w-full h-auto object-cover max-h-48" />
-                </div>
+              {selectedProofModal.desc && (
+                <p className="text-xs text-slate-300 mt-4 text-center">
+                  {selectedProofModal.desc}
+                </p>
               )}
+            </div>
 
-              <p className="text-slate-400 text-center text-sm mb-6">Please decide how to proceed with this candidate's examination.</p>
-
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                <button 
-                  onClick={() => handleAlertAction('TERMINATE')}
-                  className="px-4 py-3 bg-red-500 hover:bg-red-600 text-white font-bold rounded-lg transition-colors flex flex-col items-center justify-center"
-                >
-                  <AlertTriangle className="w-5 h-5 mb-1" />
-                  Terminate
-                </button>
-                <button 
-                  onClick={() => handleAlertAction('PAUSE')}
-                  className="px-4 py-3 bg-amber-500 hover:bg-amber-600 text-white font-bold rounded-lg transition-colors flex flex-col items-center justify-center"
-                >
-                  <PauseCircle className="w-5 h-5 mb-1" />
-                  Pause Exam
-                </button>
-                <button 
-                  onClick={() => handleAlertAction('DISMISS')}
-                  className="px-4 py-3 bg-slate-700 hover:bg-slate-600 text-white font-bold rounded-lg transition-colors flex flex-col items-center justify-center"
-                >
-                  <CheckCircle2 className="w-5 h-5 mb-1" />
-                  Continue
-                </button>
-              </div>
+            <div className="bg-slate-950 px-6 py-3 border-t border-slate-800 flex justify-end">
+              <button 
+                onClick={() => setSelectedProofModal(null)}
+                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold transition"
+              >
+                Done
+              </button>
             </div>
           </div>
         </div>

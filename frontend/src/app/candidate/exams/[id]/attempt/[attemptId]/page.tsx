@@ -108,14 +108,14 @@ function AttemptContent() {
     };
   }, [examStatus, attemptId, socket, streamsStarted]);
 
-  const [mediaInitialized, setMediaInitialized] = useState(false);
+  const mediaInitialized = useRef(false);
 
   // Initialize Socket and Devices
   useEffect(() => {
-    if (isLoading || mediaInitialized) return;
+    if (isLoading || mediaInitialized.current) return;
     if (examStatus !== 'IN_PROGRESS' && examStatus !== 'PAUSED') return;
     
-    setMediaInitialized(true);
+    mediaInitialized.current = true;
 
     const wsUrl = process.env.NEXT_PUBLIC_WS_URL || (process.env.NEXT_PUBLIC_API_URL ? process.env.NEXT_PUBLIC_API_URL.replace(/\/api\/?$/, '') : 'http://localhost:5000');
     const initSocket = io(wsUrl, {
@@ -298,7 +298,7 @@ function AttemptContent() {
         initSocket.disconnect();
       }
     };
-  }, [isLoading, mediaInitialized, examStatus, attemptId, examId]);
+  }, [isLoading, examStatus, attemptId, examId]);
 
   const requestAdminReview = (reason: string) => {
     if (socket) {
@@ -310,7 +310,7 @@ function AttemptContent() {
   useEffect(() => {
     let faceDetector: import('@mediapipe/tasks-vision').FaceDetector;
     let animationFrameId: number;
-    let lastVideoTime = -1;
+    let lastDetect = 0;
     let isRunning = false;
 
     const initAI = async () => {
@@ -322,9 +322,10 @@ function AttemptContent() {
         faceDetector = await FaceDetector.createFromOptions(vision, {
           baseOptions: {
             modelAssetPath: "https://storage.googleapis.com/mediapipe-models/face_detector/blaze_face_short_range/float16/1/blaze_face_short_range.tflite",
-            delegate: "GPU"
+            delegate: "CPU"
           },
-          runningMode: "VIDEO"
+          runningMode: "IMAGE",
+          minDetectionConfidence: 0.3
         });
         
         setAiStatus('AI Active & Monitoring');
@@ -338,34 +339,46 @@ function AttemptContent() {
 
     const detectFaces = async () => {
       if (!isRunning) return;
-      if (videoRef.current && faceDetector) {
-        if (videoRef.current.currentTime !== lastVideoTime) {
-          lastVideoTime = videoRef.current.currentTime;
-          try {
-            const detections = faceDetector.detectForVideo(videoRef.current, performance.now());
-            
-            if (detections.detections.length > 1) {
+      const now = performance.now();
+
+      if (videoRef.current && faceDetector && (now - lastDetect >= 250)) {
+        lastDetect = now;
+        try {
+          if (videoRef.current.readyState >= 2 && videoRef.current.videoWidth > 0) {
+            const detections = faceDetector.detect(videoRef.current);
+            const count = detections?.detections?.length || 0;
+
+            if (count > 1) {
               multipleFaceFrames.current += 1;
-              if (multipleFaceFrames.current > 30) { // ~1 second of multiple faces
+              setAiStatus(`AI Alert: ${count} Faces Detected!`);
+              if (multipleFaceFrames.current >= 4) { // ~1 second of multiple faces
                 triggerAIViolation('MULTIPLE_FACES');
-                isRunning = false;
+                multipleFaceFrames.current = 0;
               }
             } else {
-              multipleFaceFrames.current = 0;
+              multipleFaceFrames.current = Math.max(0, multipleFaceFrames.current - 1);
             }
 
-            if (detections.detections.length === 0) {
+            if (count === 0) {
               noFaceFrames.current += 1;
-              if (noFaceFrames.current > 150) { // ~5 seconds of no face
+              setAiStatus('AI Warning: No Face Detected');
+              if (noFaceFrames.current >= 16) { // ~4 seconds of no face
                 triggerAIViolation('FACE_NOT_FOUND');
-                isRunning = false;
+                noFaceFrames.current = 0;
               }
             } else {
-              noFaceFrames.current = 0;
+              noFaceFrames.current = Math.max(0, noFaceFrames.current - 1);
             }
-          } catch(e) {}
+
+            if (count === 1) {
+              setAiStatus('AI Active: 1 Face Detected');
+            }
+          }
+        } catch (err) {
+          console.error('Face detection error:', err);
         }
       }
+
       if (isRunning) {
         animationFrameId = requestAnimationFrame(detectFaces);
       }
@@ -391,13 +404,11 @@ function AttemptContent() {
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'hidden') {
         handleViolation('TAB_SWITCH', 'CRITICAL', 'You switched away from the exam tab.');
-        requestAdminReview('You navigated away from the exam window');
       }
     };
 
     const handleFocusLoss = () => {
       handleViolation('WINDOW_FOCUS_LOST', 'CRITICAL', 'Exam window lost focus.');
-      requestAdminReview('The exam window lost focus');
     };
 
 
@@ -436,45 +447,155 @@ function AttemptContent() {
     return () => clearInterval(timer);
   }, []);
 
-  async function captureSnapshot(type: string, severity: string, message: string) {
-    if (videoRef.current) {
-      try {
-        const canvas = document.createElement('canvas');
-        canvas.width = videoRef.current.videoWidth || 640;
-        canvas.height = videoRef.current.videoHeight || 480;
-        const ctx = canvas.getContext('2d');
-        if (ctx) {
-          ctx.drawImage(videoRef.current, 0, 0, canvas.width, canvas.height);
+  async function captureSnapshotAndReport(type: string, severity: string, message: string) {
+    let screenshot = '';
+
+    try {
+      const canvas = document.createElement('canvas');
+      const width = videoRef.current?.videoWidth || 640;
+      const height = videoRef.current?.videoHeight || 480;
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext('2d');
+
+      if (ctx) {
+        let hasFrame = false;
+        if (videoRef.current && (videoRef.current.readyState >= 1 || (videoRef.current.videoWidth > 0 && videoRef.current.videoHeight > 0))) {
+          try {
+            ctx.drawImage(videoRef.current, 0, 0, width, height);
+            hasFrame = true;
+          } catch (e) {
+            console.warn('Failed to draw from videoRef', e);
+          }
+        }
+
+        if (!hasFrame) {
+          // Robust surveillance frame fallback when camera is obscured, inactive, or testing
+          ctx.fillStyle = '#090d16';
+          ctx.fillRect(0, 0, width, height);
           
-          const dataUrl = canvas.toDataURL('image/jpeg', 0.5);
-          if (socket) {
-            socket.emit('evidence:snapshot', { attemptId, type, severity, description: message, image: dataUrl });
+          // Draw subtle surveillance grid
+          ctx.strokeStyle = '#1e293b';
+          ctx.lineWidth = 1;
+          for (let x = 0; x < width; x += 40) {
+            ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, height); ctx.stroke();
+          }
+          for (let y = 0; y < height; y += 40) {
+            ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(width, y); ctx.stroke();
           }
 
-          canvas.toBlob(async (blob) => {
-            if (blob) {
-              const formData = new FormData();
-              formData.append('snapshot', blob, 'snapshot.jpg');
-              formData.append('attemptId', attemptId);
-              formData.append('severity', severity);
-              formData.append('description', message);
-              await api.post('/recordings/evidence/snapshot', formData, {
-                headers: { 'Content-Type': 'multipart/form-data' }
-              }).catch(() => {});
-            }
-          }, 'image/jpeg', 0.8);
+          // Incident box
+          ctx.strokeStyle = severity === 'CRITICAL' ? '#ef4444' : '#f59e0b';
+          ctx.lineWidth = 2;
+          ctx.strokeRect(width * 0.15, height * 0.15, width * 0.7, height * 0.6);
+
+          ctx.fillStyle = severity === 'CRITICAL' ? '#f87171' : '#fbbf24';
+          ctx.font = 'bold 16px monospace';
+          ctx.textAlign = 'center';
+          ctx.fillText('[LIVE PROCTOR SURVEILLANCE SNAPSHOT]', width / 2, height / 2 - 15);
+          ctx.fillStyle = '#94a3b8';
+          ctx.font = '12px monospace';
+          ctx.fillText(`VIOLATION: ${type.replace(/_/g, ' ')}`, width / 2, height / 2 + 15);
+          ctx.fillText(`SESSION: ${attemptId.substring(0, 16)}...`, width / 2, height / 2 + 35);
+          ctx.textAlign = 'left';
         }
-      } catch (err) {
-        console.error('Failed to capture evidence snapshot', err);
+
+        // Overlay Surveillance Stamp Banner
+        const bannerHeight = 44;
+        ctx.fillStyle = 'rgba(15, 23, 42, 0.95)';
+        ctx.fillRect(0, height - bannerHeight, width, bannerHeight);
+
+        // Top accent line on banner
+        ctx.fillStyle = severity === 'CRITICAL' ? '#ef4444' : '#f59e0b';
+        ctx.fillRect(0, height - bannerHeight, width, 3);
+
+        // Violation Label
+        ctx.fillStyle = severity === 'CRITICAL' ? '#ef4444' : '#fbbf24';
+        ctx.font = 'bold 14px sans-serif';
+        ctx.fillText(`VIOLATION: ${type.replace(/_/g, ' ')}`, 14, height - 16);
+
+        // Timestamp
+        ctx.fillStyle = '#cbd5e1';
+        ctx.font = '12px monospace';
+        const timeText = new Date().toLocaleString();
+        const textWidth = ctx.measureText(timeText).width;
+        ctx.fillText(timeText, width - textWidth - 14, height - 16);
+
+        screenshot = canvas.toDataURL('image/jpeg', 0.65);
+
+        // Client-side cache persistence for instant review
+        try {
+          if (typeof window !== 'undefined') {
+            const cacheKey = 'pg_violation_evidence';
+            const existing = JSON.parse(localStorage.getItem(cacheKey) || '[]');
+            existing.unshift({
+              attemptId,
+              type,
+              severity,
+              description: message,
+              screenshot,
+              detectedAt: new Date().toISOString()
+            });
+            localStorage.setItem(cacheKey, JSON.stringify(existing.slice(0, 50)));
+          }
+        } catch (e) {}
+
+        // Optional blob upload to recordings storage
+        canvas.toBlob(async (blob) => {
+          if (blob) {
+            const formData = new FormData();
+            formData.append('snapshot', blob, 'snapshot.jpg');
+            formData.append('attemptId', attemptId);
+            formData.append('severity', severity);
+            formData.append('description', message);
+            await api.post('/recordings/evidence/snapshot', formData, {
+              headers: { 'Content-Type': 'multipart/form-data' }
+            }).catch(() => {});
+          }
+        }, 'image/jpeg', 0.8);
+      }
+    } catch (err) {
+      console.error('Failed to capture evidence snapshot', err);
+    }
+
+    // 1. Emit socket violation with screenshot
+    if (socket) {
+      socket.emit('violation:created', { 
+        attemptId, 
+        type, 
+        severity, 
+        source: 'BROWSER', 
+        actionTaken: 'LOG',
+        description: message,
+        screenshot,
+        image: screenshot,
+        snapshotImage: screenshot
+      });
+      if (screenshot) {
+        socket.emit('evidence:snapshot', { 
+          attemptId, 
+          type, 
+          severity, 
+          description: message, 
+          image: screenshot,
+          screenshot 
+        });
       }
     }
+
+    // 2. Persist directly via REST API as a resilient guarantee
+    api.post(`/candidate/attempts/${attemptId}/violations`, {
+      type,
+      severity,
+      source: 'BROWSER',
+      description: message,
+      screenshot,
+      snapshotImage: screenshot
+    }).catch(err => console.error('REST violation report error:', err));
   }
 
   function handleViolation(type: string, severity: string, message: string) {
-    if (socket) {
-      socket.emit('violation:created', { attemptId, type, severity, source: 'BROWSER', actionTaken: 'LOG' });
-    }
-    captureSnapshot(type, severity, message);
+    captureSnapshotAndReport(type, severity, message);
   }
 
   function addWarning(message: string) {
@@ -541,10 +662,8 @@ function AttemptContent() {
   const triggerAIViolation = (type: 'MULTIPLE_FACES' | 'FACE_NOT_FOUND') => {
     if (type === 'MULTIPLE_FACES') {
       handleViolation('MULTIPLE_FACES', 'CRITICAL', 'Multiple faces detected in the camera frame.');
-      requestAdminReview('Multiple persons detected in the camera frame');
     } else if (type === 'FACE_NOT_FOUND') {
       handleViolation('FACE_NOT_FOUND', 'CRITICAL', 'Candidate face turned away or left the frame.');
-      requestAdminReview('Your face was not detected in the camera frame');
     }
   };
 

@@ -36,7 +36,7 @@ function EvidenceContent() {
     <div className="p-8 bg-slate-50 min-h-screen">
       <div className="max-w-6xl mx-auto">
         <button onClick={() => router.back()} className="flex items-center text-blue-600 mb-6 font-bold hover:underline">
-          <ArrowLeft className="w-4 h-4 mr-2" /> Back to Monitoring
+          <ArrowLeft className="w-4 h-4 mr-2" /> Back to Candidates
         </button>
 
         <h1 className="text-3xl font-black text-slate-800 mb-8 flex items-center">
