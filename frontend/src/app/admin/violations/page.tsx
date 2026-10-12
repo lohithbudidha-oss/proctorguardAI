@@ -509,6 +509,8 @@ export default function ViolationQueuePage() {
         g.key || '',
         `${g.totalViolations} violations`,
         `${g.examsWrittenCount} exams written`,
+        `${g.examsWrittenCount} exam attempts`,
+        `${g.examsWrittenCount} attempts`,
         g.proofCount > 0 ? `${g.proofCount} proofs screenshots images snapshots` : 'no snapshots'
       ];
 
@@ -779,13 +781,13 @@ export default function ViolationQueuePage() {
               <table className="w-full text-left border-collapse">
                 <thead>
                   <tr className="bg-slate-50/80 border-b border-slate-200 text-slate-500 text-xs font-extrabold uppercase tracking-wider">
-                    <th className="p-4 align-middle text-left">Candidate</th>
-                    <th className="p-4 align-middle text-left">Exams Written</th>
-                    <th className="p-4 align-middle text-center">Violations Committed</th>
-                    <th className="p-4 align-middle text-center">Highest Severity</th>
-                    <th className="p-4 align-middle text-center">Evidence Proofs</th>
-                    <th className="p-4 align-middle text-center">Latest Infraction</th>
-                    <th className="p-4 align-middle text-center">Action</th>
+                    <th className="p-4 align-middle text-left min-w-[200px]">Candidate</th>
+                    <th className="p-4 align-middle text-left min-w-[260px]">Exams Written</th>
+                    <th className="p-4 align-middle text-center min-w-[180px]">Violations Committed</th>
+                    <th className="p-4 align-middle text-center min-w-[130px]">Highest Severity</th>
+                    <th className="p-4 align-middle text-center min-w-[160px]">Evidence Proofs</th>
+                    <th className="p-4 align-middle text-center min-w-[140px]">Latest Infraction</th>
+                    <th className="p-4 align-middle text-center min-w-[140px]">Action</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 text-sm">
@@ -796,6 +798,46 @@ export default function ViolationQueuePage() {
                       .join('')
                       .slice(0, 2)
                       .toUpperCase() || 'CD';
+
+                    // Aggregate distinct exams attempted by candidate to avoid repetitive messy rows
+                    const uniqueExams = (() => {
+                      const map = new Map<string, {
+                        key: string;
+                        title: string;
+                        attemptsCount: number;
+                        violationsCount: number;
+                        targetKey: string;
+                      }>();
+
+                      group.exams.forEach((ex) => {
+                        const title = (ex.examTitle || 'Examination Assessment').trim();
+                        const normKey = title.toLowerCase();
+
+                        if (!map.has(normKey)) {
+                          map.set(normKey, {
+                            key: normKey,
+                            title,
+                            attemptsCount: 1,
+                            violationsCount: ex.totalViolations || 0,
+                            targetKey: ex.attemptId || ex.examId || title
+                          });
+                        } else {
+                          const entry = map.get(normKey)!;
+                          entry.attemptsCount += 1;
+                          entry.violationsCount += (ex.totalViolations || 0);
+                          if ((ex.totalViolations || 0) > 0) {
+                            entry.targetKey = ex.attemptId || ex.examId || entry.targetKey;
+                          }
+                        }
+                      });
+
+                      return Array.from(map.values()).sort((a, b) => {
+                        if (b.violationsCount !== a.violationsCount) {
+                          return b.violationsCount - a.violationsCount;
+                        }
+                        return b.attemptsCount - a.attemptsCount;
+                      });
+                    })();
 
                     return (
                       <tr 
@@ -828,37 +870,67 @@ export default function ViolationQueuePage() {
 
                         {/* Exams Written by Candidate */}
                         <td className="p-4 align-middle text-left">
-                          <div className="flex flex-col gap-1.5 max-w-xs">
+                          <div className="flex flex-col gap-2 min-w-[250px] max-w-[290px]">
+                            {/* Summary Badge */}
                             <div className="flex items-center space-x-2">
-                              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-black bg-blue-50 text-blue-700 border border-blue-200 shadow-2xs">
-                                <BookOpen className="w-3.5 h-3.5 mr-1.5 text-blue-500" />
-                                {group.examsWrittenCount} {group.examsWrittenCount === 1 ? 'Exam Written' : 'Exams Written'}
+                              <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-black bg-blue-50 text-blue-700 border border-blue-200 shadow-2xs">
+                                <BookOpen className="w-3.5 h-3.5 mr-1.5 text-blue-500 shrink-0" />
+                                <span>{group.examsWrittenCount} {group.examsWrittenCount === 1 ? 'Exam Attempt' : 'Exam Attempts'}</span>
+                                {uniqueExams.length > 0 && (
+                                  <span className="ml-1.5 text-[10px] font-bold text-blue-600/90 pl-1.5 border-l border-blue-200">
+                                    {uniqueExams.length} {uniqueExams.length === 1 ? 'Subject' : 'Subjects'}
+                                  </span>
+                                )}
                               </span>
                             </div>
-                            {/* Exam pills with compact scroll to maintain clean row height */}
-                            <div className="flex flex-wrap gap-1 max-h-24 overflow-y-auto pr-1">
-                              {group.exams.map((ex, idx) => (
+
+                            {/* Structured Distinct Exam Cards */}
+                            <div className="space-y-1.5 max-h-[140px] overflow-y-auto pr-1">
+                              {uniqueExams.map((ue) => (
                                 <button
-                                  key={ex.attemptId || ex.examId || idx}
+                                  key={ue.key}
                                   type="button"
                                   onClick={(e) => {
                                     e.stopPropagation();
                                     setSelectedCandidateKey(group.key);
-                                    setSelectedExamKey(ex.attemptId || ex.examId);
+                                    setSelectedExamKey(ue.targetKey);
                                   }}
-                                  title={`Click to check violations for "${ex.examTitle}"`}
-                                  className="inline-flex items-center text-[11px] font-bold px-2 py-0.5 rounded-lg border bg-slate-50 hover:bg-rose-50 hover:border-rose-300 text-slate-700 hover:text-rose-700 transition max-w-[210px]"
+                                  title={`Click to check violations for "${ue.title}" (${ue.attemptsCount} attempt${ue.attemptsCount > 1 ? 's' : ''})`}
+                                  className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg border text-xs text-left transition-all group/item cursor-pointer ${
+                                    ue.violationsCount > 0
+                                      ? 'bg-rose-50/70 hover:bg-rose-100/80 border-rose-200 text-rose-950 shadow-2xs'
+                                      : 'bg-slate-50 hover:bg-slate-100/90 border-slate-200 text-slate-800 shadow-2xs'
+                                  }`}
                                 >
-                                  <span className="truncate mr-1.5">{ex.examTitle}</span>
-                                  {ex.totalViolations > 0 ? (
-                                    <span className="shrink-0 text-[10px] font-black px-1.5 py-0.2 rounded bg-rose-100 text-rose-700 border border-rose-200">
-                                      {ex.totalViolations}
+                                  {/* Left: Exam title + attempt count multiplier */}
+                                  <div className="flex items-center space-x-1.5 min-w-0 flex-1 mr-2">
+                                    <span className="font-bold truncate text-slate-800 group-hover/item:text-slate-900" title={ue.title}>
+                                      {ue.title}
                                     </span>
-                                  ) : (
-                                    <span className="shrink-0 text-[10px] font-semibold px-1 py-0.2 rounded bg-emerald-100 text-emerald-700 border border-emerald-200">
-                                      ✓ Clean
-                                    </span>
-                                  )}
+                                    {ue.attemptsCount > 1 && (
+                                      <span
+                                        className="shrink-0 text-[10px] font-extrabold px-1.5 py-0.2 rounded-md bg-slate-200/80 text-slate-700 border border-slate-300/60"
+                                        title={`${ue.attemptsCount} attempts`}
+                                      >
+                                        &times;{ue.attemptsCount}
+                                      </span>
+                                    )}
+                                  </div>
+
+                                  {/* Right: Uniform status badge */}
+                                  <div className="shrink-0 flex items-center">
+                                    {ue.violationsCount > 0 ? (
+                                      <span className="inline-flex items-center text-[10px] font-black px-2 py-0.5 rounded-full bg-rose-100 text-rose-700 border border-rose-200 shadow-2xs">
+                                        <AlertTriangle className="w-2.5 h-2.5 mr-1 text-rose-600 shrink-0" />
+                                        {ue.violationsCount} Flagged
+                                      </span>
+                                    ) : (
+                                      <span className="inline-flex items-center text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 shadow-2xs">
+                                        <CheckCircle2 className="w-2.5 h-2.5 mr-1 text-emerald-600 shrink-0" />
+                                        Clean
+                                      </span>
+                                    )}
+                                  </div>
                                 </button>
                               ))}
                             </div>
