@@ -81,18 +81,20 @@ export const getExamDetails = async (req: AuthRequest, res: Response, next: Next
 };
 
 import Result from '../models/Result';
+import Question from '../models/Question';
+import Answer from '../models/Answer';
 
 export const getAttemptResult = async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     const { attemptId } = req.params;
     const candidateId = req.user?.userId;
 
-    let result = await Result.findOne({ attemptId, candidateId }).populate('examId', 'title duration');
+    let result: any = await Result.findOne({ attemptId, candidateId }).populate('examId', 'title duration description instructions totalMarks');
     if (!result || (result.attempted > 0 && result.correct === 0)) {
       try {
         const { evaluateAttempt } = require('./attemptController');
         await evaluateAttempt(attemptId, candidateId as string);
-        result = await Result.findOne({ attemptId, candidateId }).populate('examId', 'title duration');
+        result = await Result.findOne({ attemptId, candidateId }).populate('examId', 'title duration description instructions totalMarks');
       } catch (e) {
         console.warn('[Candidate] Auto-evaluate attempt error:', e);
       }
@@ -102,7 +104,40 @@ export const getAttemptResult = async (req: AuthRequest, res: Response, next: Ne
       return res.status(404).json({ success: false, message: 'Result not found' });
     }
 
-    res.status(200).json({ success: true, result });
+    const examId = result.examId?._id || result.examId;
+    const questions = await Question.find({ examId }).sort({ order: 1, createdAt: 1 }).lean();
+    const answers = await Answer.find({ attemptId }).lean();
+
+    const answersBreakdown = questions.map((q: any, idx: number) => {
+      const ans = answers.find((a: any) => String(a.questionId) === String(q._id));
+      const candidateSelectedAnswer = ans ? ans.selectedAnswer : null;
+      const isAttempted = Boolean(ans && ans.selectedAnswer !== undefined && ans.selectedAnswer !== null && ans.selectedAnswer !== '');
+      const isCorrect = ans ? (ans.isCorrect ?? (JSON.stringify(ans.selectedAnswer) === JSON.stringify(q.correctAnswer))) : false;
+
+      return {
+        questionNumber: idx + 1,
+        questionId: q._id,
+        questionText: q.text || q.questionText || `Question ${idx + 1}`,
+        type: q.type || 'SINGLE_CHOICE',
+        options: q.options || [],
+        marks: q.marks || 1,
+        negativeMarks: q.negativeMarks || 0,
+        marksAwarded: ans?.marksAwarded ?? (isCorrect ? (q.marks || 1) : 0),
+        candidateSelectedAnswer,
+        correctAnswer: q.correctAnswer,
+        explanation: q.explanation || '',
+        isCorrect,
+        isAttempted,
+        isMarkedForReview: ans?.isMarkedForReview || false,
+        answeredAt: ans?.savedAt || ans?.createdAt || null
+      };
+    });
+
+    res.status(200).json({ 
+      success: true, 
+      result, 
+      answers: answersBreakdown 
+    });
   } catch (err) {
     next(err);
   }
