@@ -1,10 +1,13 @@
 import { Request, Response, NextFunction } from 'express';
-import User, { Role } from '../models/User';
+import User, { Role, CandidateStatus } from '../models/User';
 import Attempt, { AttemptStatus } from '../models/Attempt';
 
 export const getCandidates = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const candidates = await User.find({ role: Role.CANDIDATE }).select('-password').lean();
+    const candidates = await User.find({ role: Role.CANDIDATE })
+      .select('-passwordHash -password')
+      .sort({ createdAt: -1 })
+      .lean();
     res.json({ success: true, candidates });
   } catch (err) {
     next(err);
@@ -29,8 +32,10 @@ export const approveCandidate = async (req: Request, res: Response, next: NextFu
   try {
     const { id } = req.params;
     const user = await User.findById(id);
-    if (!user || user.role !== Role.CANDIDATE) return res.status(404).json({ success: false, message: 'Candidate not found' });
-    user.status = 'APPROVED' as any;
+    if (!user || (user.role && user.role.toUpperCase() !== Role.CANDIDATE)) {
+      return res.status(404).json({ success: false, message: 'Candidate not found' });
+    }
+    user.status = CandidateStatus.APPROVED;
     await user.save();
     res.status(200).json({ success: true, message: 'Candidate approved successfully' });
   } catch (err) {

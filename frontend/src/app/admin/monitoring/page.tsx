@@ -28,7 +28,8 @@ import {
   User,
   HardDrive,
   BarChart3,
-  ExternalLink
+  ExternalLink,
+  UserCheck
 } from 'lucide-react';
 import api from '@/lib/api';
 import { getViolationInfo } from '@/lib/violations';
@@ -354,6 +355,13 @@ export default function CandidateExamRecordsPage() {
           {/* Active Navigation: Exam Candidates */}
           <div className="bg-blue-50 text-blue-700 px-4 py-3 rounded-xl font-semibold border border-blue-200 flex items-center transition-all shadow-sm">
             <Users className="w-5 h-5 mr-3 text-blue-600" /> Exam Candidates
+          </div>
+
+          <div 
+            onClick={() => router.push('/admin/candidates')} 
+            className="text-slate-600 px-4 py-3 rounded-xl font-medium hover:bg-slate-100 hover:text-slate-900 cursor-pointer transition-all flex items-center"
+          >
+            <UserCheck className="w-5 h-5 mr-3 text-slate-400" /> Candidate Approvals
           </div>
 
           <div 

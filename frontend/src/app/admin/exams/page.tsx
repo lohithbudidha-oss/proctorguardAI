@@ -371,8 +371,8 @@ export default function AdminExamsPage() {
             <Link href="/admin/violations" className="px-4 py-2.5 bg-rose-50 text-rose-700 border border-rose-200 font-semibold rounded-lg hover:bg-rose-100 transition shadow-xs text-sm">
               Violations
             </Link>
-            <Link href="/admin/monitoring" className="px-4 py-2.5 bg-white text-slate-700 border border-slate-200 font-semibold rounded-lg hover:bg-slate-50 transition shadow-xs text-sm">
-              Candidates
+            <Link href="/admin/candidates" className="px-4 py-2.5 bg-white text-slate-700 border border-slate-200 font-semibold rounded-lg hover:bg-slate-50 transition shadow-xs text-sm flex items-center">
+              <Users className="w-4 h-4 mr-1.5 text-slate-500" /> Candidates
             </Link>
             <button 
               onClick={handleOpenCreateModal}
