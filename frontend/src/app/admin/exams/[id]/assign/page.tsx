@@ -3,7 +3,7 @@
 import React, { useEffect, useState, useMemo, Suspense, Key } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowLeft, UserPlus, Users, RotateCcw, CheckCircle, Search, X } from 'lucide-react';
+import { ArrowLeft, UserPlus, Users, RotateCcw, CheckCircle, Search, X, CheckSquare } from 'lucide-react';
 import api from '@/lib/api';
 import { sanitizeSearchInput } from '@/lib/sanitize';
 
@@ -21,6 +21,10 @@ function CandidateAssignmentContent() {
   const [loading, setLoading] = useState(true);
   const [isAssigningAll, setIsAssigningAll] = useState(false);
   const [isRewritingAll, setIsRewritingAll] = useState(false);
+
+  // Select box state for multi-candidate assignment
+  const [selectedCandidateIds, setSelectedCandidateIds] = useState<Set<string>>(new Set());
+  const [isAssigningSelected, setIsAssigningSelected] = useState(false);
 
   const isAssigned = (userId: string) => {
     return candidates.some(c => {
@@ -69,9 +73,83 @@ function CandidateAssignmentContent() {
     return () => clearTimeout(t);
   }, [examId]);
 
+  // Toggle individual candidate selection
+  const toggleSelectCandidate = (userId: string) => {
+    setSelectedCandidateIds(prev => {
+      const next = new Set(prev);
+      if (next.has(userId)) {
+        next.delete(userId);
+      } else {
+        next.add(userId);
+      }
+      return next;
+    });
+  };
+
+  // Toggle select all visible unassigned candidates
+  const handleToggleSelectAll = () => {
+    if (filteredUnassigned.length === 0) return;
+    const allSelected = filteredUnassigned.every(u => selectedCandidateIds.has(u._id));
+    if (allSelected) {
+      setSelectedCandidateIds(prev => {
+        const next = new Set(prev);
+        filteredUnassigned.forEach(u => next.delete(u._id));
+        return next;
+      });
+    } else {
+      setSelectedCandidateIds(prev => {
+        const next = new Set(prev);
+        filteredUnassigned.forEach(u => next.add(u._id));
+        return next;
+      });
+    }
+  };
+
+  // Assign selected candidates
+  const handleAssignSelected = async () => {
+    const idsToAssign = Array.from(selectedCandidateIds).filter(id => !isAssigned(id));
+    if (idsToAssign.length === 0) {
+      alert('Please select at least one unassigned candidate.');
+      return;
+    }
+
+    if (!confirm(`Are you sure you want to assign ${idsToAssign.length} selected candidate(s) to "${exam?.title || 'this exam'}"?`)) {
+      return;
+    }
+
+    setIsAssigningSelected(true);
+    try {
+      const res = await api.post(`/admin/exams/${examId}/assign-all`, {
+        candidateIds: idsToAssign
+      });
+      alert(res.data.message || `Successfully assigned ${idsToAssign.length} candidate(s).`);
+      setSelectedCandidateIds(new Set());
+      fetchData();
+    } catch (err: unknown) {
+      try {
+        await Promise.all(
+          idsToAssign.map(id => api.post(`/admin/exams/${examId}/assign`, { candidateId: id }))
+        );
+        alert(`Successfully assigned ${idsToAssign.length} candidate(s).`);
+        setSelectedCandidateIds(new Set());
+        fetchData();
+      } catch (fallbackErr: unknown) {
+        const msg = (fallbackErr as { response?: { data?: { message?: string } } })?.response?.data?.message;
+        alert(msg || 'Failed to assign selected candidates');
+      }
+    } finally {
+      setIsAssigningSelected(false);
+    }
+  };
+
   const handleAssign = async (userId: string) => {
     try {
       await api.post(`/admin/exams/${examId}/assign`, { candidateId: userId });
+      setSelectedCandidateIds(prev => {
+        const next = new Set(prev);
+        next.delete(userId);
+        return next;
+      });
       fetchData();
     } catch (err: unknown) {
       const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
@@ -99,14 +177,15 @@ function CandidateAssignmentContent() {
         candidateIds: toAssign.map(c => c._id)
       });
       alert(res.data.message || `Successfully assigned ${toAssign.length} candidates.`);
+      setSelectedCandidateIds(new Set());
       fetchData();
     } catch (err: unknown) {
-      // Graceful fallback to batch assign if route is still deploying
       try {
         await Promise.all(
           toAssign.map(u => api.post(`/admin/exams/${examId}/assign`, { candidateId: u._id }))
         );
         alert(`Successfully assigned ${toAssign.length} candidate(s).`);
+        setSelectedCandidateIds(new Set());
         fetchData();
       } catch (fallbackErr: unknown) {
         const msg = (fallbackErr as { response?: { data?: { message?: string } } })?.response?.data?.message;
@@ -219,7 +298,19 @@ function CandidateAssignmentContent() {
           {/* Available Users List */}
           <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden flex flex-col">
             <div className="p-4 border-b border-slate-200 bg-slate-50 font-bold text-slate-700 flex flex-col sm:flex-row justify-between sm:items-center gap-3">
-              <div className="flex items-center space-x-2">
+              <div className="flex items-center space-x-2.5">
+                {/* Select All Checkbox */}
+                {filteredUnassigned.length > 0 && (
+                  <label className="flex items-center space-x-1.5 cursor-pointer text-xs font-bold text-slate-600 mr-1 select-none" title="Select / Deselect all unassigned candidates">
+                    <input 
+                      type="checkbox"
+                      checked={filteredUnassigned.length > 0 && filteredUnassigned.every(u => selectedCandidateIds.has(u._id))}
+                      onChange={handleToggleSelectAll}
+                      className="w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
+                    />
+                    <span className="hidden sm:inline">Select All</span>
+                  </label>
+                )}
                 <span>Available Candidates</span>
                 <span className="text-xs bg-slate-200 text-slate-700 px-2 py-0.5 rounded-full font-bold">
                   {filteredUsers.length}
@@ -255,33 +346,98 @@ function CandidateAssignmentContent() {
               </div>
             </div>
 
+            {/* Selection Action Bar (Shown when 1 or more candidates are selected) */}
+            {selectedCandidateIds.size > 0 && (
+              <div className="px-4 py-2.5 bg-blue-50/90 border-b border-blue-200 flex items-center justify-between animate-fadeIn text-xs">
+                <div className="flex items-center space-x-2 text-blue-900 font-bold">
+                  <CheckSquare className="w-4 h-4 text-blue-600" />
+                  <span>{selectedCandidateIds.size} Candidate{selectedCandidateIds.size !== 1 ? 's' : ''} Selected</span>
+                  <button 
+                    type="button" 
+                    onClick={() => setSelectedCandidateIds(new Set())}
+                    className="text-blue-600 hover:text-blue-800 underline font-semibold ml-2 cursor-pointer"
+                  >
+                    Clear Selection
+                  </button>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleAssignSelected}
+                  disabled={isAssigningSelected}
+                  className="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-lg transition shadow-2xs flex items-center cursor-pointer active:scale-95 disabled:opacity-50 text-xs"
+                >
+                  <UserPlus className="w-3.5 h-3.5 mr-1" />
+                  {isAssigningSelected ? 'Assigning...' : `Assign Selected (${selectedCandidateIds.size})`}
+                </button>
+              </div>
+            )}
+
             <div className="overflow-y-auto max-h-[500px]">
               {filteredUsers.length === 0 ? (
                 <div className="p-10 text-center text-slate-400 text-sm">
                   {searchQuery ? `No candidates matching "${searchQuery}"` : 'No candidates available.'}
                 </div>
               ) : (
-                filteredUsers.map(user => (
-                  <div key={user._id} className="flex items-center justify-between p-4 border-b border-slate-100 hover:bg-slate-50">
-                    <div>
-                      <p className="font-bold text-slate-800">{user.name}</p>
-                      <p className="text-sm text-slate-500">{user.email}</p>
+                filteredUsers.map(user => {
+                  const assigned = isAssigned(user._id);
+                  const isSelected = selectedCandidateIds.has(user._id);
+
+                  return (
+                    <div 
+                      key={user._id} 
+                      className={`flex items-center justify-between p-3.5 border-b border-slate-100 transition ${
+                        assigned 
+                          ? 'bg-slate-50/50 opacity-80' 
+                          : isSelected 
+                          ? 'bg-blue-50/60 border-blue-100' 
+                          : 'hover:bg-slate-50'
+                      }`}
+                    >
+                      <div className="flex items-center space-x-3 min-w-0 flex-1">
+                        {/* Select Box Checkbox */}
+                        {!assigned ? (
+                          <input 
+                            type="checkbox"
+                            checked={isSelected}
+                            onChange={() => toggleSelectCandidate(user._id)}
+                            className="w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500 cursor-pointer shrink-0"
+                            title={`Select ${user.name}`}
+                          />
+                        ) : (
+                          <div className="w-4 h-4 rounded bg-slate-200 flex items-center justify-center shrink-0">
+                            <CheckCircle className="w-3 h-3 text-emerald-600" />
+                          </div>
+                        )}
+
+                        <div 
+                          className={`min-w-0 flex-1 select-none ${!assigned ? 'cursor-pointer' : ''}`}
+                          onClick={() => {
+                            if (!assigned) toggleSelectCandidate(user._id);
+                          }}
+                        >
+                          <p className="font-bold text-slate-800 text-sm truncate">{user.name}</p>
+                          <p className="text-xs text-slate-500 truncate">{user.email}</p>
+                        </div>
+                      </div>
+
+                      <div className="shrink-0 ml-3">
+                        {assigned ? (
+                          <span className="flex items-center text-xs font-bold text-emerald-600 bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-200">
+                            <CheckCircle className="w-3.5 h-3.5 mr-1 text-emerald-600" /> Assigned
+                          </span>
+                        ) : (
+                          <button 
+                            type="button"
+                            onClick={() => handleAssign(user._id)} 
+                            className="px-3 py-1.5 text-xs bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition flex items-center shadow-2xs cursor-pointer active:scale-95"
+                          >
+                            <UserPlus className="w-3.5 h-3.5 mr-1" /> Assign
+                          </button>
+                        )}
+                      </div>
                     </div>
-                    {isAssigned(user._id) ? (
-                      <span className="flex items-center text-sm font-bold text-emerald-600 bg-emerald-50 px-3 py-1 rounded-full border border-emerald-200">
-                        <CheckCircle className="w-4 h-4 mr-1 text-emerald-600" /> Assigned
-                      </span>
-                    ) : (
-                      <button 
-                        type="button"
-                        onClick={() => handleAssign(user._id)} 
-                        className="px-3 py-1.5 text-sm bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition flex items-center shadow-2xs cursor-pointer active:scale-95"
-                      >
-                        <UserPlus className="w-4 h-4 mr-1" /> Assign
-                      </button>
-                    )}
-                  </div>
-                ))
+                  );
+                })
               )}
             </div>
           </div>
