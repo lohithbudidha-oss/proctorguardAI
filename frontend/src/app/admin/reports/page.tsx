@@ -394,18 +394,6 @@ export default function ResultsVerificationPage() {
                   <ExternalLink className="w-3 h-3 ml-1 opacity-70" />
                 </a>
 
-                <a
-                  href={selectedAnswersData.result?.driveReportUrl || selectedAnswersData.result?.driveFolderUrl || 'https://drive.google.com/drive/folders/1P_3yKzFloiMrF8Pe1XFl9Lh-nqvPTit1?usp=sharing'}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold inline-flex items-center transition shadow-2xs"
-                  title="Open Google Drive folder or uploaded files"
-                >
-                  <HardDrive className="w-3.5 h-3.5 mr-1" />
-                  Google Drive
-                  <ExternalLink className="w-3 h-3 ml-1 opacity-80" />
-                </a>
-
                 <button
                   onClick={() => setSelectedAnswersData(null)}
                   className="p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-200/60 rounded-lg transition ml-2 cursor-pointer"
