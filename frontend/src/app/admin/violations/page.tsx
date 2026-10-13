@@ -27,7 +27,8 @@ import {
   FileText,
   RefreshCw,
   BarChart3,
-  CheckCircle
+  CheckCircle,
+  Activity
 } from 'lucide-react';
 import api from '@/lib/api';
 import { getViolationInfo } from '@/lib/violations';
@@ -113,6 +114,7 @@ export default function ViolationQueuePage() {
   const [severityFilter, setSeverityFilter] = useState<string>('ALL');
   const [selectedCandidateKey, setSelectedCandidateKey] = useState<string | null>(null);
   const [selectedExamKey, setSelectedExamKey] = useState<string>('ALL');
+  const [selectedAttemptId, setSelectedAttemptId] = useState<string>('ALL');
   const [selectedProof, setSelectedProof] = useState<ViolationItem | null>(null);
   const [activeRealtimeAlert, setActiveRealtimeAlert] = useState<ViolationItem | null>(null);
   const [driveStatus, setDriveStatus] = useState<any>(null);
@@ -285,6 +287,25 @@ export default function ViolationQueuePage() {
     }
   };
 
+  const getStatusBadge = (status?: string) => {
+    switch (status) {
+      case 'SUBMITTED':
+      case 'COMPLETED':
+        return 'bg-emerald-50 text-emerald-700 border-emerald-200';
+      case 'TERMINATED':
+        return 'bg-rose-50 text-rose-700 border-rose-200';
+      case 'FORCE_SUBMITTED':
+        return 'bg-amber-50 text-amber-700 border-amber-200';
+      case 'IN_PROGRESS':
+        return 'bg-purple-50 text-purple-700 border-purple-200';
+      case 'LOCKED':
+      case 'PAUSED':
+        return 'bg-orange-50 text-orange-700 border-orange-200';
+      default:
+        return 'bg-slate-100 text-slate-700 border-slate-200';
+    }
+  };
+
   // Group violations by candidate, then by exams written by each candidate
   const candidateGroups = useMemo<CandidateViolationGroup[]>(() => {
     const map = new Map<string, CandidateViolationGroup>();
@@ -364,14 +385,26 @@ export default function ViolationQueuePage() {
     // Populate all exams written by each candidate
     map.forEach((group) => {
       const examMap = new Map<string, CandidateExamSummary>();
-      const candIdStr = group.candidateId?._id?.toString();
+      const candIdStr = (
+        typeof group.candidateId === 'object' && group.candidateId !== null
+          ? ((group.candidateId as any)._id || (group.candidateId as any).id)?.toString()
+          : (group.candidateId ? group.candidateId.toString() : '')
+      ) || (typeof group.key === 'string' ? group.key : '');
       const candEmailStr = group.candidateEmail?.toLowerCase().trim();
 
       // 1. Process all attempts belonging to this candidate
       candidateAttempts.forEach((att: any) => {
-        const attCandId = (att.candidateId?._id || att.candidateId)?.toString();
+        const attCandId = (
+          typeof att.candidateId === 'object' && att.candidateId !== null
+            ? (att.candidateId._id || att.candidateId.id)?.toString()
+            : (att.candidateId ? att.candidateId.toString() : '')
+        );
         const attCandEmail = att.candidateId?.email?.toLowerCase().trim();
-        const matches = (candIdStr && attCandId === candIdStr) || (candEmailStr && attCandEmail === candEmailStr);
+        const directAttemptMatch = group.violations.some((v) => {
+          const vAttId = (v.attemptId?._id || (typeof v.attemptId === 'string' ? v.attemptId : ''))?.toString();
+          return vAttId && vAttId === att._id?.toString();
+        });
+        const matches = (candIdStr && attCandId && candIdStr === attCandId) || (candEmailStr && attCandEmail && candEmailStr === attCandEmail) || directAttemptMatch;
 
         if (matches) {
           const attemptId = att._id?.toString() || '';
@@ -402,28 +435,24 @@ export default function ViolationQueuePage() {
 
       // 2. Associate violations to exams, and insert any exams from violations that were missing
       group.violations.forEach((v) => {
-        const vAttemptId = v.attemptId?._id?.toString() || (v.attemptId as any)?.toString() || '';
-        const vExamId = v.attemptId?.examId?._id?.toString() || (v.attemptId?.examId as any)?.toString() || '';
+        const vAttemptId = (v.attemptId?._id?.toString() || (typeof v.attemptId === 'string' ? v.attemptId : '') || '').trim();
+        const vExamId = (v.attemptId?.examId?._id?.toString() || (typeof v.attemptId?.examId === 'string' ? v.attemptId.examId : '') || '').trim();
         const vExamTitle = v.attemptId?.examId?.title || 'Examination Assessment';
+        const vStatus = (v.attemptId as any)?.status || (v.actionTaken === 'TERMINATE' ? 'TERMINATED' : 'NOT SUBMITTED');
 
         let existingEx: CandidateExamSummary | undefined = undefined;
         if (vAttemptId && examMap.has(vAttemptId)) {
           existingEx = examMap.get(vAttemptId);
-        } else if (vExamId && examMap.has(vExamId)) {
-          existingEx = examMap.get(vExamId);
-        } else {
-          existingEx = Array.from(examMap.values()).find(
-            (ex) => (vAttemptId && ex.attemptId === vAttemptId) || (vExamId && ex.examId === vExamId)
-          );
-        }
-
-        let targetKey = existingEx ? (existingEx.attemptId || existingEx.examId) : (vAttemptId || vExamId || ('general_exam_' + group.key));
-
-        if (!existingEx) {
+          if (vStatus && (!existingEx.attemptStatus || existingEx.attemptStatus === 'IN_PROGRESS' || vStatus === 'TERMINATED')) {
+            existingEx.attemptStatus = vStatus;
+          }
+        } else if (vAttemptId) {
+          // If the attemptId was not pre-fetched in attempts (e.g. in-progress/not-submitted attempt), create a dedicated entry
           existingEx = {
-            examId: vExamId || targetKey,
-            attemptId: vAttemptId || targetKey,
+            examId: vExamId || vAttemptId,
+            attemptId: vAttemptId,
             examTitle: vExamTitle,
+            attemptStatus: vStatus,
             startedAt: v.detectedAt,
             violations: [],
             totalViolations: 0,
@@ -433,7 +462,30 @@ export default function ViolationQueuePage() {
             lowCount: 0,
             proofCount: 0
           };
-          examMap.set(targetKey, existingEx);
+          examMap.set(vAttemptId, existingEx);
+        } else if (vExamId && examMap.has(vExamId)) {
+          existingEx = examMap.get(vExamId);
+        } else {
+          const targetKey = vExamId ? `exam_${vExamId}` : `session_${group.key}_${v._id}`;
+          if (examMap.has(targetKey)) {
+            existingEx = examMap.get(targetKey);
+          } else {
+            existingEx = {
+              examId: vExamId || targetKey,
+              attemptId: targetKey,
+              examTitle: vExamTitle,
+              attemptStatus: vStatus,
+              startedAt: v.detectedAt,
+              violations: [],
+              totalViolations: 0,
+              criticalCount: 0,
+              highCount: 0,
+              mediumCount: 0,
+              lowCount: 0,
+              proofCount: 0
+            };
+            examMap.set(targetKey, existingEx);
+          }
         }
 
         existingEx.violations.push(v);
@@ -550,32 +602,170 @@ export default function ViolationQueuePage() {
     return candidateGroups.find((g) => g.key === selectedCandidateKey) || null;
   }, [selectedCandidateKey, candidateGroups]);
 
+  // Distinct exams attempted by the active candidate in the modal
+  const activeCandidateUniqueExams = useMemo(() => {
+    if (!activeCandidateGroup) return [];
+
+    const map = new Map<string, {
+      key: string;
+      title: string;
+      examId: string;
+      attemptsCount: number;
+      violationsCount: number;
+      proofCount: number;
+      criticalCount: number;
+      highCount: number;
+      highestStatus: string;
+      targetKey: string;
+      attempts: CandidateExamSummary[];
+    }>();
+
+    const statusPriority: Record<string, number> = {
+      TERMINATED: 6,
+      FORCE_SUBMITTED: 5,
+      AUTO_SUBMITTED: 4,
+      IN_PROGRESS: 3,
+      PAUSED: 2,
+      SUBMITTED: 1,
+      COMPLETED: 1
+    };
+
+    activeCandidateGroup.exams.forEach((ex) => {
+      const title = (ex.examTitle || 'Examination Assessment').trim();
+      const normKey = title.toLowerCase();
+
+      if (!map.has(normKey)) {
+        map.set(normKey, {
+          key: normKey,
+          title,
+          examId: ex.examId,
+          attemptsCount: 1,
+          violationsCount: ex.totalViolations || 0,
+          proofCount: ex.proofCount || 0,
+          criticalCount: ex.criticalCount || 0,
+          highCount: ex.highCount || 0,
+          highestStatus: ex.attemptStatus || 'SUBMITTED',
+          targetKey: title,
+          attempts: [ex]
+        });
+      } else {
+        const entry = map.get(normKey)!;
+        entry.attemptsCount += 1;
+        entry.violationsCount += (ex.totalViolations || 0);
+        entry.proofCount += (ex.proofCount || 0);
+        entry.criticalCount += (ex.criticalCount || 0);
+        entry.highCount += (ex.highCount || 0);
+        entry.attempts.push(ex);
+
+        const currentRank = statusPriority[entry.highestStatus] || 0;
+        const newRank = statusPriority[ex.attemptStatus || ''] || 0;
+        if (newRank > currentRank) {
+          entry.highestStatus = ex.attemptStatus || entry.highestStatus;
+        }
+      }
+    });
+
+    return Array.from(map.values()).sort((a, b) => {
+      if (b.violationsCount !== a.violationsCount) {
+        return b.violationsCount - a.violationsCount;
+      }
+      return b.attemptsCount - a.attemptsCount;
+    });
+  }, [activeCandidateGroup]);
+
   // Selected exam within the candidate modal
   const selectedExam = useMemo(() => {
     if (!activeCandidateGroup || selectedExamKey === 'ALL') return null;
+    const keyStr = selectedExamKey.trim();
+    const keyLower = keyStr.toLowerCase();
+
+    // 1. Match by distinct exam
+    const distinctMatch = activeCandidateUniqueExams.find(
+      (ue) => ue.key === keyLower || ue.title.toLowerCase() === keyLower || ue.examId === keyStr
+    );
+    if (distinctMatch) {
+      if (selectedAttemptId && selectedAttemptId !== 'ALL') {
+        const specific = distinctMatch.attempts.find((a) => a.attemptId === selectedAttemptId);
+        if (specific) return specific;
+      }
+      return {
+        examId: distinctMatch.examId,
+        attemptId: 'ALL',
+        examTitle: distinctMatch.title,
+        attemptStatus: distinctMatch.highestStatus,
+        startedAt: distinctMatch.attempts[0]?.startedAt,
+        violations: distinctMatch.attempts.flatMap((a) => a.violations),
+        totalViolations: distinctMatch.violationsCount,
+        criticalCount: distinctMatch.criticalCount,
+        highCount: distinctMatch.highCount,
+        mediumCount: 0,
+        lowCount: 0,
+        proofCount: distinctMatch.proofCount,
+        duration: distinctMatch.attempts[0]?.duration
+      };
+    }
+
+    // 2. Direct match by attemptId
+    const byAttempt = activeCandidateGroup.exams.find((ex) => ex.attemptId && ex.attemptId === keyStr);
+    if (byAttempt) return byAttempt;
+
+    // 3. Fallback match by examId or title
     return (
       activeCandidateGroup.exams.find(
         (ex) =>
-          (ex.attemptId && ex.attemptId === selectedExamKey) ||
-          (ex.examId && ex.examId === selectedExamKey)
+          (ex.examId && ex.examId === keyStr) ||
+          (ex.examTitle && ex.examTitle.toLowerCase().trim() === keyLower)
       ) || null
     );
-  }, [activeCandidateGroup, selectedExamKey]);
+  }, [activeCandidateGroup, selectedExamKey, selectedAttemptId, activeCandidateUniqueExams]);
 
-  // Violations filtered by chosen exam
+  // Violations filtered by chosen exam or attempt session
   const displayedViolations = useMemo(() => {
     if (!activeCandidateGroup) return [];
     if (selectedExamKey === 'ALL') return activeCandidateGroup.violations;
 
-    if (selectedExam) {
-      return selectedExam.violations;
+    const keyStr = selectedExamKey.trim();
+    const keyLower = keyStr.toLowerCase();
+
+    // Check if matching a distinct exam group
+    const distinctMatch = activeCandidateUniqueExams.find(
+      (ue) => ue.key === keyLower || ue.title.toLowerCase() === keyLower || ue.examId === keyStr
+    );
+
+    // If a specific attempt session is selected
+    if (selectedAttemptId && selectedAttemptId !== 'ALL') {
+      return activeCandidateGroup.violations.filter((v) => {
+        const vAttemptId = (v.attemptId?._id?.toString() || (typeof v.attemptId === 'string' ? v.attemptId : '') || '').trim();
+        return vAttemptId && vAttemptId === selectedAttemptId;
+      });
     }
+
+    // If distinct exam matched, include all violations for that exam across all sessions
+    if (distinctMatch) {
+      return activeCandidateGroup.violations.filter((v) => {
+        const vAttemptId = (v.attemptId?._id?.toString() || (typeof v.attemptId === 'string' ? v.attemptId : '') || '').trim();
+        const vExamId = (v.attemptId?.examId?._id?.toString() || (typeof v.attemptId?.examId === 'string' ? v.attemptId.examId : '') || '').trim();
+        const vExamTitle = (v.attemptId?.examId?.title || '').trim().toLowerCase();
+
+        if (vExamId && (vExamId === distinctMatch.examId || distinctMatch.attempts.some((a) => a.examId === vExamId))) return true;
+        if (vExamTitle && vExamTitle === distinctMatch.title.toLowerCase()) return true;
+        if (vAttemptId && distinctMatch.attempts.some((a) => a.attemptId === vAttemptId)) return true;
+        return false;
+      });
+    }
+
+    // Direct match fallback
     return activeCandidateGroup.violations.filter((v) => {
-      const aId = v.attemptId?._id?.toString() || (v.attemptId as any)?.toString();
-      const eId = v.attemptId?.examId?._id?.toString() || (v.attemptId?.examId as any)?.toString();
-      return aId === selectedExamKey || eId === selectedExamKey;
+      const vAttemptId = (v.attemptId?._id?.toString() || (typeof v.attemptId === 'string' ? v.attemptId : '') || '').trim();
+      const vExamId = (v.attemptId?.examId?._id?.toString() || (typeof v.attemptId?.examId === 'string' ? v.attemptId.examId : '') || '').trim();
+      const vExamTitle = (v.attemptId?.examId?.title || '').trim().toLowerCase();
+
+      if (vAttemptId && vAttemptId === keyStr) return true;
+      if (vExamId && vExamId === keyStr) return true;
+      if (vExamTitle && vExamTitle === keyLower) return true;
+      return false;
     });
-  }, [activeCandidateGroup, selectedExamKey, selectedExam]);
+  }, [activeCandidateGroup, selectedExamKey, selectedAttemptId, activeCandidateUniqueExams]);
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-800 flex flex-col font-sans selection:bg-rose-500/20">
@@ -819,15 +1009,12 @@ export default function ViolationQueuePage() {
                             title,
                             attemptsCount: 1,
                             violationsCount: ex.totalViolations || 0,
-                            targetKey: ex.attemptId || ex.examId || title
+                            targetKey: title
                           });
                         } else {
                           const entry = map.get(normKey)!;
                           entry.attemptsCount += 1;
                           entry.violationsCount += (ex.totalViolations || 0);
-                          if ((ex.totalViolations || 0) > 0) {
-                            entry.targetKey = ex.attemptId || ex.examId || entry.targetKey;
-                          }
                         }
                       });
 
@@ -845,6 +1032,7 @@ export default function ViolationQueuePage() {
                         onClick={() => {
                           setSelectedCandidateKey(group.key);
                           setSelectedExamKey('ALL');
+                          setSelectedAttemptId('ALL');
                         }}
                         className="hover:bg-rose-50/30 transition-colors group cursor-pointer"
                       >
@@ -893,7 +1081,8 @@ export default function ViolationQueuePage() {
                                   onClick={(e) => {
                                     e.stopPropagation();
                                     setSelectedCandidateKey(group.key);
-                                    setSelectedExamKey(ue.targetKey);
+                                    setSelectedExamKey(ue.title);
+                                    setSelectedAttemptId('ALL');
                                   }}
                                   title={`Click to check violations for "${ue.title}" (${ue.attemptsCount} attempt${ue.attemptsCount > 1 ? 's' : ''})`}
                                   className={`w-full flex items-center justify-between px-2 py-1 rounded-md border text-[11px] text-left transition-all group/item cursor-pointer ${
@@ -1025,6 +1214,7 @@ export default function ViolationQueuePage() {
                                 e.stopPropagation();
                                 setSelectedCandidateKey(group.key);
                                 setSelectedExamKey('ALL');
+                                setSelectedAttemptId('ALL');
                               }}
                               className="inline-flex items-center justify-center px-3 py-1.5 bg-rose-50 text-rose-700 hover:bg-rose-600 hover:text-white font-bold text-xs rounded-lg border border-rose-200 hover:border-rose-600 shadow-2xs transition-all cursor-pointer active:scale-95"
                               title={`View ${group.totalViolations} violations for ${group.candidateName}`}
@@ -1131,10 +1321,10 @@ export default function ViolationQueuePage() {
                 <div>
                   <h3 className="text-xs font-black uppercase tracking-wider text-slate-800 flex items-center">
                     <BookOpen className="w-4 h-4 mr-1.5 text-blue-600" />
-                    Exams Written by Candidate ({activeCandidateGroup.examsWrittenCount})
+                    Exams Written by Candidate ({activeCandidateUniqueExams.length} Distinct {activeCandidateUniqueExams.length === 1 ? 'Assessment' : 'Assessments'} • {activeCandidateGroup.examsWrittenCount} {activeCandidateGroup.examsWrittenCount === 1 ? 'Session' : 'Sessions'})
                   </h3>
                   <p className="text-[11px] text-slate-500 mt-0.5">
-                    Select an exam below or choose from the dropdown to check violations specifically for that assessment.
+                    Select an assessment below or choose from the dropdown to check violations specifically for that exam.
                   </p>
                 </div>
 
@@ -1143,30 +1333,36 @@ export default function ViolationQueuePage() {
                   <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider shrink-0">Filter Exam:</span>
                   <select
                     value={selectedExamKey}
-                    onChange={(e) => setSelectedExamKey(e.target.value)}
+                    onChange={(e) => {
+                      setSelectedExamKey(e.target.value);
+                      setSelectedAttemptId('ALL');
+                    }}
                     className="bg-slate-50 border border-slate-300 rounded-xl px-3 py-1.5 text-xs font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 transition cursor-pointer max-w-[280px] truncate"
                   >
                     <option value="ALL">
-                      All Exams Written ({activeCandidateGroup.examsWrittenCount} Exams • {activeCandidateGroup.totalViolations} Violations)
+                      All Exams Combined ({activeCandidateGroup.examsWrittenCount} Sessions • {activeCandidateGroup.totalViolations} Violations)
                     </option>
-                    {activeCandidateGroup.exams.map((ex) => (
+                    {activeCandidateUniqueExams.map((ue) => (
                       <option 
-                        key={ex.attemptId || ex.examId} 
-                        value={ex.attemptId || ex.examId}
+                        key={ue.key} 
+                        value={ue.title}
                       >
-                        {ex.examTitle} ({ex.totalViolations} {ex.totalViolations === 1 ? 'Violation' : 'Violations'}{ex.attemptStatus ? ` • ${ex.attemptStatus}` : ''})
+                        {ue.title} ({ue.violationsCount} {ue.violationsCount === 1 ? 'Violation' : 'Violations'} • {ue.attemptsCount} {ue.attemptsCount === 1 ? 'Session' : 'Sessions'}{ue.highestStatus ? ` • ${ue.highestStatus}` : ''})
                       </option>
                     ))}
                   </select>
                 </div>
               </div>
 
-              {/* Interactive Exam Cards / Tabs */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2.5 pt-1">
-                {/* 'All Exams' Card Button */}
+              {/* Interactive Distinct Exam Cards */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2.5 pt-1">
+                {/* 'All Exams Combined' Card Button */}
                 <button
                   type="button"
-                  onClick={() => setSelectedExamKey('ALL')}
+                  onClick={() => {
+                    setSelectedExamKey('ALL');
+                    setSelectedAttemptId('ALL');
+                  }}
                   className={`text-left p-3 rounded-2xl border transition flex flex-col justify-between ${
                     selectedExamKey === 'ALL'
                       ? 'bg-blue-50/80 border-blue-500 ring-2 ring-blue-500/20 shadow-xs'
@@ -1192,14 +1388,17 @@ export default function ViolationQueuePage() {
                   </div>
                 </button>
 
-                {/* Individual Exam Cards */}
-                {activeCandidateGroup.exams.map((ex) => {
-                  const isSelected = (ex.attemptId && ex.attemptId === selectedExamKey) || (ex.examId && ex.examId === selectedExamKey);
+                {/* Individual Distinct Assessment Cards */}
+                {activeCandidateUniqueExams.map((ue) => {
+                  const isSelected = selectedExamKey.toLowerCase() === ue.key || selectedExamKey.toLowerCase() === ue.title.toLowerCase();
                   return (
                     <button
-                      key={ex.attemptId || ex.examId}
+                      key={ue.key}
                       type="button"
-                      onClick={() => setSelectedExamKey(ex.attemptId || ex.examId)}
+                      onClick={() => {
+                        setSelectedExamKey(ue.title);
+                        setSelectedAttemptId('ALL');
+                      }}
                       className={`text-left p-3 rounded-2xl border transition flex flex-col justify-between ${
                         isSelected
                           ? 'bg-rose-50/80 border-rose-500 ring-2 ring-rose-500/20 shadow-xs'
@@ -1207,21 +1406,28 @@ export default function ViolationQueuePage() {
                       }`}
                     >
                       <div className="flex items-start justify-between gap-1.5">
-                        <span className="text-xs font-extrabold text-slate-900 line-clamp-1" title={ex.examTitle}>
-                          {ex.examTitle}
+                        <span className="text-xs font-extrabold text-slate-900 line-clamp-1" title={ue.title}>
+                          {ue.title}
                         </span>
-                        {ex.attemptStatus && (
-                          <span className="shrink-0 text-[9px] font-bold uppercase px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 border border-slate-200">
-                            {ex.attemptStatus}
-                          </span>
-                        )}
+                        <div className="flex items-center space-x-1 shrink-0">
+                          {ue.attemptsCount > 1 && (
+                            <span className="text-[9px] font-extrabold px-1.5 py-0.5 rounded bg-blue-50 text-blue-700 border border-blue-200">
+                              &times;{ue.attemptsCount}
+                            </span>
+                          )}
+                          {ue.highestStatus && (
+                            <span className={`text-[9px] font-bold uppercase px-1.5 py-0.5 rounded border ${getStatusBadge(ue.highestStatus)}`}>
+                              {ue.highestStatus}
+                            </span>
+                          )}
+                        </div>
                       </div>
                       
                       <div className="flex items-center justify-between mt-2 text-[11px]">
-                        {ex.totalViolations > 0 ? (
+                        {ue.violationsCount > 0 ? (
                           <span className="font-extrabold text-rose-700 flex items-center">
                             <AlertTriangle className="w-3 h-3 mr-1 text-rose-500" />
-                            {ex.totalViolations} {ex.totalViolations === 1 ? 'Violation' : 'Violations'}
+                            {ue.violationsCount} {ue.violationsCount === 1 ? 'Violation' : 'Violations'}
                           </span>
                         ) : (
                           <span className="font-extrabold text-emerald-700 flex items-center">
@@ -1230,14 +1436,14 @@ export default function ViolationQueuePage() {
                           </span>
                         )}
 
-                        {ex.proofCount > 0 ? (
+                        {ue.proofCount > 0 ? (
                           <span className="text-indigo-600 text-[10px] font-bold flex items-center">
                             <Camera className="w-3 h-3 mr-0.5" />
-                            {ex.proofCount} Proofs
+                            {ue.proofCount} Proofs
                           </span>
                         ) : (
                           <span className="text-slate-400 text-[10px]">
-                            {ex.startedAt ? new Date(ex.startedAt).toLocaleDateString() : 'Attempted'}
+                            {ue.attemptsCount} {ue.attemptsCount === 1 ? 'Session' : 'Sessions'}
                           </span>
                         )}
                       </div>
@@ -1245,6 +1451,67 @@ export default function ViolationQueuePage() {
                   );
                 })}
               </div>
+
+              {/* Attempt Session Switcher Bar (when an exam with multiple sessions or non-submitted sessions is chosen) */}
+              {selectedExamKey !== 'ALL' && (() => {
+                const activeExam = activeCandidateUniqueExams.find(
+                  (ue) => ue.key === selectedExamKey.toLowerCase() || ue.title.toLowerCase() === selectedExamKey.toLowerCase()
+                );
+                if (!activeExam || activeExam.attempts.length <= 1) return null;
+
+                return (
+                  <div className="pt-2.5 border-t border-slate-100 flex items-center gap-2 flex-wrap">
+                    <span className="text-[11px] font-extrabold uppercase tracking-wider text-slate-500 flex items-center">
+                      <Clock className="w-3.5 h-3.5 mr-1 text-slate-400" />
+                      Filter Session Attempt:
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setSelectedAttemptId('ALL')}
+                      className={`px-2.5 py-1 rounded-lg text-xs font-bold transition flex items-center ${
+                        selectedAttemptId === 'ALL'
+                          ? 'bg-blue-600 text-white shadow-xs'
+                          : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
+                      }`}
+                    >
+                      All Sessions ({activeExam.violationsCount} Violations • {activeExam.attempts.length} Attempts)
+                    </button>
+                    {activeExam.attempts.map((att, idx) => {
+                      const isAttSelected = selectedAttemptId === att.attemptId;
+                      return (
+                        <button
+                          key={att.attemptId || idx}
+                          type="button"
+                          onClick={() => setSelectedAttemptId(att.attemptId)}
+                          className={`px-2.5 py-1 rounded-lg text-xs font-bold transition flex items-center space-x-1.5 ${
+                            isAttSelected
+                              ? 'bg-rose-600 text-white shadow-xs'
+                              : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
+                          }`}
+                        >
+                          <span>Session #{idx + 1}</span>
+                          <span className={`text-[9px] uppercase px-1 py-0.2 rounded font-extrabold ${
+                            isAttSelected 
+                              ? 'bg-white/20 text-white' 
+                              : getStatusBadge(att.attemptStatus)
+                          }`}>
+                            {att.attemptStatus || 'SUBMITTED'}
+                          </span>
+                          {att.totalViolations > 0 ? (
+                            <span className={isAttSelected ? 'text-white font-extrabold' : 'text-rose-600 font-extrabold'}>
+                              ({att.totalViolations} Vio)
+                            </span>
+                          ) : (
+                            <span className={isAttSelected ? 'text-white/80' : 'text-slate-400'}>
+                              (0)
+                            </span>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                );
+              })()}
             </div>
 
             {/* Violations List for chosen exam */}
@@ -1254,7 +1521,12 @@ export default function ViolationQueuePage() {
                   <Layers className="w-4 h-4 mr-1.5 text-slate-400" />
                   {selectedExam ? (
                     <span>
-                      Violations for: <span className="text-slate-900 font-black">{selectedExam.examTitle}</span> ({displayedViolations.length})
+                      Violations for: <span className="text-slate-900 font-black">{selectedExam.examTitle}</span>
+                      {selectedAttemptId !== 'ALL' && (
+                        <span className="ml-2 font-mono text-[11px] font-bold text-slate-500">
+                          (Session ID: {selectedAttemptId.slice(-6)})
+                        </span>
+                      )} ({displayedViolations.length})
                     </span>
                   ) : (
                     <span>
@@ -1266,7 +1538,10 @@ export default function ViolationQueuePage() {
                 {selectedExamKey !== 'ALL' && (
                   <button
                     type="button"
-                    onClick={() => setSelectedExamKey('ALL')}
+                    onClick={() => {
+                      setSelectedExamKey('ALL');
+                      setSelectedAttemptId('ALL');
+                    }}
                     className="text-xs font-bold text-blue-600 hover:text-blue-800 flex items-center hover:underline"
                   >
                     &larr; View Violations For All Exams
@@ -1274,21 +1549,62 @@ export default function ViolationQueuePage() {
                 )}
               </div>
 
-              {/* When no violations exist for selected exam */}
+              {/* When no violations exist for selected exam / session */}
               {displayedViolations.length === 0 ? (
-                <div className="bg-white border border-emerald-200 rounded-3xl p-10 flex flex-col items-center text-center shadow-xs">
-                  <div className="w-14 h-14 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center mb-3 border border-emerald-200 shadow-2xs">
-                    <ShieldCheck className="w-8 h-8" />
-                  </div>
-                  <h4 className="text-base font-black text-slate-900">
-                    Clean Examination Attempt
-                  </h4>
-                  <p className="text-slate-600 text-xs max-w-md mt-1.5 leading-relaxed">
-                    Zero violations logged for <span className="font-bold text-slate-800">{selectedExam?.examTitle || 'this exam'}</span>. 
-                    The candidate completed this examination session without any recorded suspicious activity or integrity breaches.
-                  </p>
+                <div className="bg-white border border-slate-200 rounded-3xl p-10 flex flex-col items-center text-center shadow-xs">
+                  {selectedExam?.attemptStatus === 'TERMINATED' ? (
+                    <>
+                      <div className="w-14 h-14 rounded-2xl bg-rose-50 text-rose-600 flex items-center justify-center mb-3 border border-rose-200 shadow-2xs">
+                        <AlertTriangle className="w-8 h-8" />
+                      </div>
+                      <h4 className="text-base font-black text-slate-900">
+                        Exam Attempt Terminated (Not Submitted)
+                      </h4>
+                      <p className="text-slate-600 text-xs max-w-md mt-1.5 leading-relaxed">
+                        This session for <span className="font-bold text-slate-800">{selectedExam?.examTitle || 'this assessment'}</span> was terminated early by the proctor or automatic security policy. No individual violation records were logged directly in this specific attempt window.
+                      </p>
+                    </>
+                  ) : selectedExam?.attemptStatus === 'FORCE_SUBMITTED' || selectedExam?.attemptStatus === 'AUTO_SUBMITTED' ? (
+                    <>
+                      <div className="w-14 h-14 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center mb-3 border border-amber-200 shadow-2xs">
+                        <Clock className="w-8 h-8" />
+                      </div>
+                      <h4 className="text-base font-black text-slate-900">
+                        Force-Submitted Examination Session
+                      </h4>
+                      <p className="text-slate-600 text-xs max-w-md mt-1.5 leading-relaxed">
+                        This session was auto/force-submitted upon session expiration or administrative action. Zero violations were recorded during this attempt.
+                      </p>
+                    </>
+                  ) : selectedExam?.attemptStatus === 'IN_PROGRESS' ? (
+                    <>
+                      <div className="w-14 h-14 rounded-2xl bg-purple-50 text-purple-600 flex items-center justify-center mb-3 border border-purple-200 shadow-2xs">
+                        <Activity className="w-8 h-8" />
+                      </div>
+                      <h4 className="text-base font-black text-slate-900">
+                        Examination In Progress (Not Submitted)
+                      </h4>
+                      <p className="text-slate-600 text-xs max-w-md mt-1.5 leading-relaxed">
+                        Candidate currently has an active ongoing session for <span className="font-bold text-slate-800">{selectedExam?.examTitle || 'this exam'}</span>. No proctoring violations recorded so far.
+                      </p>
+                    </>
+                  ) : (
+                    <>
+                      <div className="w-14 h-14 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center mb-3 border border-emerald-200 shadow-2xs">
+                        <ShieldCheck className="w-8 h-8" />
+                      </div>
+                      <h4 className="text-base font-black text-slate-900">
+                        Clean Examination Attempt
+                      </h4>
+                      <p className="text-slate-600 text-xs max-w-md mt-1.5 leading-relaxed">
+                        Zero violations logged for <span className="font-bold text-slate-800">{selectedExam?.examTitle || 'this exam'}</span>. 
+                        The candidate completed this examination session without any recorded suspicious activity or integrity breaches.
+                      </p>
+                    </>
+                  )}
+
                   <div className="mt-4 flex items-center space-x-3 text-xs font-mono">
-                    <span className="px-3 py-1 rounded-lg bg-slate-100 text-slate-700 font-bold border border-slate-200">
+                    <span className={`px-3 py-1 rounded-lg font-bold border ${getStatusBadge(selectedExam?.attemptStatus)}`}>
                       Status: {selectedExam?.attemptStatus || 'COMPLETED'}
                     </span>
                     {selectedExam?.duration && (
@@ -1297,6 +1613,16 @@ export default function ViolationQueuePage() {
                       </span>
                     )}
                   </div>
+
+                  {selectedAttemptId !== 'ALL' && (
+                    <button
+                      type="button"
+                      onClick={() => setSelectedAttemptId('ALL')}
+                      className="mt-4 text-xs font-bold text-blue-600 hover:text-blue-800 underline"
+                    >
+                      &larr; View all sessions for {selectedExam?.examTitle}
+                    </button>
+                  )}
                 </div>
               ) : (
                 displayedViolations.map((v, idx) => {
