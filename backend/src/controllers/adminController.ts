@@ -1,4 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
+import mongoose from 'mongoose';
 import User, { Role, CandidateStatus } from '../models/User';
 import Attempt, { AttemptStatus } from '../models/Attempt';
 
@@ -215,6 +216,8 @@ export const forceSubmitAttempt = async (req: Request, res: Response, next: Next
 
 export const getViolations = async (req: Request, res: Response, next: NextFunction) => {
   try {
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+
     const violations = await ViolationEvent.find()
       .populate('candidateId', 'name email')
       .populate({ path: 'attemptId', populate: { path: 'examId', select: 'title description duration totalMarks passPercentage' } })
@@ -227,16 +230,20 @@ export const getViolations = async (req: Request, res: Response, next: NextFunct
       new Set(
         violations
           .map((v: any) => v.candidateId?._id?.toString() || v.candidateId?.toString())
-          .filter(Boolean)
+          .filter((id): id is string => Boolean(id) && mongoose.Types.ObjectId.isValid(id))
       )
     );
 
     let candidateAttempts: any[] = [];
     if (candidateIds.length > 0) {
-      candidateAttempts = await Attempt.find({ candidateId: { $in: candidateIds } })
-        .populate('examId', 'title description duration totalMarks passPercentage')
-        .sort({ createdAt: -1 })
-        .lean();
+      try {
+        candidateAttempts = await Attempt.find({ candidateId: { $in: candidateIds } })
+          .populate('examId', 'title description duration totalMarks passPercentage')
+          .sort({ createdAt: -1 })
+          .lean();
+      } catch (attemptErr) {
+        console.warn('[AdminController] Error fetching candidate attempts for violations:', attemptErr);
+      }
     }
       
     res.status(200).json({ success: true, violations, candidateAttempts });
