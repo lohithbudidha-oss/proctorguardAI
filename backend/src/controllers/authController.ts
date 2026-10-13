@@ -127,7 +127,10 @@ export const login = async (req: Request, res: Response, next: NextFunction) => 
     }
 
     if (user.role === Role.CANDIDATE && user.status === CandidateStatus.PENDING_VERIFICATION) {
-      return res.status(403).json({ success: false, message: 'Please verify your email first' });
+      return res.status(403).json({ 
+        success: false, 
+        message: 'Your registration is awaiting administrator approval. Please wait for an administrator to approve your account before signing in.' 
+      });
     }
     if (user.role === Role.CANDIDATE && (user.status === CandidateStatus.SUSPENDED || user.status === CandidateStatus.DEACTIVATED)) {
       return res.status(403).json({ success: false, message: 'Account is suspended or deactivated' });

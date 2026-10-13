@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import io from 'socket.io-client';
 import { 
   ShieldAlert, 
@@ -29,7 +30,8 @@ import {
   HardDrive,
   BarChart3,
   ExternalLink,
-  UserCheck
+  UserCheck,
+  ArrowRight
 } from 'lucide-react';
 import api from '@/lib/api';
 import { getViolationInfo } from '@/lib/violations';
@@ -91,6 +93,18 @@ export default function CandidateExamRecordsPage() {
   const [loading, setLoading] = useState(true);
   const [adminProfile, setAdminProfile] = useState<{ name?: string; email?: string; role?: string } | null>(null);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+  const [pendingApprovalsCount, setPendingApprovalsCount] = useState<number>(0);
+
+  const fetchPendingApprovalsCount = () => {
+    api.get('/admin/candidates').then(res => {
+      const list = res.data.candidates || [];
+      const pending = list.filter((c: any) => {
+        const s = (c.status || '').toUpperCase();
+        return s === 'PENDING_VERIFICATION' || s === 'PENDING';
+      }).length;
+      setPendingApprovalsCount(pending);
+    }).catch(() => {});
+  };
 
   useEffect(() => {
     try {
@@ -164,6 +178,7 @@ export default function CandidateExamRecordsPage() {
 
   useEffect(() => {
     fetchCandidateRecords();
+    fetchPendingApprovalsCount();
 
     const wsUrl = process.env.NEXT_PUBLIC_WS_URL || (process.env.NEXT_PUBLIC_API_URL ? process.env.NEXT_PUBLIC_API_URL.replace(/\/api\/?$/, '') : 'https://proctorguardai.onrender.com');
     const initSocket = io(wsUrl, {
@@ -359,9 +374,16 @@ export default function CandidateExamRecordsPage() {
 
           <div 
             onClick={() => router.push('/admin/candidates')} 
-            className="text-slate-600 px-4 py-3 rounded-xl font-medium hover:bg-slate-100 hover:text-slate-900 cursor-pointer transition-all flex items-center"
+            className="text-slate-600 px-4 py-3 rounded-xl font-medium hover:bg-slate-100 hover:text-slate-900 cursor-pointer transition-all flex items-center justify-between"
           >
-            <UserCheck className="w-5 h-5 mr-3 text-slate-400" /> Candidate Approvals
+            <div className="flex items-center">
+              <UserCheck className="w-5 h-5 mr-3 text-slate-400" /> Candidate Approvals
+            </div>
+            {pendingApprovalsCount > 0 && (
+              <span className="bg-amber-500 text-white text-[11px] font-bold px-2 py-0.5 rounded-full shadow-2xs">
+                {pendingApprovalsCount}
+              </span>
+            )}
           </div>
 
           <div 
@@ -438,6 +460,15 @@ export default function CandidateExamRecordsPage() {
               <span className="w-2 h-2 bg-rose-500 rounded-full mr-2"></span> 
               Flagged Violations: {flaggedCandidatesCount}
             </div>
+            {pendingApprovalsCount > 0 && (
+              <Link 
+                href="/admin/candidates" 
+                className="flex items-center text-xs font-bold text-amber-800 bg-amber-50 hover:bg-amber-100 px-3.5 py-1.5 rounded-full border border-amber-300 transition-colors shadow-2xs"
+              >
+                <span className="w-2 h-2 bg-amber-500 rounded-full mr-2 animate-ping"></span> 
+                Pending Approvals: {pendingApprovalsCount}
+              </Link>
+            )}
             <div className="h-6 w-px bg-slate-200 hidden sm:block" />
             {/* Top-Right Sign Out Button */}
             <button 
@@ -451,6 +482,32 @@ export default function CandidateExamRecordsPage() {
             </button>
           </div>
         </header>
+
+        {/* Pending Approvals Alert Banner */}
+        {pendingApprovalsCount > 0 && (
+          <div className="mx-8 mt-6 p-4 bg-gradient-to-r from-amber-50 via-orange-50 to-amber-50 border border-amber-300 rounded-2xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-xs">
+            <div className="flex items-center space-x-3.5">
+              <div className="p-2.5 bg-amber-500 text-white rounded-xl shadow-xs shrink-0">
+                <UserCheck className="w-5 h-5" />
+              </div>
+              <div>
+                <p className="text-sm font-extrabold text-amber-950">
+                  {pendingApprovalsCount} New Candidate Registration{pendingApprovalsCount > 1 ? 's' : ''} Awaiting Approval
+                </p>
+                <p className="text-xs text-amber-800 mt-0.5 font-medium">
+                  Candidates have completed registration and need administrator approval before they can sign in or take assigned assessments.
+                </p>
+              </div>
+            </div>
+            <Link
+              href="/admin/candidates"
+              className="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-bold transition-all shadow-xs shrink-0 flex items-center cursor-pointer group active:scale-95"
+            >
+              <span>Review & Approve</span>
+              <ArrowRight className="w-3.5 h-3.5 ml-1.5 group-hover:translate-x-0.5 transition-transform" />
+            </Link>
+          </div>
+        )}
 
         {/* Filter and Search Bar */}
         <div className="px-8 pt-6 pb-2 z-10 flex flex-col sm:flex-row gap-4 justify-between items-center">

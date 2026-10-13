@@ -3,7 +3,7 @@
 import React, { useState, Suspense } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { ShieldCheck, Mail, Lock, ArrowRight, ArrowLeft, Fingerprint, Activity, Eye, EyeOff } from 'lucide-react';
+import { ShieldCheck, Mail, Lock, ArrowRight, ArrowLeft, Fingerprint, Activity, Eye, EyeOff, CheckCircle2 } from 'lucide-react';
 import api from '@/lib/api';
 
 function LoginContent() {
@@ -134,6 +134,18 @@ function LoginContent() {
           <p className="text-slate-500 mb-8 font-medium">
             {isAdminLogin ? 'Sign in with your administrative credentials' : 'Sign in to your account to continue'}
           </p>
+
+          {searchParams.get('registered') === 'true' && (
+            <div className="bg-emerald-50 border border-emerald-200 text-emerald-800 px-4 py-3.5 rounded-xl text-sm font-medium mb-6 flex items-start space-x-2.5 shadow-xs animate-in fade-in">
+              <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5" />
+              <div>
+                <p className="font-bold text-emerald-900">Registration Submitted Successfully!</p>
+                <p className="text-xs text-emerald-700 mt-0.5">
+                  Your candidate account has been created and is currently awaiting administrator approval. You will be able to sign in once approved by an administrator in the admin portal.
+                </p>
+              </div>
+            </div>
+          )}
 
           <form onSubmit={handleLogin} className="space-y-6">
             {error && (
