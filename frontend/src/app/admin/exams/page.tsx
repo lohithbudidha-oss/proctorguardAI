@@ -377,27 +377,27 @@ export default function AdminExamsPage() {
         <Link href="/admin/monitoring" className="text-blue-600 font-bold flex items-center mb-6 hover:underline">
           <ArrowLeft className="w-4 h-4 mr-2" /> Back to Monitoring
         </Link>
-        <div className="flex justify-between items-center mb-8">
-          <div>
+        <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-4 mb-8">
+          <div className="min-w-0 flex-1 pr-0 xl:pr-4">
             <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight">Exam Management</h1>
             <p className="text-slate-500 mt-2">Create assessments, configure test timers, and manage question sets.</p>
           </div>
-          <div className="flex flex-wrap items-center gap-2.5">
+          <div className="flex items-center gap-2 shrink-0 flex-nowrap overflow-x-auto max-w-full pb-1 xl:pb-0">
             <Link 
               href="/admin/results" 
-              className="px-3.5 py-2 bg-blue-50 text-blue-700 border border-blue-200 font-semibold rounded-lg hover:bg-blue-100 transition shadow-xs text-xs flex items-center h-9"
+              className="px-3 py-1.5 bg-blue-50 text-blue-700 border border-blue-200 font-semibold rounded-lg hover:bg-blue-100 transition shadow-2xs text-xs flex items-center h-8.5 shrink-0 whitespace-nowrap"
             >
               Results
             </Link>
             <Link 
               href="/admin/violations" 
-              className="px-3.5 py-2 bg-rose-50 text-rose-700 border border-rose-200 font-semibold rounded-lg hover:bg-rose-100 transition shadow-xs text-xs flex items-center h-9"
+              className="px-3 py-1.5 bg-rose-50 text-rose-700 border border-rose-200 font-semibold rounded-lg hover:bg-rose-100 transition shadow-2xs text-xs flex items-center h-8.5 shrink-0 whitespace-nowrap"
             >
               Violations
             </Link>
             <Link 
               href="/admin/candidates?filter=pending" 
-              className="px-3.5 py-2 bg-amber-50 text-amber-800 border border-amber-200 font-semibold rounded-lg hover:bg-amber-100 transition shadow-xs text-xs flex items-center h-9"
+              className="px-3 py-1.5 bg-amber-50 text-amber-800 border border-amber-200 font-semibold rounded-lg hover:bg-amber-100 transition shadow-2xs text-xs flex items-center h-8.5 shrink-0 whitespace-nowrap"
               title="Candidate Approvals"
             >
               <UserCheck className="w-3.5 h-3.5 mr-1.5 text-amber-600" /> Candidate Approvals
@@ -409,7 +409,7 @@ export default function AdminExamsPage() {
             </Link>
             <button 
               onClick={handleOpenCreateModal}
-              className="px-4 py-2 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition shadow-sm flex items-center shadow-blue-600/20 text-xs cursor-pointer h-9"
+              className="px-3.5 py-1.5 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition shadow-sm flex items-center shadow-blue-600/20 text-xs cursor-pointer h-8.5 shrink-0 whitespace-nowrap"
             >
               <Plus className="w-3.5 h-3.5 mr-1.5" /> Create Exam
             </button>

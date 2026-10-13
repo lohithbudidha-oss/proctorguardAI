@@ -139,36 +139,48 @@ function CandidatesContent() {
     <div className="min-h-screen bg-slate-50">
       <div className="max-w-7xl mx-auto px-6 py-12">
         {/* Navigation & Header */}
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
-          <div>
+        <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-4 mb-8">
+          <div className="min-w-0 flex-1 pr-0 xl:pr-4">
             <div className="flex items-center space-x-3 mb-2">
               <Link 
                 href="/admin/monitoring" 
-                className="p-2 bg-white rounded-full border border-slate-200 hover:bg-slate-100 transition shadow-2xs" 
+                className="p-2 bg-white rounded-full border border-slate-200 hover:bg-slate-100 transition shadow-2xs shrink-0" 
                 title="Back to Admin Dashboard"
               >
                 <ArrowLeft className="w-5 h-5 text-slate-600" />
               </Link>
-              <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight flex items-center">
-                <Users className="w-7 h-7 mr-2.5 text-blue-600" /> Candidates Directory & Approvals
+              <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight flex items-center">
+                <Users className="w-7 h-7 mr-2.5 text-blue-600 shrink-0" /> Candidates Directory & Approvals
               </h1>
             </div>
-            <p className="text-slate-500">
+            <p className="text-slate-500 text-sm">
               Manage candidate account registrations, verify newly registered candidates, and approve access to assessments.
             </p>
           </div>
 
-          <div className="flex flex-wrap items-center gap-2.5">
-            <Link href="/admin/monitoring" className="px-3.5 py-2 bg-white text-slate-700 border border-slate-200 font-semibold rounded-lg hover:bg-slate-50 transition shadow-xs text-xs flex items-center h-9">
+          <div className="flex items-center gap-2 shrink-0 flex-nowrap overflow-x-auto max-w-full pb-1 xl:pb-0">
+            <Link 
+              href="/admin/monitoring" 
+              className="px-3 py-1.5 bg-white text-slate-700 border border-slate-200 font-semibold rounded-lg hover:bg-slate-50 transition shadow-2xs text-xs flex items-center h-8.5 shrink-0 whitespace-nowrap"
+            >
               <Users className="w-3.5 h-3.5 mr-1.5 text-blue-600" /> Admin Dashboard
             </Link>
-            <Link href="/admin/exams" className="px-3.5 py-2 bg-white text-slate-700 border border-slate-200 font-semibold rounded-lg hover:bg-slate-50 transition shadow-xs text-xs flex items-center h-9">
+            <Link 
+              href="/admin/exams" 
+              className="px-3 py-1.5 bg-white text-slate-700 border border-slate-200 font-semibold rounded-lg hover:bg-slate-50 transition shadow-2xs text-xs flex items-center h-8.5 shrink-0 whitespace-nowrap"
+            >
               <FileText className="w-3.5 h-3.5 mr-1.5 text-slate-400" /> Exam Management
             </Link>
-            <Link href="/admin/results" className="px-3.5 py-2 bg-blue-50 text-blue-700 border border-blue-200 font-semibold rounded-lg hover:bg-blue-100 transition shadow-xs text-xs flex items-center h-9">
+            <Link 
+              href="/admin/results" 
+              className="px-3 py-1.5 bg-blue-50 text-blue-700 border border-blue-200 font-semibold rounded-lg hover:bg-blue-100 transition shadow-2xs text-xs flex items-center h-8.5 shrink-0 whitespace-nowrap"
+            >
               <BarChart3 className="w-3.5 h-3.5 mr-1.5" /> Results
             </Link>
-            <Link href="/admin/violations" className="px-3.5 py-2 bg-rose-50 text-rose-700 border border-rose-200 font-semibold rounded-lg hover:bg-rose-100 transition shadow-xs text-xs flex items-center h-9">
+            <Link 
+              href="/admin/violations" 
+              className="px-3 py-1.5 bg-rose-50 text-rose-700 border border-rose-200 font-semibold rounded-lg hover:bg-rose-100 transition shadow-2xs text-xs flex items-center h-8.5 shrink-0 whitespace-nowrap"
+            >
               <AlertTriangle className="w-3.5 h-3.5 mr-1.5" /> Violations
             </Link>
           </div>
