@@ -184,25 +184,12 @@ export default function ResultsVerificationPage() {
           <div className="flex items-center space-x-3">
             <button 
               onClick={handleOpenDriveFolder}
-              className="inline-flex items-center px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-lg text-sm font-semibold shadow-sm transition-all cursor-pointer"
+              className="inline-flex items-center px-3.5 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-lg text-xs font-semibold shadow-sm transition-all cursor-pointer h-9"
               title="Open Google Drive folder and view all stored submissions, answer sheets, and evidence"
             >
-              <HardDrive className="w-4 h-4 mr-2" />
+              <HardDrive className="w-3.5 h-3.5 mr-1.5" />
               Open Google Drive Folder
-              <ExternalLink className="w-3.5 h-3.5 ml-1.5 opacity-80" />
-            </button>
-            <button
-              onClick={() => {
-                if (confirm('Are you sure you want to sign out of the Admin Portal?')) {
-                  localStorage.removeItem('token');
-                  localStorage.removeItem('user');
-                  window.location.href = '/login?role=admin';
-                }
-              }}
-              className="px-3.5 py-2 bg-rose-50 hover:bg-rose-100 text-rose-700 font-semibold rounded-lg border border-rose-200 transition shadow-xs flex items-center text-sm cursor-pointer"
-              title="Sign Out of Admin Portal"
-            >
-              <LogOut className="w-4 h-4 mr-1.5" /> Sign Out
+              <ExternalLink className="w-3 h-3 ml-1.5 opacity-80" />
             </button>
           </div>
         </div>

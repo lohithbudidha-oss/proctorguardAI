@@ -115,12 +115,82 @@ function CandidateResultContent() {
     api.get(`/candidate/results/${attemptId}`)
       .then(res => {
         setResult(res.data.result);
-        setAnswers(res.data.answers || []);
-        setLoading(false);
+        const incomingAnswers = res.data.answers || [];
+        if (incomingAnswers.length > 0) {
+          setAnswers(incomingAnswers);
+          setLoading(false);
+        } else {
+          // Fallback to fetch question paper directly from attempt
+          api.get(`/candidate/attempts/${attemptId}`)
+            .then(attRes => {
+              const { questions = [], answers: savedAnswers = [] } = attRes.data;
+              const mapped = questions.map((q: any, idx: number) => {
+                const ans = savedAnswers.find((a: any) => String(a.questionId) === String(q._id || q.id));
+                const candidateSelectedAnswer = ans ? ans.selectedAnswer : null;
+                const isAttempted = Boolean(candidateSelectedAnswer !== null && candidateSelectedAnswer !== undefined && candidateSelectedAnswer !== '');
+                const isCorrect = isAttempted && (ans?.isCorrect ?? (JSON.stringify(candidateSelectedAnswer) === JSON.stringify(q.correctAnswer)));
+                return {
+                  questionNumber: idx + 1,
+                  questionId: q._id || q.id,
+                  questionText: q.text || q.questionText || `Question ${idx + 1}`,
+                  type: q.type || 'SINGLE_CHOICE',
+                  options: q.options || [],
+                  marks: q.marks || 1,
+                  negativeMarks: q.negativeMarks || 0,
+                  marksAwarded: ans?.marksAwarded ?? (isCorrect ? (q.marks || 1) : 0),
+                  candidateSelectedAnswer,
+                  correctAnswer: q.correctAnswer,
+                  explanation: q.explanation || '',
+                  isCorrect,
+                  isAttempted,
+                  isMarkedForReview: ans?.isMarkedForReview || false,
+                };
+              });
+              setAnswers(mapped);
+              setLoading(false);
+            })
+            .catch(() => setLoading(false));
+        }
       })
-      .catch(err => {
-        console.error('Failed to fetch result', err);
-        setLoading(false);
+      .catch(() => {
+        // Fallback to attempts endpoint if result endpoint 404s
+        api.get(`/candidate/attempts/${attemptId}`)
+          .then(attRes => {
+            const { attempt, questions = [], answers: savedAnswers = [] } = attRes.data;
+            if (attempt) {
+              setResult({
+                attemptId,
+                totalQuestions: questions.length,
+                attempted: savedAnswers.length,
+                status: 'COMPLETED'
+              });
+            }
+            const mapped = questions.map((q: any, idx: number) => {
+              const ans = savedAnswers.find((a: any) => String(a.questionId) === String(q._id || q.id));
+              const candidateSelectedAnswer = ans ? ans.selectedAnswer : null;
+              const isAttempted = Boolean(candidateSelectedAnswer !== null && candidateSelectedAnswer !== undefined && candidateSelectedAnswer !== '');
+              const isCorrect = isAttempted && (ans?.isCorrect ?? (JSON.stringify(candidateSelectedAnswer) === JSON.stringify(q.correctAnswer)));
+              return {
+                questionNumber: idx + 1,
+                questionId: q._id || q.id,
+                questionText: q.text || q.questionText || `Question ${idx + 1}`,
+                type: q.type || 'SINGLE_CHOICE',
+                options: q.options || [],
+                marks: q.marks || 1,
+                negativeMarks: q.negativeMarks || 0,
+                marksAwarded: ans?.marksAwarded ?? (isCorrect ? (q.marks || 1) : 0),
+                candidateSelectedAnswer,
+                correctAnswer: q.correctAnswer,
+                explanation: q.explanation || '',
+                isCorrect,
+                isAttempted,
+                isMarkedForReview: ans?.isMarkedForReview || false,
+              };
+            });
+            setAnswers(mapped);
+            setLoading(false);
+          })
+          .catch(() => setLoading(false));
       });
   }, [attemptId]);
 
@@ -270,18 +340,18 @@ function CandidateResultContent() {
           </div>
         </div>
 
-        {/* NPTEL-STYLE DETAILED ANSWER REVIEW SECTION */}
+        {/* OFFICIAL EXAMINATION QUESTION PAPER & RESULT EVALUATION */}
         <div className="bg-white rounded-2xl shadow-xl border border-slate-200 overflow-hidden mb-12">
           {/* Section Header */}
           <div className="p-6 sm:p-8 border-b border-slate-200 bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 text-white flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div>
               <div className="flex items-center space-x-2 text-blue-400 font-bold text-xs uppercase tracking-wider mb-1">
-                <BookOpen className="w-4 h-4" />
-                <span>NPTEL-Standard Assessment Key</span>
+                <FileText className="w-4 h-4" />
+                <span>Official Question Paper & Evaluation Key</span>
               </div>
               <h2 className="text-2xl font-black tracking-tight">Question & Answer Evaluation</h2>
               <p className="text-slate-300 text-xs mt-1">
-                Review your submitted choices alongside the verified correct answers and detailed solution explanations.
+                Review your submitted choices alongside the verified correct answers and detailed score breakdown.
               </p>
             </div>
 
@@ -425,7 +495,7 @@ function CandidateResultContent() {
                       {q.questionText}
                     </div>
 
-                    {/* Options (NPTEL-Style Display) */}
+                    {/* Question Options Display */}
                     {hasOptions ? (
                       <div className="space-y-3 mb-6">
                         {q.options.map((opt: any, optIdx: number) => {
@@ -528,33 +598,52 @@ function CandidateResultContent() {
                       </div>
                     )}
 
-                    {/* NPTEL Signature "Accepted Answers & Explanation Box" */}
+                    {/* Official Verified Answers & Detailed Box */}
                     <div className="bg-slate-50 rounded-xl p-4 sm:p-5 border border-slate-200">
-                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-200/80 pb-3 mb-3">
-                        <div className="flex items-center space-x-2">
-                          <span className="text-xs font-extrabold uppercase tracking-wider text-slate-500">
-                            Accepted Answers:
-                          </span>
-                          <span className="text-sm font-black text-emerald-700">
-                            {(() => {
-                              if (hasOptions) {
-                                // Find matching option text
-                                const matchingOpts = q.options.filter((opt: any, idx: number) => isOptionCorrectAnswer(opt, idx, q.correctAnswer));
-                                if (matchingOpts.length > 0) {
-                                  return matchingOpts.map((opt: any) => {
-                                    const optIdx = q.options.indexOf(opt);
-                                    const letter = String.fromCharCode(65 + optIdx);
-                                    const text = typeof opt === 'object' ? (opt.text ?? opt.value ?? opt.id) : opt;
-                                    return `${letter}) ${text}`;
-                                  }).join(' , ');
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-200/80 pb-3 mb-3">
+                        <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4">
+                          <div className="flex items-center space-x-2">
+                            <span className="text-xs font-extrabold uppercase tracking-wider text-slate-500">
+                              Verified Correct Answer:
+                            </span>
+                            <span className="text-sm font-black text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-md border border-emerald-200">
+                              {(() => {
+                                if (hasOptions) {
+                                  const matchingOpts = q.options.filter((opt: any, idx: number) => isOptionCorrectAnswer(opt, idx, q.correctAnswer));
+                                  if (matchingOpts.length > 0) {
+                                    return matchingOpts.map((opt: any) => {
+                                      const optIdx = q.options.indexOf(opt);
+                                      const letter = String.fromCharCode(65 + optIdx);
+                                      const text = typeof opt === 'object' ? (opt.text ?? opt.value ?? opt.id) : opt;
+                                      return `${letter}) ${text}`;
+                                    }).join(' , ');
+                                  }
                                 }
-                              }
-                              return String(q.correctAnswer);
-                            })()}
-                          </span>
+                                return String(q.correctAnswer);
+                              })()}
+                            </span>
+                          </div>
+
+                          <div className="flex items-center space-x-2">
+                            <span className="text-xs font-extrabold uppercase tracking-wider text-slate-500">
+                              Your Placed Option:
+                            </span>
+                            <span className={`text-sm font-black px-2.5 py-0.5 rounded-md border ${
+                              isCorrect 
+                                ? 'text-emerald-700 bg-emerald-50 border-emerald-200' 
+                                : isUnanswered 
+                                ? 'text-slate-500 bg-slate-100 border-slate-200' 
+                                : 'text-rose-700 bg-rose-50 border-rose-200'
+                            }`}>
+                              {q.candidateSelectedAnswer !== null && q.candidateSelectedAnswer !== undefined && q.candidateSelectedAnswer !== ''
+                                ? String(q.candidateSelectedAnswer)
+                                : 'Not Attempted'}
+                            </span>
+                          </div>
                         </div>
-                        <div className="text-xs text-slate-500 font-semibold">
-                          Score: <strong className={isCorrect ? 'text-emerald-700' : 'text-slate-800'}>{q.marksAwarded}</strong> / {q.marks}
+
+                        <div className="text-xs text-slate-500 font-semibold shrink-0">
+                          Score Awarded: <strong className={isCorrect ? 'text-emerald-700' : 'text-slate-800'}>{q.marksAwarded}</strong> / {q.marks}
                         </div>
                       </div>
 

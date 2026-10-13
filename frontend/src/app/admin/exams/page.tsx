@@ -382,62 +382,37 @@ export default function AdminExamsPage() {
             <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight">Exam Management</h1>
             <p className="text-slate-500 mt-2">Create assessments, configure test timers, and manage question sets.</p>
           </div>
-          <div className="flex items-center space-x-3">
-            <Link href="/admin/results" className="px-4 py-2.5 bg-blue-50 text-blue-700 border border-blue-200 font-semibold rounded-lg hover:bg-blue-100 transition shadow-xs text-sm">
+          <div className="flex flex-wrap items-center gap-2.5">
+            <Link 
+              href="/admin/results" 
+              className="px-3.5 py-2 bg-blue-50 text-blue-700 border border-blue-200 font-semibold rounded-lg hover:bg-blue-100 transition shadow-xs text-xs flex items-center h-9"
+            >
               Results
             </Link>
-            <Link href="/admin/violations" className="px-4 py-2.5 bg-rose-50 text-rose-700 border border-rose-200 font-semibold rounded-lg hover:bg-rose-100 transition shadow-xs text-sm">
+            <Link 
+              href="/admin/violations" 
+              className="px-3.5 py-2 bg-rose-50 text-rose-700 border border-rose-200 font-semibold rounded-lg hover:bg-rose-100 transition shadow-xs text-xs flex items-center h-9"
+            >
               Violations
             </Link>
             <Link 
               href="/admin/candidates?filter=pending" 
-              className="px-4 py-2.5 bg-amber-50 text-amber-800 border border-amber-200 font-semibold rounded-lg hover:bg-amber-100 transition shadow-xs text-sm flex items-center"
+              className="px-3.5 py-2 bg-amber-50 text-amber-800 border border-amber-200 font-semibold rounded-lg hover:bg-amber-100 transition shadow-xs text-xs flex items-center h-9"
               title="Candidate Approvals"
             >
-              <UserCheck className="w-4 h-4 mr-1.5 text-amber-600" /> Candidate Approvals
+              <UserCheck className="w-3.5 h-3.5 mr-1.5 text-amber-600" /> Candidate Approvals
               {pendingApprovalsCount > 0 && (
-                <span className="ml-1.5 px-1.5 py-0.5 bg-amber-600 text-white rounded-full text-xs font-bold leading-none">
+                <span className="ml-1.5 px-1.5 py-0.5 bg-amber-600 text-white rounded-full text-[10px] font-bold leading-none">
                   {pendingApprovalsCount}
                 </span>
               )}
             </Link>
             <button 
               onClick={handleOpenCreateModal}
-              className="px-5 py-2.5 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition shadow-sm flex items-center shadow-blue-600/20 text-sm cursor-pointer"
+              className="px-4 py-2 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition shadow-sm flex items-center shadow-blue-600/20 text-xs cursor-pointer h-9"
             >
-              <Plus className="w-4 h-4 mr-1.5" /> Create Exam
+              <Plus className="w-3.5 h-3.5 mr-1.5" /> Create Exam
             </button>
-            <div className="flex items-center space-x-2 pl-1 border-l border-slate-200">
-              <div className="w-8 h-8 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center font-bold text-xs border border-blue-200 shrink-0 shadow-2xs">
-                {adminProfile?.name ? (
-                  adminProfile.name.trim().split(/\s+/).length > 1
-                    ? (adminProfile.name.trim().split(/\s+/)[0][0] + adminProfile.name.trim().split(/\s+/)[1][0]).toUpperCase()
-                    : adminProfile.name.substring(0, 2).toUpperCase()
-                ) : 'AD'}
-              </div>
-              <div className="text-left hidden sm:block">
-                <p className="text-xs font-bold text-slate-900 leading-tight">
-                  {adminProfile?.name || 'Admin User'}
-                </p>
-                <p className="text-[11px] text-slate-500 font-medium truncate max-w-[150px]">
-                  {adminProfile?.email || 'admin@proctorguard.local'}
-                </p>
-              </div>
-              <button
-                onClick={() => {
-                  if (confirm('Are you sure you want to sign out of the Admin Portal?')) {
-                    localStorage.removeItem('token');
-                    localStorage.removeItem('user');
-                    window.location.href = '/login?role=admin';
-                  }
-                }}
-                className="inline-flex items-center space-x-1.5 px-3 py-1.5 bg-slate-100 hover:bg-rose-50 text-slate-700 hover:text-rose-600 rounded-lg text-xs font-bold transition-all border border-slate-200 hover:border-rose-200 cursor-pointer shadow-2xs"
-                title="Sign Out of Admin Portal"
-              >
-                <LogOut className="w-3.5 h-3.5 text-slate-500 hover:text-rose-600 transition-colors" />
-                <span>Sign Out</span>
-              </button>
-            </div>
           </div>
         </div>
 

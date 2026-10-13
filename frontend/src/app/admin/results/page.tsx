@@ -247,24 +247,14 @@ export default function AdminResultsPage() {
           </div>
         </div>
 
-        {/* Admin Profile & Sign Out */}
-        <div className="flex items-center space-x-4">
-          <div className="flex items-center space-x-2.5">
-            <div className="w-9 h-9 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center font-bold text-xs border border-blue-200">
-              {adminProfile?.name ? adminProfile.name.substring(0, 2).toUpperCase() : 'AD'}
-            </div>
-            <div className="text-right hidden sm:block">
-              <p className="text-xs font-bold text-slate-900 leading-tight">{adminProfile?.name || 'Administrator'}</p>
-              <p className="text-[11px] text-slate-500 font-medium">{adminProfile?.email || 'admin@proctorguard.local'}</p>
-            </div>
-          </div>
+        {/* Header Actions */}
+        <div className="flex items-center space-x-3">
           <button 
-            onClick={() => setShowLogoutConfirm(true)}
-            className="inline-flex items-center space-x-1.5 px-3.5 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 rounded-lg text-xs font-bold transition-all border border-rose-200 cursor-pointer"
-            title="Sign Out of Admin Portal"
+            onClick={fetchResults}
+            disabled={loading}
+            className="px-3.5 py-1.5 bg-white hover:bg-slate-50 text-slate-700 rounded-lg text-xs font-bold border border-slate-200 transition shadow-2xs cursor-pointer flex items-center h-8"
           >
-            <LogOut className="w-3.5 h-3.5" />
-            <span>Sign Out</span>
+            Refresh Results
           </button>
         </div>
       </header>
@@ -710,32 +700,7 @@ export default function AdminResultsPage() {
         </div>
       )}
 
-      {/* Logout Confirmation Modal */}
-      {showLogoutConfirm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs">
-          <div className="bg-white rounded-2xl max-w-sm w-full p-6 text-center border border-slate-200 shadow-xl">
-            <div className="w-12 h-12 bg-rose-50 text-rose-600 rounded-full flex items-center justify-center mx-auto mb-4">
-              <LogOut className="w-6 h-6" />
-            </div>
-            <h3 className="text-base font-bold text-slate-900">Sign Out of Admin Portal</h3>
-            <p className="text-xs text-slate-500 mt-1 mb-6">Are you sure you want to log out of your administrator session?</p>
-            <div className="flex items-center space-x-3">
-              <button
-                onClick={() => setShowLogoutConfirm(false)}
-                className="flex-1 py-2.5 border border-slate-200 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-50 transition"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleLogout}
-                className="flex-1 py-2.5 bg-rose-600 text-white rounded-xl text-xs font-bold hover:bg-rose-700 transition shadow-xs"
-              >
-                Sign Out
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+
     </div>
   );
 }

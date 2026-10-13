@@ -159,49 +159,18 @@ function CandidatesContent() {
           </div>
 
           <div className="flex flex-wrap items-center gap-2.5">
-            <Link href="/admin/monitoring" className="px-3.5 py-2 bg-white text-slate-700 border border-slate-200 font-semibold rounded-lg hover:bg-slate-50 transition shadow-xs text-xs flex items-center">
+            <Link href="/admin/monitoring" className="px-3.5 py-2 bg-white text-slate-700 border border-slate-200 font-semibold rounded-lg hover:bg-slate-50 transition shadow-xs text-xs flex items-center h-9">
               <Users className="w-3.5 h-3.5 mr-1.5 text-blue-600" /> Admin Dashboard
             </Link>
-            <Link href="/admin/exams" className="px-3.5 py-2 bg-white text-slate-700 border border-slate-200 font-semibold rounded-lg hover:bg-slate-50 transition shadow-xs text-xs flex items-center">
+            <Link href="/admin/exams" className="px-3.5 py-2 bg-white text-slate-700 border border-slate-200 font-semibold rounded-lg hover:bg-slate-50 transition shadow-xs text-xs flex items-center h-9">
               <FileText className="w-3.5 h-3.5 mr-1.5 text-slate-400" /> Exam Management
             </Link>
-            <Link href="/admin/results" className="px-3.5 py-2 bg-blue-50 text-blue-700 border border-blue-200 font-semibold rounded-lg hover:bg-blue-100 transition shadow-xs text-xs flex items-center">
+            <Link href="/admin/results" className="px-3.5 py-2 bg-blue-50 text-blue-700 border border-blue-200 font-semibold rounded-lg hover:bg-blue-100 transition shadow-xs text-xs flex items-center h-9">
               <BarChart3 className="w-3.5 h-3.5 mr-1.5" /> Results
             </Link>
-            <Link href="/admin/violations" className="px-3.5 py-2 bg-rose-50 text-rose-700 border border-rose-200 font-semibold rounded-lg hover:bg-rose-100 transition shadow-xs text-xs flex items-center">
+            <Link href="/admin/violations" className="px-3.5 py-2 bg-rose-50 text-rose-700 border border-rose-200 font-semibold rounded-lg hover:bg-rose-100 transition shadow-xs text-xs flex items-center h-9">
               <AlertTriangle className="w-3.5 h-3.5 mr-1.5" /> Violations
             </Link>
-            <div className="flex items-center space-x-2 pl-1 border-l border-slate-200">
-              <div className="w-8 h-8 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center font-bold text-xs border border-blue-200 shrink-0 shadow-2xs">
-                {adminProfile?.name ? (
-                  adminProfile.name.trim().split(/\s+/).length > 1
-                    ? (adminProfile.name.trim().split(/\s+/)[0][0] + adminProfile.name.trim().split(/\s+/)[1][0]).toUpperCase()
-                    : adminProfile.name.substring(0, 2).toUpperCase()
-                ) : 'AD'}
-              </div>
-              <div className="text-left hidden sm:block">
-                <p className="text-xs font-bold text-slate-900 leading-tight">
-                  {adminProfile?.name || 'Admin User'}
-                </p>
-                <p className="text-[11px] text-slate-500 font-medium truncate max-w-[150px]">
-                  {adminProfile?.email || 'admin@proctorguard.local'}
-                </p>
-              </div>
-              <button
-                onClick={() => {
-                  if (confirm('Are you sure you want to sign out of the Admin Portal?')) {
-                    localStorage.removeItem('token');
-                    localStorage.removeItem('user');
-                    window.location.href = '/login?role=admin';
-                  }
-                }}
-                className="inline-flex items-center space-x-1.5 px-3 py-1.5 bg-slate-100 hover:bg-rose-50 text-slate-700 hover:text-rose-600 rounded-lg text-xs font-bold transition-all border border-slate-200 hover:border-rose-200 cursor-pointer shadow-2xs"
-                title="Sign Out of Admin Portal"
-              >
-                <LogOut className="w-3.5 h-3.5 text-slate-500 hover:text-rose-600 transition-colors" />
-                <span>Sign Out</span>
-              </button>
-            </div>
           </div>
         </div>
 
