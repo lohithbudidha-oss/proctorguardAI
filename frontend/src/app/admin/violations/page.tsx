@@ -1970,16 +1970,6 @@ export default function ViolationQueuePage() {
                   Log ID: {selectedProof._id}
                 </span>
                 <div className="flex space-x-3">
-                  <a
-                    href={selectedProof.driveUrl || selectedProof.driveFolderUrl || 'https://drive.google.com/drive/folders/1P_3yKzFloiMrF8Pe1XFl9Lh-nqvPTit1?usp=sharing'}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-center px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition shadow-xs"
-                  >
-                    <HardDrive className="w-4 h-4 mr-1.5" />
-                    View in Google Drive
-                    <ExternalLink className="w-3.5 h-3.5 ml-1 opacity-70" />
-                  </a>
                   {selectedProof.screenshot && (
                     <a 
                       href={selectedProof.screenshot} 
