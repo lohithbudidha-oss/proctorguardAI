@@ -579,57 +579,59 @@ export default function AdminExamsPage() {
               </button>
             </div>
 
-            <form onSubmit={handleConfirmCreate} className="p-6 overflow-y-auto space-y-5">
+            <form onSubmit={handleConfirmCreate} className="p-5 sm:p-6 overflow-y-auto space-y-4">
+              {/* EXAM TITLE */}
               <div>
-                <div className="flex justify-between items-center mb-1.5">
-                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-700">
+                <div className="flex justify-between items-center mb-1">
+                  <label className="text-xs font-bold text-slate-800">
                     Exam Title <span className="text-rose-500">*</span>
                   </label>
-                  <span className={`text-[11px] font-bold ${
+                  <span className={`text-[11px] font-mono font-medium ${
                     createTitle.length > 250 
-                      ? 'text-rose-600' 
+                      ? 'text-rose-600 font-bold' 
                       : createTitle.length >= 220 
-                      ? 'text-amber-600' 
-                      : 'text-slate-500'
+                      ? 'text-amber-600 font-bold' 
+                      : 'text-slate-400'
                   }`}>
-                    {createTitle.length}/250 chars (250 chars suggested)
+                    {createTitle.length} / 250
                   </span>
                 </div>
                 <input
                   type="text"
                   required
                   maxLength={250}
-                  placeholder="e.g., Software Engineering Aptitude & Logic Assessment"
+                  placeholder="e.g. Software Engineering Aptitude & Logic Assessment"
                   value={createTitle}
                   onKeyDown={e => handleInitialKeyBlock(e, createTitle, 'Exam title', err => setCreateErrors(prev => ({ ...prev, title: err })))}
                   onChange={e => handleSanitizedChange(e.target.value, 'Exam title', setCreateTitle, err => setCreateErrors(prev => ({ ...prev, title: err })))}
-                  className={`w-full px-4 py-2.5 border rounded-xl focus:ring-2 focus:ring-blue-500 text-slate-900 text-sm font-medium outline-none transition ${
+                  className={`w-full px-3.5 py-2 border rounded-xl focus:ring-2 focus:ring-blue-500 text-slate-900 text-xs sm:text-sm font-medium outline-none transition ${
                     createErrors.title ? 'border-rose-400 bg-rose-50/20' : 'border-slate-300 focus:border-blue-500'
                   }`}
                 />
-                {createErrors.title && (
-                  <p className="text-xs text-rose-600 font-semibold mt-1 flex items-center">
+                {createErrors.title ? (
+                  <p className="text-[11px] text-rose-600 font-semibold mt-1 flex items-center">
                     <AlertCircle className="w-3.5 h-3.5 mr-1 shrink-0" /> {createErrors.title}
                   </p>
+                ) : (
+                  <p className="text-[11px] text-slate-400 mt-1">
+                    Must begin with a letter (A–Z). No emojis allowed.
+                  </p>
                 )}
-                <p className="text-[11px] text-slate-500 mt-1">
-                  Must start with an alphabet letter (A-Z). Numbers, special characters initially & emojis are not accepted (max 250 chars).
-                </p>
               </div>
 
               {/* TIME ASSIGNMENT SECTION */}
-              <div className="bg-blue-50/60 border border-blue-200/80 rounded-xl p-4 space-y-3">
+              <div className="bg-blue-50/50 border border-blue-200/70 rounded-xl p-3.5 space-y-2.5">
                 <div className="flex items-center justify-between">
-                  <label className="block text-xs font-bold uppercase tracking-wider text-blue-950 flex items-center">
-                    <Clock className="w-4 h-4 mr-1.5 text-blue-600" />
-                    Assign Exam Duration (Minutes) <span className="text-rose-500 ml-1">*</span>
+                  <label className="text-xs font-bold text-blue-950 flex items-center">
+                    <Clock className="w-3.5 h-3.5 mr-1.5 text-blue-600" />
+                    Assign Exam Duration <span className="text-rose-500 ml-0.5">*</span>
                   </label>
-                  <span className="text-xs font-black text-blue-700 bg-white px-2.5 py-1 rounded-full border border-blue-200 shadow-2xs">
+                  <span className="text-[11px] font-bold text-blue-700 bg-white px-2.5 py-0.5 rounded-full border border-blue-200 shadow-2xs">
                     {formatDurationDisplay(createDuration)}
                   </span>
                 </div>
 
-                <div className="flex items-center space-x-3">
+                <div className="flex items-center space-x-2">
                   <input
                     type="number"
                     min="1"
@@ -637,21 +639,21 @@ export default function AdminExamsPage() {
                     required
                     value={createDuration || ''}
                     onChange={e => setCreateDuration(Math.max(1, parseInt(e.target.value) || 0))}
-                    className="w-32 px-4 py-2 border border-blue-300 rounded-xl bg-white text-slate-900 font-bold text-center focus:ring-2 focus:ring-blue-500 outline-none text-base"
+                    className="w-24 px-3 py-1.5 border border-blue-300 rounded-lg bg-white text-slate-900 font-bold text-center focus:ring-2 focus:ring-blue-500 outline-none text-xs sm:text-sm"
                   />
-                  <span className="text-sm font-semibold text-slate-600">Minutes</span>
+                  <span className="text-xs font-semibold text-slate-600">Minutes</span>
                 </div>
 
                 {/* Quick preset pills */}
                 <div>
-                  <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-2">Quick Presets:</p>
-                  <div className="flex flex-wrap gap-2">
+                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Quick Presets</p>
+                  <div className="flex flex-wrap gap-1.5">
                     {PRESET_DURATIONS.map(mins => (
                       <button
                         type="button"
                         key={mins}
                         onClick={() => setCreateDuration(mins)}
-                        className={`px-3 py-1 text-xs font-bold rounded-lg border transition ${
+                        className={`px-2.5 py-1 text-[11px] font-bold rounded-lg border transition cursor-pointer ${
                           createDuration === mins
                             ? 'bg-blue-600 text-white border-blue-600 shadow-xs'
                             : 'bg-white text-slate-700 border-slate-200 hover:border-blue-400 hover:bg-blue-50/50'
@@ -663,96 +665,100 @@ export default function AdminExamsPage() {
                   </div>
                 </div>
 
-                <p className="text-[11px] text-blue-800 flex items-center font-medium mt-1">
-                  <AlertCircle className="w-3.5 h-3.5 mr-1 shrink-0 text-blue-600" />
-                  When candidate timer reaches 0, their exam will automatically submit immediately wherever they are.
+                <p className="text-[11px] text-blue-700/90 flex items-center font-medium">
+                  <AlertCircle className="w-3 h-3 mr-1 shrink-0 text-blue-500" />
+                  Exam auto-submits automatically when the countdown timer reaches 0.
                 </p>
               </div>
 
+              {/* DESCRIPTION */}
               <div>
-                <div className="flex justify-between items-center mb-1.5">
-                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-700">
-                    Description (Optional)
+                <div className="flex justify-between items-center mb-1">
+                  <label className="text-xs font-bold text-slate-800">
+                    Description <span className="text-slate-400 font-normal">(Optional)</span>
                   </label>
-                  <span className={`text-[11px] font-bold ${
+                  <span className={`text-[11px] font-mono font-medium ${
                     createDescription.length > 250 
-                      ? 'text-rose-600' 
+                      ? 'text-rose-600 font-bold' 
                       : createDescription.length >= 220 
-                      ? 'text-amber-600' 
-                      : 'text-slate-500'
+                      ? 'text-amber-600 font-bold' 
+                      : 'text-slate-400'
                   }`}>
-                    {createDescription.length}/250 chars (250 chars suggested)
+                    {createDescription.length} / 250
                   </span>
                 </div>
                 <textarea
                   rows={2}
                   maxLength={250}
-                  placeholder="Provide a brief overview of syllabus or purpose (max 250 chars suggested)..."
+                  placeholder="Provide a brief overview of exam syllabus or purpose..."
                   value={createDescription}
                   onKeyDown={e => handleInitialKeyBlock(e, createDescription, 'Description', err => setCreateErrors(prev => ({ ...prev, description: err })))}
                   onChange={e => handleSanitizedChange(e.target.value, 'Description', setCreateDescription, err => setCreateErrors(prev => ({ ...prev, description: err })))}
-                  className={`w-full px-4 py-2 border rounded-xl focus:ring-2 focus:ring-blue-500 text-slate-900 text-sm outline-none transition resize-none ${
+                  className={`w-full px-3.5 py-2 border rounded-xl focus:ring-2 focus:ring-blue-500 text-slate-900 text-xs sm:text-sm outline-none transition resize-none ${
                     createErrors.description ? 'border-rose-400 bg-rose-50/20' : 'border-slate-300 focus:border-blue-500'
                   }`}
                 />
-                {createErrors.description && (
-                  <p className="text-xs text-rose-600 font-semibold mt-1 flex items-center">
+                {createErrors.description ? (
+                  <p className="text-[11px] text-rose-600 font-semibold mt-1 flex items-center">
                     <AlertCircle className="w-3.5 h-3.5 mr-1 shrink-0" /> {createErrors.description}
                   </p>
+                ) : (
+                  <p className="text-[11px] text-slate-400 mt-1">
+                    Plain text summary of syllabus or scope. No emojis.
+                  </p>
                 )}
-                <p className="text-[11px] text-slate-500 mt-1">
-                  Must start with an alphabet letter (A-Z). Numbers, special characters initially & emojis are not accepted (max 250 chars).
-                </p>
               </div>
 
+              {/* EXAM GUIDELINES & INSTRUCTIONS */}
               <div>
-                <div className="flex justify-between items-center mb-1.5">
-                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-700">
-                    Exam Guidelines & Instructions (Optional)
+                <div className="flex justify-between items-center mb-1">
+                  <label className="text-xs font-bold text-slate-800">
+                    Exam Guidelines & Instructions <span className="text-slate-400 font-normal">(Optional)</span>
                   </label>
-                  <span className={`text-[11px] font-bold ${
+                  <span className={`text-[11px] font-mono font-medium ${
                     createInstructions.length > 250 
-                      ? 'text-rose-600' 
+                      ? 'text-rose-600 font-bold' 
                       : createInstructions.length >= 220 
-                      ? 'text-amber-600' 
-                      : 'text-slate-500'
+                      ? 'text-amber-600 font-bold' 
+                      : 'text-slate-400'
                   }`}>
-                    {createInstructions.length}/250 chars (250 chars suggested)
+                    {createInstructions.length} / 250
                   </span>
                 </div>
                 <textarea
                   rows={2}
                   maxLength={250}
-                  placeholder="e.g. Scientific calculators allowed, each question carries equal weightage (max 250 chars suggested)..."
+                  placeholder="e.g. Scientific calculators allowed, each question carries equal marks..."
                   value={createInstructions}
                   onKeyDown={e => handleInitialKeyBlock(e, createInstructions, 'Exam guidelines & instructions', err => setCreateErrors(prev => ({ ...prev, instructions: err })))}
                   onChange={e => handleSanitizedChange(e.target.value, 'Exam guidelines & instructions', setCreateInstructions, err => setCreateErrors(prev => ({ ...prev, instructions: err })))}
-                  className={`w-full px-4 py-2 border rounded-xl focus:ring-2 focus:ring-blue-500 text-slate-900 text-sm outline-none transition resize-none ${
+                  className={`w-full px-3.5 py-2 border rounded-xl focus:ring-2 focus:ring-blue-500 text-slate-900 text-xs sm:text-sm outline-none transition resize-none ${
                     createErrors.instructions ? 'border-rose-400 bg-rose-50/20' : 'border-slate-300 focus:border-blue-500'
                   }`}
                 />
-                {createErrors.instructions && (
-                  <p className="text-xs text-rose-600 font-semibold mt-1 flex items-center">
+                {createErrors.instructions ? (
+                  <p className="text-[11px] text-rose-600 font-semibold mt-1 flex items-center">
                     <AlertCircle className="w-3.5 h-3.5 mr-1 shrink-0" /> {createErrors.instructions}
                   </p>
+                ) : (
+                  <p className="text-[11px] text-slate-400 mt-1">
+                    Rules, marking scheme, or permitted candidate equipment.
+                  </p>
                 )}
-                <p className="text-[11px] text-slate-500 mt-1">
-                  Must start with an alphabet letter (A-Z). Numbers, special characters initially & emojis are not accepted (max 250 chars).
-                </p>
               </div>
 
-              <div className="pt-2 border-t border-slate-100 flex items-center justify-end space-x-3">
+              <div className="pt-3 border-t border-slate-100 flex items-center justify-end space-x-3">
                 <button
                   type="button"
                   onClick={() => setIsCreateModalOpen(false)}
-                  className="px-5 py-2.5 text-slate-600 font-semibold hover:bg-slate-100 rounded-xl transition text-sm"
+                  className="px-4 py-2 text-slate-600 font-semibold hover:bg-slate-100 rounded-xl transition text-xs sm:text-sm cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={isCreating}
-                  className="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-extrabold rounded-xl transition text-sm flex items-center shadow-md shadow-blue-600/20 disabled:opacity-50"
+                  className="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white font-extrabold rounded-xl transition text-xs sm:text-sm flex items-center shadow-md shadow-blue-600/20 disabled:opacity-50 cursor-pointer"
                 >
                   <Plus className="w-4 h-4 mr-1.5" />
                   {isCreating ? 'Creating Exam...' : 'Create Exam & Add Questions'}
