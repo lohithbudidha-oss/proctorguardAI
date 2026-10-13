@@ -3,7 +3,7 @@
 import React, { useEffect, useState, useRef, useMemo } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { ShieldCheck, FileText, CheckCircle2, Clock, Calendar, ArrowRight, Bell, UserCircle, LogOut, X, Search } from 'lucide-react';
+import { ShieldCheck, FileText, CheckCircle2, Clock, Calendar, ArrowRight, Bell, UserCircle, LogOut, X, Search, Check } from 'lucide-react';
 import api from '@/lib/api';
 
 export default function CandidateDashboard() {
@@ -26,16 +26,66 @@ export default function CandidateDashboard() {
     });
   }, [exams, searchQuery]);
 
-  const notifications = exams.flatMap(exam => {
-    const notifs = [];
-    if (exam.status === 'AVAILABLE') {
-      notifs.push({ id: `${exam.id}-avail`, title: 'Exam Available', message: `You can now take "${exam.title}".` });
+  const [readNotificationIds, setReadNotificationIds] = useState<string[]>([]);
+
+  // Load read notifications from localStorage on mount and when user changes
+  useEffect(() => {
+    try {
+      const uStr = localStorage.getItem('user');
+      const u = uStr ? JSON.parse(uStr) : null;
+      const userKey = u?.email || currentUser?.email || 'default';
+      const stored = localStorage.getItem(`pg_read_notifications_${userKey}`);
+      if (stored) {
+        setReadNotificationIds(JSON.parse(stored));
+      }
+    } catch (e) {
+      console.error('Failed to load read notifications:', e);
     }
-    if (exam.resultStatus === 'APPROVED') {
-      notifs.push({ id: `${exam.id}-res`, title: 'Result Published', message: `Your result for "${exam.title}" is ready.` });
-    }
-    return notifs;
-  });
+  }, [currentUser?.email]);
+
+  const allNotifications = useMemo(() => {
+    return exams.flatMap(exam => {
+      const notifs = [];
+      if (exam.status === 'AVAILABLE') {
+        notifs.push({ id: `${exam.id}-avail`, title: 'Exam Available', message: `You can now take "${exam.title}".` });
+      }
+      if (exam.resultStatus === 'APPROVED') {
+        notifs.push({ id: `${exam.id}-res`, title: 'Result Published', message: `Your result for "${exam.title}" is ready.` });
+      }
+      return notifs;
+    });
+  }, [exams]);
+
+  const notifications = useMemo(() => {
+    return allNotifications.filter(notif => !readNotificationIds.includes(notif.id));
+  }, [allNotifications, readNotificationIds]);
+
+  const handleMarkAsRead = (id: string) => {
+    setReadNotificationIds(prev => {
+      const updated = Array.from(new Set([...prev, id]));
+      try {
+        const userKey = currentUser?.email || 'default';
+        localStorage.setItem(`pg_read_notifications_${userKey}`, JSON.stringify(updated));
+      } catch (e) {
+        console.error('Failed to save read notification:', e);
+      }
+      return updated;
+    });
+  };
+
+  const handleMarkAllAsRead = () => {
+    setReadNotificationIds(prev => {
+      const allIds = allNotifications.map(n => n.id);
+      const updated = Array.from(new Set([...prev, ...allIds]));
+      try {
+        const userKey = currentUser?.email || 'default';
+        localStorage.setItem(`pg_read_notifications_${userKey}`, JSON.stringify(updated));
+      } catch (e) {
+        console.error('Failed to save read notifications:', e);
+      }
+      return updated;
+    });
+  };
 
   useEffect(() => {
     // Check auth token
@@ -119,7 +169,7 @@ export default function CandidateDashboard() {
               >
                 <Bell className="w-5 h-5" />
                 {notifications.length > 0 && (
-                  <span className="absolute 0 top-0.5 right-0.5 w-2.5 h-2.5 bg-red-500 rounded-full animate-pulse border-2 border-white"></span>
+                  <span className="absolute top-0.5 right-0.5 w-2.5 h-2.5 bg-red-500 rounded-full animate-pulse border-2 border-white"></span>
                 )}
               </button>
 
@@ -132,34 +182,63 @@ export default function CandidateDashboard() {
               )}
 
               {showNotifications && (
-                <div className="absolute right-0 mt-3 w-80 bg-white rounded-xl shadow-2xl border border-slate-100 py-2 z-50 overflow-hidden transform origin-top-right transition-all animate-in fade-in zoom-in-95 duration-150">
+                <div className="absolute right-0 mt-3 w-80 sm:w-96 bg-white rounded-xl shadow-2xl border border-slate-100 py-2 z-50 overflow-hidden transform origin-top-right transition-all animate-in fade-in zoom-in-95 duration-150">
                   <div className="px-4 py-2.5 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
                     <div className="flex items-center space-x-2">
                       <h3 className="font-bold text-slate-800 text-sm">Notifications</h3>
-                      <span className="text-xs font-semibold bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">{notifications.length} New</span>
+                      {notifications.length > 0 ? (
+                        <span className="text-xs font-semibold bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">{notifications.length} New</span>
+                      ) : (
+                        <span className="text-xs font-medium text-slate-400">0 unread</span>
+                      )}
                     </div>
-                    <button 
-                      onClick={() => setShowNotifications(false)}
-                      className="p-1 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-200/60 transition-colors cursor-pointer"
-                      title="Close"
-                    >
-                      <X className="w-4 h-4" />
-                    </button>
+                    <div className="flex items-center space-x-2.5">
+                      {notifications.length > 0 && (
+                        <button 
+                          onClick={handleMarkAllAsRead}
+                          className="text-xs font-semibold text-blue-600 hover:text-blue-800 hover:underline cursor-pointer transition-colors"
+                          title="Mark all notifications as read"
+                        >
+                          Mark all as read
+                        </button>
+                      )}
+                      <button 
+                        onClick={() => setShowNotifications(false)}
+                        className="p-1 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-200/60 transition-colors cursor-pointer"
+                        title="Close"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
                   </div>
-                  <div className="max-h-80 overflow-y-auto">
+                  <div className="max-h-80 overflow-y-auto divide-y divide-slate-100">
                     {notifications.length === 0 ? (
-                      <div className="p-6 text-center text-slate-500 text-sm">
-                        You have no new notifications.
+                      <div className="p-8 text-center text-slate-500 text-sm flex flex-col items-center justify-center">
+                        <CheckCircle2 className="w-8 h-8 text-emerald-500 mb-2 stroke-[1.5]" />
+                        <p className="font-semibold text-slate-700">All caught up!</p>
+                        <p className="text-xs text-slate-400 mt-0.5">You have no new notifications.</p>
                       </div>
                     ) : (
                       notifications.map(notif => (
                         <div 
                           key={notif.id} 
-                          onClick={() => setShowNotifications(false)}
-                          className="p-4 border-b border-slate-50 hover:bg-slate-50 transition-colors cursor-pointer"
+                          className="p-3.5 hover:bg-slate-50/80 transition-colors flex items-start justify-between gap-3 group"
                         >
-                          <p className="text-sm font-bold text-slate-800">{notif.title}</p>
-                          <p className="text-xs text-slate-500 mt-1">{notif.message}</p>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-xs font-bold text-slate-800 leading-snug">{notif.title}</p>
+                            <p className="text-xs text-slate-500 mt-1 leading-relaxed">{notif.message}</p>
+                          </div>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleMarkAsRead(notif.id);
+                            }}
+                            className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-semibold text-blue-600 hover:text-white bg-blue-50 hover:bg-blue-600 rounded-lg transition-all shrink-0 cursor-pointer border border-blue-200/60 hover:border-blue-600 shadow-xs active:scale-95"
+                            title="Mark as read to dismiss"
+                          >
+                            <Check className="w-3.5 h-3.5" />
+                            <span>Mark as read</span>
+                          </button>
                         </div>
                       ))
                     )}
