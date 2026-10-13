@@ -259,11 +259,11 @@ export default function AdminResultsPage() {
           </div>
           <button 
             onClick={() => setShowLogoutConfirm(true)}
-            className="inline-flex items-center space-x-1.5 px-3 py-1.5 bg-slate-100 hover:bg-rose-50 text-slate-600 hover:text-rose-600 rounded-lg text-xs font-bold transition-all border border-slate-200 hover:border-rose-200 cursor-pointer"
-            title="Sign Out"
+            className="inline-flex items-center space-x-1.5 px-3.5 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 rounded-lg text-xs font-bold transition-all border border-rose-200 cursor-pointer"
+            title="Sign Out of Admin Portal"
           >
             <LogOut className="w-3.5 h-3.5" />
-            <span className="hidden md:inline">Sign Out</span>
+            <span>Sign Out</span>
           </button>
         </div>
       </header>
