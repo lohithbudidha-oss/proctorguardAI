@@ -203,28 +203,6 @@ export default function OrganizationsPage() {
           </div>
         </section>
 
-        {/* CTA Banner */}
-        <section className="py-10 bg-gradient-to-r from-blue-700 to-indigo-800 text-white text-center px-6">
-          <div className="max-w-4xl mx-auto">
-            <p className="text-blue-100 text-base mb-6 max-w-xl mx-auto font-medium">
-              Get started right away by registering your organization administrator account or logging in to create your first proctored exam.
-            </p>
-            <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-              <Link
-                href="/register"
-                className="px-8 py-3.5 bg-white text-blue-700 font-extrabold rounded-xl shadow-lg hover:bg-blue-50 transition"
-              >
-                Register Organization Admin
-              </Link>
-              <Link
-                href="/login?role=admin"
-                className="px-8 py-3.5 bg-blue-900/60 hover:bg-blue-900 text-white font-bold rounded-xl border border-blue-400/40 transition"
-              >
-                Sign In to Admin Portal
-              </Link>
-            </div>
-          </div>
-        </section>
       </main>
 
       {/* Footer */}
