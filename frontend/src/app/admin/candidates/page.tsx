@@ -4,6 +4,7 @@ import React, { useEffect, useState, useMemo } from 'react';
 import Link from 'next/link';
 import { UserCheck, Clock, UserX, User, ArrowLeft, CheckCircle2, Search, X, LogOut } from 'lucide-react';
 import api from '@/lib/api';
+import { sanitizeSearchInput } from '@/lib/sanitize';
 
 export default function CandidatesPage() {
   const [candidates, setCandidates] = useState<{ _id?: string; name: string; email: string; status: string; role: string; profilePhoto?: string }[]>([]);
@@ -107,7 +108,7 @@ export default function CandidatesPage() {
               type="text" 
               placeholder="Search candidate name, email, status..." 
               value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
+              onChange={(e) => setSearchQuery(sanitizeSearchInput(e.target.value))}
               className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-9 pr-9 py-2 text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition shadow-xs"
             />
             {searchQuery && (

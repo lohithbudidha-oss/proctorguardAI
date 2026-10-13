@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { ShieldCheck, FileText, CheckCircle2, Clock, Calendar, ArrowRight, Bell, UserCircle, LogOut, X, Search, Check } from 'lucide-react';
 import api from '@/lib/api';
+import { sanitizeSearchInput } from '@/lib/sanitize';
 
 export default function CandidateDashboard() {
   const router = useRouter();
@@ -283,7 +284,7 @@ export default function CandidateDashboard() {
                 type="text" 
                 placeholder="Search assessments..." 
                 value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
+                onChange={(e) => setSearchQuery(sanitizeSearchInput(e.target.value))}
                 className="w-full bg-white border border-slate-200 rounded-xl pl-9 pr-9 py-2 text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition shadow-xs"
               />
               {searchQuery && (

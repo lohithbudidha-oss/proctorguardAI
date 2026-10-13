@@ -21,6 +21,7 @@ import {
   LogOut
 } from 'lucide-react';
 import api from '@/lib/api';
+import { sanitizeSearchInput } from '@/lib/sanitize';
 
 interface Exam {
   _id: string;
@@ -403,7 +404,7 @@ export default function AdminExamsPage() {
               type="text" 
               placeholder="Search exam title, duration, status, description..." 
               value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
+              onChange={(e) => setSearchQuery(sanitizeSearchInput(e.target.value))}
               className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-9 pr-9 py-2 text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition shadow-xs"
             />
             {searchQuery && (

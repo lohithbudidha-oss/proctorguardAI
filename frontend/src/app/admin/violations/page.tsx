@@ -33,6 +33,7 @@ import {
 } from 'lucide-react';
 import api from '@/lib/api';
 import { getViolationInfo } from '@/lib/violations';
+import { sanitizeSearchInput } from '@/lib/sanitize';
 
 interface ViolationItem {
   _id: string;
@@ -928,7 +929,7 @@ export default function ViolationQueuePage() {
               type="text" 
               placeholder="Search candidate name, email, exam, or violation..." 
               value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
+              onChange={(e) => setSearchQuery(sanitizeSearchInput(e.target.value))}
               className="w-full bg-slate-50 border border-slate-300 rounded-xl pl-9 pr-9 py-2 text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition font-medium"
             />
             {searchQuery && (

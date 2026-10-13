@@ -31,6 +31,7 @@ import {
   LogOut
 } from 'lucide-react';
 import api from '@/lib/api';
+import { sanitizeSearchInput } from '@/lib/sanitize';
 
 export default function ResultsVerificationPage() {
   const [results, setResults] = useState<any[]>([]);
@@ -234,7 +235,7 @@ export default function ResultsVerificationPage() {
               type="text" 
               placeholder="Search candidate name, email, exam, status..." 
               value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
+              onChange={(e) => setSearchQuery(sanitizeSearchInput(e.target.value))}
               className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-9 pr-9 py-2 text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition shadow-xs"
             />
             {searchQuery && (
@@ -864,7 +865,7 @@ export default function ResultsVerificationPage() {
                   type="text"
                   placeholder="Search candidate, exam or file..."
                   value={driveSearchQuery}
-                  onChange={(e) => setDriveSearchQuery(e.target.value)}
+                  onChange={(e) => setDriveSearchQuery(sanitizeSearchInput(e.target.value))}
                   className="w-full pl-9 pr-3 py-1.5 border border-slate-200 rounded-lg text-xs focus:outline-hidden focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition"
                 />
               </div>

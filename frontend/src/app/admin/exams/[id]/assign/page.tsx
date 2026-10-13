@@ -5,6 +5,7 @@ import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { ArrowLeft, UserPlus, CheckCircle, Search, X } from 'lucide-react';
 import api from '@/lib/api';
+import { sanitizeSearchInput } from '@/lib/sanitize';
 
 function CandidateAssignmentContent() {
   const params = useParams();
@@ -139,7 +140,7 @@ function CandidateAssignmentContent() {
                   type="text" 
                   placeholder="Search name or email..." 
                   value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
+                  onChange={(e) => setSearchQuery(sanitizeSearchInput(e.target.value))}
                   className="pl-9 pr-8 py-1.5 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none w-56 font-normal" 
                 />
                 {searchQuery && (
