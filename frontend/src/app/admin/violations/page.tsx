@@ -525,19 +525,25 @@ export default function ViolationQueuePage() {
     if (typeof window === 'undefined') return;
     const params = new URLSearchParams(window.location.search);
     const targetCandidate = params.get('candidateId') || params.get('candidate');
+    const targetEmail = (params.get('candidateEmail') || params.get('candidate') || '').toLowerCase().trim();
+    const targetName = (params.get('candidateName') || '').toLowerCase().trim();
+    const targetAttempt = params.get('attemptId');
     const targetExam = params.get('examId');
 
-    if (targetCandidate && candidateGroups.length > 0) {
+    if (candidateGroups.length > 0 && (targetCandidate || targetEmail || targetName || targetAttempt)) {
       const match = candidateGroups.find(
         (g) =>
-          g.key === targetCandidate ||
-          g.candidateId?._id === targetCandidate ||
-          (g.candidateEmail && g.candidateEmail.toLowerCase() === targetCandidate.toLowerCase())
+          (targetCandidate && (g.key === targetCandidate || g.candidateId?._id === targetCandidate)) ||
+          (targetEmail && g.candidateEmail && g.candidateEmail.toLowerCase().trim() === targetEmail) ||
+          (targetAttempt && (g.attemptId === targetAttempt || g.exams.some(e => e.attemptId === targetAttempt))) ||
+          (targetName && g.candidateName && g.candidateName.toLowerCase().trim() === targetName)
       );
       if (match) {
         setSelectedCandidateKey(match.key);
         if (targetExam) {
           setSelectedExamKey(targetExam);
+        } else if (targetAttempt) {
+          setSelectedAttemptId(targetAttempt);
         }
       }
     }

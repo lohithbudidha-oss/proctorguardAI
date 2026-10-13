@@ -97,6 +97,53 @@ export default function CandidateExamRecordsPage() {
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [pendingApprovalsCount, setPendingApprovalsCount] = useState<number>(0);
   const [openTicketsCount, setOpenTicketsCount] = useState<number>(0);
+  const [showCandidateViolationQueueModal, setShowCandidateViolationQueueModal] = useState(false);
+  const [candidateQueueSeverityFilter, setCandidateQueueSeverityFilter] = useState<string>('ALL');
+  const [candidateQueueSearchQuery, setCandidateQueueSearchQuery] = useState('');
+
+  const filteredCandidateQueueViolations = useMemo(() => {
+    if (!selectedCandidate) return [];
+    let list = selectedCandidate.violations || [];
+
+    if (candidateQueueSeverityFilter !== 'ALL') {
+      list = list.filter(v => v.severity === candidateQueueSeverityFilter);
+    }
+
+    const q = candidateQueueSearchQuery.trim().toLowerCase();
+    if (q) {
+      list = list.filter(v => {
+        const info = getViolationInfo(v.type, v.description);
+        return (
+          v.type.toLowerCase().includes(q) ||
+          (v.description && v.description.toLowerCase().includes(q)) ||
+          info.title.toLowerCase().includes(q) ||
+          info.actionDone.toLowerCase().includes(q)
+        );
+      });
+    }
+
+    return list;
+  }, [selectedCandidate, candidateQueueSeverityFilter, candidateQueueSearchQuery]);
+
+  const candidateCriticalCount = useMemo(() => {
+    if (!selectedCandidate) return 0;
+    return (selectedCandidate.violations || []).filter(v => v.severity === 'CRITICAL').length;
+  }, [selectedCandidate]);
+
+  const candidateHighCount = useMemo(() => {
+    if (!selectedCandidate) return 0;
+    return (selectedCandidate.violations || []).filter(v => v.severity === 'HIGH').length;
+  }, [selectedCandidate]);
+
+  const candidateMediumCount = useMemo(() => {
+    if (!selectedCandidate) return 0;
+    return (selectedCandidate.violations || []).filter(v => v.severity === 'MEDIUM').length;
+  }, [selectedCandidate]);
+
+  const candidateProofCount = useMemo(() => {
+    if (!selectedCandidate) return 0;
+    return (selectedCandidate.violations || []).filter(v => Boolean(v.screenshot || v.snapshotImage)).length;
+  }, [selectedCandidate]);
 
   const fetchPendingApprovalsCount = () => {
     api.get('/admin/candidates').then(res => {
@@ -275,6 +322,8 @@ export default function CandidateExamRecordsPage() {
       if (e.key === 'Escape') {
         if (selectedProofModal) {
           setSelectedProofModal(null);
+        } else if (showCandidateViolationQueueModal) {
+          setShowCandidateViolationQueueModal(false);
         } else if (selectedCandidate) {
           setSelectedCandidate(null);
         }
@@ -282,7 +331,7 @@ export default function CandidateExamRecordsPage() {
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [selectedProofModal, selectedCandidate]);
+  }, [selectedProofModal, showCandidateViolationQueueModal, selectedCandidate]);
 
   const handleApiCommand = async (attemptId: string, action: string) => {
     if (!attemptId) return;
@@ -812,8 +861,11 @@ export default function CandidateExamRecordsPage() {
                 </div>
               </div>
               <button 
-                onClick={() => setSelectedCandidate(null)} 
-                className="text-slate-400 hover:text-slate-700 transition-colors p-2.5 hover:bg-slate-200/60 rounded-xl shrink-0"
+                onClick={() => {
+                  setSelectedCandidate(null);
+                  setShowCandidateViolationQueueModal(false);
+                }} 
+                className="text-slate-400 hover:text-slate-700 transition-colors p-2.5 hover:bg-slate-200/60 rounded-xl shrink-0 cursor-pointer"
                 title="Close Panel (Esc)"
               >
                 <X className="w-5 h-5" />
@@ -913,8 +965,14 @@ export default function CandidateExamRecordsPage() {
                     Violation Proof & Telemetry ({selectedCandidate.violations.length})
                   </h3>
                   <button 
-                    onClick={() => router.push('/admin/violations')}
-                    className="text-xs font-bold text-rose-600 hover:text-rose-700 hover:underline"
+                    type="button"
+                    onClick={() => {
+                      setCandidateQueueSeverityFilter('ALL');
+                      setCandidateQueueSearchQuery('');
+                      setShowCandidateViolationQueueModal(true);
+                    }}
+                    className="text-xs font-bold text-rose-600 hover:text-rose-700 hover:underline cursor-pointer"
+                    title={`View all ${selectedCandidate.violations.length} violations in queue`}
                   >
                     View All in Queue &rarr;
                   </button>
@@ -1177,6 +1235,276 @@ export default function CandidateExamRecordsPage() {
           </div>
         );
       })()}
+
+      {/* Candidate-Specific Full Violation Queue Modal (Opens directly without redirecting away) */}
+      {showCandidateViolationQueueModal && selectedCandidate && (
+        <div className="fixed inset-0 z-[115] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 sm:p-6 animate-in fade-in duration-150">
+          <div className="bg-white rounded-3xl border border-slate-200 shadow-2xl max-w-4xl w-full max-h-[92vh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-150">
+            {/* Modal Header */}
+            <div className="bg-slate-900 text-white px-6 py-4 flex items-center justify-between border-b border-slate-800 shrink-0">
+              <div className="flex items-center space-x-3.5 min-w-0">
+                <div className="w-10 h-10 rounded-2xl bg-blue-600 flex items-center justify-center font-black text-white text-base shadow-sm shrink-0">
+                  {selectedCandidate.name.charAt(0).toUpperCase()}
+                </div>
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2">
+                    <h3 className="font-extrabold text-lg text-white truncate">{selectedCandidate.name}</h3>
+                    <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-rose-500/20 text-rose-300 border border-rose-500/30 uppercase tracking-wider shrink-0">
+                      Violation Queue
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-400 font-mono truncate mt-0.5">
+                    {selectedCandidate.email} • {selectedCandidate.examName}
+                  </p>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setShowCandidateViolationQueueModal(false)}
+                className="text-slate-400 hover:text-white p-2 hover:bg-slate-800 rounded-xl transition cursor-pointer"
+                title="Close Queue (Esc)"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Sub-header: Metrics & Quick Summary */}
+            <div className="bg-slate-50 px-6 py-3 border-b border-slate-200 flex flex-wrap items-center justify-between gap-3 shrink-0">
+              <div className="flex items-center gap-2 flex-wrap text-xs font-bold">
+                <span className="bg-slate-200/80 text-slate-800 px-3 py-1 rounded-full">
+                  Total Violations: {selectedCandidate.violations.length}
+                </span>
+                {candidateCriticalCount > 0 && (
+                  <span className="bg-rose-100 text-rose-700 px-3 py-1 rounded-full border border-rose-200 flex items-center">
+                    <span className="w-1.5 h-1.5 rounded-full bg-rose-600 mr-1.5 animate-pulse" />
+                    Critical: {candidateCriticalCount}
+                  </span>
+                )}
+                {candidateHighCount > 0 && (
+                  <span className="bg-orange-100 text-orange-700 px-3 py-1 rounded-full border border-orange-200">
+                    High: {candidateHighCount}
+                  </span>
+                )}
+                {candidateMediumCount > 0 && (
+                  <span className="bg-amber-100 text-amber-700 px-3 py-1 rounded-full border border-amber-200">
+                    Medium: {candidateMediumCount}
+                  </span>
+                )}
+                {candidateProofCount > 0 && (
+                  <span className="bg-blue-100 text-blue-700 px-3 py-1 rounded-full border border-blue-200 flex items-center">
+                    <Camera className="w-3 h-3 mr-1" />
+                    Proof Evidence: {candidateProofCount}
+                  </span>
+                )}
+              </div>
+
+              <div className="flex items-center space-x-2 text-xs">
+                <span className="text-slate-500 font-medium">Exam Score:</span>
+                <span className="font-extrabold text-slate-900">{selectedCandidate.score} / {selectedCandidate.totalMarks || 100}</span>
+                <span className="font-extrabold text-blue-600">({selectedCandidate.percentage.toFixed(1)}%)</span>
+              </div>
+            </div>
+
+            {/* Filter Tabs & Search Bar */}
+            <div className="p-4 px-6 border-b border-slate-100 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 shrink-0">
+              {/* Severity Filter Tabs */}
+              <div className="flex items-center space-x-1.5 overflow-x-auto pb-1 sm:pb-0">
+                <button
+                  type="button"
+                  onClick={() => setCandidateQueueSeverityFilter('ALL')}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition whitespace-nowrap cursor-pointer ${
+                    candidateQueueSeverityFilter === 'ALL'
+                      ? 'bg-slate-900 text-white shadow-xs'
+                      : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                  }`}
+                >
+                  All ({selectedCandidate.violations.length})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setCandidateQueueSeverityFilter('CRITICAL')}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition whitespace-nowrap cursor-pointer ${
+                    candidateQueueSeverityFilter === 'CRITICAL'
+                      ? 'bg-rose-600 text-white shadow-xs'
+                      : 'bg-rose-50 text-rose-700 hover:bg-rose-100 border border-rose-200'
+                  }`}
+                >
+                  Critical ({candidateCriticalCount})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setCandidateQueueSeverityFilter('HIGH')}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition whitespace-nowrap cursor-pointer ${
+                    candidateQueueSeverityFilter === 'HIGH'
+                      ? 'bg-orange-600 text-white shadow-xs'
+                      : 'bg-orange-50 text-orange-700 hover:bg-orange-100 border border-orange-200'
+                  }`}
+                >
+                  High ({candidateHighCount})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setCandidateQueueSeverityFilter('MEDIUM')}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition whitespace-nowrap cursor-pointer ${
+                    candidateQueueSeverityFilter === 'MEDIUM'
+                      ? 'bg-amber-600 text-white shadow-xs'
+                      : 'bg-amber-50 text-amber-700 hover:bg-amber-100 border border-amber-200'
+                  }`}
+                >
+                  Medium ({candidateMediumCount})
+                </button>
+              </div>
+
+              {/* Search Within Candidate Violations */}
+              <div className="relative min-w-[220px]">
+                <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                <input
+                  type="text"
+                  value={candidateQueueSearchQuery}
+                  onChange={(e) => setCandidateQueueSearchQuery(e.target.value)}
+                  placeholder="Search violations..."
+                  className="w-full pl-8 pr-3 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                />
+                {candidateQueueSearchQuery && (
+                  <button
+                    type="button"
+                    onClick={() => setCandidateQueueSearchQuery('')}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 cursor-pointer"
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* Violations Scroll Area */}
+            <div className="p-6 overflow-y-auto flex-1 space-y-3.5 bg-slate-50/50">
+              {filteredCandidateQueueViolations.length === 0 ? (
+                <div className="py-12 text-center flex flex-col items-center justify-center">
+                  <CheckCircle2 className="w-12 h-12 text-emerald-500 mb-2 opacity-80" />
+                  <p className="font-extrabold text-slate-800 text-sm">No Matching Violations</p>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    {candidateQueueSearchQuery || candidateQueueSeverityFilter !== 'ALL'
+                      ? 'No incidents matched your current search and severity filters.'
+                      : 'No integrity violations recorded for this candidate.'}
+                  </p>
+                </div>
+              ) : (
+                filteredCandidateQueueViolations.map((v, i) => {
+                  const proofImg = v.screenshot || v.snapshotImage;
+                  const vInfo = getViolationInfo(v.type, v.description);
+
+                  return (
+                    <div
+                      key={v.id || v._id || i}
+                      className="bg-white p-4.5 rounded-2xl border border-slate-200 shadow-xs hover:border-slate-300 transition flex flex-col sm:flex-row gap-4 justify-between"
+                    >
+                      <div className="flex-1 space-y-2.5">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span
+                            className={`text-xs font-extrabold px-2.5 py-0.5 rounded-md border flex items-center ${
+                              v.severity === 'CRITICAL'
+                                ? 'bg-rose-50 text-rose-700 border-rose-200'
+                                : v.severity === 'HIGH'
+                                ? 'bg-orange-50 text-orange-700 border-orange-200'
+                                : 'bg-amber-50 text-amber-700 border-amber-200'
+                            }`}
+                          >
+                            <AlertTriangle className="w-3.5 h-3.5 mr-1" />
+                            {v.severity} • {vInfo.title}
+                          </span>
+                          <span className="text-xs font-mono text-slate-400">
+                            {new Date(v.detectedAt || v.timestamp || new Date().toISOString()).toLocaleTimeString()} ({new Date(v.detectedAt || v.timestamp || new Date().toISOString()).toLocaleDateString()})
+                          </span>
+                        </div>
+
+                        {/* Action Description */}
+                        <div className="bg-rose-50/70 p-3 rounded-xl border border-rose-200/80 text-xs">
+                          <span className="text-[10px] font-extrabold uppercase text-rose-800 block mb-0.5 tracking-wider">
+                            Candidate Action During Exam:
+                          </span>
+                          <p className="text-slate-800 font-medium text-xs leading-relaxed">
+                            {vInfo.actionDone}
+                          </p>
+                          {v.description && v.description !== vInfo.actionDone && (
+                            <p className="text-slate-500 font-mono text-[11px] mt-1.5 pt-1.5 border-t border-rose-200/50">
+                              System Log: {v.description}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Proof Thumbnail */}
+                      {proofImg && (
+                        <div className="sm:w-48 shrink-0 flex flex-col">
+                          <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1 flex items-center">
+                            <Camera className="w-3 h-3 mr-1 text-blue-600" /> Evidence Proof:
+                          </span>
+                          <div
+                            onClick={() =>
+                              setSelectedProofModal({
+                                image: proofImg,
+                                type: v.type,
+                                time: new Date(v.detectedAt || v.timestamp || new Date().toISOString()).toLocaleString(),
+                                desc: v.description,
+                                candidateName: selectedCandidate.name,
+                                candidateEmail: selectedCandidate.email,
+                                examName: selectedCandidate.examName,
+                                severity: v.severity,
+                              })
+                            }
+                            className="relative rounded-xl overflow-hidden border border-slate-200 bg-slate-100 cursor-pointer group/img h-28 shadow-xs"
+                          >
+                            <img src={proofImg} alt="Proof" className="w-full h-full object-cover" />
+                            <div className="absolute inset-0 bg-slate-900/20 group-hover/img:bg-slate-900/40 transition-colors flex items-center justify-center">
+                              <span className="bg-rose-600 text-white text-[10px] font-bold px-2 py-1 rounded-md shadow flex items-center">
+                                <Eye className="w-3 h-3 mr-1" /> Enlarge
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })
+              )}
+            </div>
+
+            {/* Modal Footer */}
+            <div className="bg-white px-6 py-3.5 border-t border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-3 shrink-0">
+              <span className="text-xs text-slate-500 font-medium text-center sm:text-left">
+                Displaying {filteredCandidateQueueViolations.length} of {selectedCandidate.violations.length} incidents recorded for {selectedCandidate.name}
+              </span>
+              <div className="flex items-center space-x-3">
+                <button
+                  type="button"
+                  onClick={() => {
+                    const params = new URLSearchParams();
+                    if (selectedCandidate.id) params.set('candidateId', selectedCandidate.id);
+                    if (selectedCandidate.email) params.set('candidateEmail', selectedCandidate.email);
+                    if (selectedCandidate.name) params.set('candidateName', selectedCandidate.name);
+                    if (selectedCandidate.attemptId) params.set('attemptId', selectedCandidate.attemptId);
+                    if (selectedCandidate.examId) params.set('examId', selectedCandidate.examId);
+                    router.push(`/admin/violations?${params.toString()}`);
+                  }}
+                  className="px-3.5 py-2 text-xs font-bold text-rose-600 hover:text-rose-700 hover:bg-rose-50 rounded-xl transition cursor-pointer flex items-center"
+                  title="Open in complete Violation Portal with Drive archive"
+                >
+                  Open in Violation Queue Portal &rarr;
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowCandidateViolationQueueModal(false)}
+                  className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold transition shadow-xs cursor-pointer"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Admin Sign Out Confirmation Modal */}
       {showLogoutConfirm && (
