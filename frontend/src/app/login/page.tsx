@@ -3,8 +3,12 @@
 import React, { useState, Suspense } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { ShieldCheck, Mail, Lock, ArrowRight, ArrowLeft, Fingerprint, Activity, Eye, EyeOff, CheckCircle2 } from 'lucide-react';
+import { ShieldCheck, Mail, Lock, ArrowRight, ArrowLeft, Fingerprint, Activity, Eye, EyeOff, CheckCircle2, AlertCircle } from 'lucide-react';
 import api from '@/lib/api';
+
+// Comprehensive Emoji Regex matching pictographic symbols, emojis, flags, symbols, and surrogate pairs
+const EMOJI_REGEX = /[\uFE00-\uFE0F\u200D\u20E3]|\p{Extended_Pictographic}|[\u{1F1E6}-\u{1F1FF}]|[\uD800-\uDBFF][\uDC00-\uDFFF]|[\u2600-\u27BF]/u;
+const EMOJI_GLOBAL_REGEX = /[\uFE00-\uFE0F\u200D\u20E3]|\p{Extended_Pictographic}|[\u{1F1E6}-\u{1F1FF}]|[\uD800-\uDBFF][\uDC00-\uDFFF]|[\u2600-\u27BF]/gu;
 
 function LoginContent() {
   const router = useRouter();
@@ -16,13 +20,32 @@ function LoginContent() {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
+  const [emailError, setEmailError] = useState('');
   const [loading, setLoading] = useState(false);
+
+  const handleEmailChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const rawVal = e.target.value;
+    if (EMOJI_REGEX.test(rawVal)) {
+      setEmailError('Emojis are not accepted in the email address.');
+      setTimeout(() => setEmailError(''), 3500);
+    } else {
+      if (emailError) setEmailError('');
+    }
+    // Reject emojis immediately: strip all emojis and spaces
+    const cleanVal = rawVal.replace(EMOJI_GLOBAL_REGEX, '').replace(/\s+/g, '');
+    setEmail(cleanVal);
+  };
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
 
     const normalized = email.trim().toLowerCase();
+
+    if (EMOJI_REGEX.test(normalized)) {
+      setError('Email address cannot contain emojis.');
+      return;
+    }
 
     if (isAdminLogin) {
       if (normalized !== 'admin@proctorguard.local') {
@@ -177,24 +200,40 @@ function LoginContent() {
               <label className="text-sm font-semibold text-slate-700">Email Address</label>
               <div className="relative group">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <Mail className="h-5 w-5 text-slate-400 group-focus-within:text-blue-500 transition-colors" />
+                  <Mail className={`h-5 w-5 transition-colors ${
+                    emailError ? 'text-rose-500' : 'text-slate-400 group-focus-within:text-blue-500'
+                  }`} />
                 </div>
                 <input
                   type="email"
                   required
                   value={email}
-                  onChange={e => setEmail(e.target.value)}
-                  className="block w-full pl-10 pr-3 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all bg-slate-50 hover:bg-slate-100 focus:bg-white text-slate-900 font-medium placeholder:font-normal"
+                  onChange={handleEmailChange}
+                  className={`block w-full pl-10 pr-3 py-3 border rounded-xl focus:ring-2 transition-all font-medium placeholder:font-normal ${
+                    emailError
+                      ? 'border-rose-400 bg-rose-50/20 text-rose-900 focus:border-rose-500 focus:ring-rose-500/20'
+                      : 'border-slate-200 bg-slate-50 hover:bg-slate-100 focus:bg-white text-slate-900 focus:ring-blue-500/20 focus:border-blue-500'
+                  }`}
                   placeholder={isAdminLogin ? "admin@proctorguard.local" : "candidate@gmail.com"}
                   suppressHydrationWarning
                 />
               </div>
+              {emailError && (
+                <p className="text-xs text-rose-600 font-medium flex items-center pt-1 animate-in fade-in">
+                  <AlertCircle className="w-3.5 h-3.5 mr-1 shrink-0" />
+                  {emailError}
+                </p>
+              )}
             </div>
 
             <div className="space-y-1">
               <div className="flex items-center justify-between">
                 <label className="text-sm font-semibold text-slate-700">Password</label>
-                <a href="#" className="text-sm font-medium text-blue-600 hover:text-blue-500">Forgot password?</a>
+                {!isAdminLogin && (
+                  <Link href="/support" className="text-sm font-medium text-blue-600 hover:text-blue-500">
+                    Forgot password?
+                  </Link>
+                )}
               </div>
               <div className="relative group">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">

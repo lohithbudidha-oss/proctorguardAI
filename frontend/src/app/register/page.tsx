@@ -6,11 +6,18 @@ import { useRouter } from 'next/navigation';
 import { ShieldCheck, Mail, Lock, User, ArrowRight, Activity, BookOpen, Eye, EyeOff, CheckCircle2, AlertCircle } from 'lucide-react';
 import api from '@/lib/api';
 
+// Comprehensive emoji detection regex
+const EMOJI_REGEX = /[\uFE00-\uFE0F\u200D\u20E3]|\p{Extended_Pictographic}|[\u{1F1E6}-\u{1F1FF}]|[\uD800-\uDBFF][\uDC00-\uDFFF]|[\u2600-\u27BF]/u;
+const EMOJI_GLOBAL_REGEX = /[\uFE00-\uFE0F\u200D\u20E3]|\p{Extended_Pictographic}|[\u{1F1E6}-\u{1F1FF}]|[\uD800-\uDBFF][\uDC00-\uDFFF]|[\u2600-\u27BF]/gu;
+
 // Comprehensive candidate email validation helper strictly accepting @gmail.com only
 export function validateCandidateEmail(val: string): { isValid: boolean; message: string } {
   const trimmed = val.trim();
   if (!trimmed) {
     return { isValid: false, message: 'Email address is required.' };
+  }
+  if (EMOJI_REGEX.test(trimmed)) {
+    return { isValid: false, message: 'Email address cannot contain emojis.' };
   }
   if (/\s/.test(trimmed)) {
     return { isValid: false, message: 'Email address cannot contain spaces.' };
@@ -166,7 +173,7 @@ export default function RegisterPage() {
                   type="text"
                   required
                   value={name}
-                  onChange={e => setName(e.target.value)}
+                  onChange={e => setName(e.target.value.replace(EMOJI_GLOBAL_REGEX, ''))}
                   className="block w-full pl-10 pr-3 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all bg-slate-50 hover:bg-slate-100 focus:bg-white text-slate-900 font-medium placeholder:font-normal"
                   placeholder="John Doe"
                   suppressHydrationWarning
@@ -198,8 +205,9 @@ export default function RegisterPage() {
                   required
                   value={email}
                   onChange={e => {
-                    setEmail(e.target.value);
-                    if (!emailTouched && e.target.value.length > 2) {
+                    const clean = e.target.value.replace(EMOJI_GLOBAL_REGEX, '').replace(/\s+/g, '');
+                    setEmail(clean);
+                    if (!emailTouched && clean.length > 2) {
                       setEmailTouched(true);
                     }
                   }}
