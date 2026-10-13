@@ -414,19 +414,6 @@ export default function CandidateExamRecordsPage() {
             <CheckCircle2 className="w-5 h-5 mr-3 text-slate-400" /> Integrity Reports
           </div>
         </div>
-
-        {/* Profile Info - Anchored at the left sidebar bottom */}
-        <div className="p-4 border-t border-slate-100 bg-slate-50/80 shrink-0">
-          <div className="flex items-center space-x-2.5 min-w-0">
-            <div className="w-9 h-9 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center font-bold text-xs border border-blue-200 shrink-0 shadow-2xs">
-              {adminProfile?.name ? adminProfile.name.substring(0, 2).toUpperCase() : 'AD'}
-            </div>
-            <div className="min-w-0 flex-1">
-              <p className="text-xs font-bold text-slate-900 truncate">{adminProfile?.name || 'Administrator'}</p>
-              <p className="text-[11px] text-slate-500 font-medium truncate">{adminProfile?.email || 'admin@proctorguard.local'}</p>
-            </div>
-          </div>
-        </div>
       </aside>
 
       {/* Main Content */}
@@ -455,15 +442,32 @@ export default function CandidateExamRecordsPage() {
               </p>
             </div>
 
-            {/* Top-Right Action Button */}
+            {/* Top-Right: Admin Profile & Sign Out (Styled like Candidate Portal) */}
             <div className="flex items-center space-x-3 shrink-0 self-start md:self-center">
+              <div className="flex items-center space-x-2.5">
+                <div className="w-9 h-9 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center font-bold text-xs border border-blue-200 shrink-0 shadow-2xs">
+                  {adminProfile?.name ? (
+                    adminProfile.name.trim().split(/\s+/).length > 1
+                      ? (adminProfile.name.trim().split(/\s+/)[0][0] + adminProfile.name.trim().split(/\s+/)[1][0]).toUpperCase()
+                      : adminProfile.name.substring(0, 2).toUpperCase()
+                  ) : 'AD'}
+                </div>
+                <div className="text-left hidden sm:block">
+                  <p className="text-xs font-bold text-slate-900 leading-tight">
+                    {adminProfile?.name || 'Admin User'}
+                  </p>
+                  <p className="text-[11px] text-slate-500 font-medium truncate max-w-[180px]">
+                    {adminProfile?.email || 'admin@proctorguard.local'}
+                  </p>
+                </div>
+              </div>
               <button 
                 type="button"
                 onClick={() => setShowLogoutConfirm(true)} 
-                className="inline-flex items-center space-x-2 px-4 py-2 bg-rose-50 hover:bg-rose-100 text-rose-700 hover:text-rose-800 rounded-xl text-xs font-bold transition-all border border-rose-200 hover:border-rose-300 shadow-2xs cursor-pointer group active:scale-[0.98]" 
+                className="inline-flex items-center space-x-1.5 px-3 py-1.5 bg-slate-100 hover:bg-rose-50 text-slate-700 hover:text-rose-600 rounded-lg text-xs font-bold transition-all border border-slate-200 hover:border-rose-200 shadow-2xs cursor-pointer group active:scale-[0.98]" 
                 title="Sign Out of Admin Portal"
               >
-                <LogOut className="w-3.5 h-3.5 text-rose-500 group-hover:text-rose-700 transition-colors" />
+                <LogOut className="w-3.5 h-3.5 text-slate-500 group-hover:text-rose-600 transition-colors" />
                 <span>Sign Out</span>
               </button>
             </div>

@@ -123,6 +123,7 @@ export default function AdminExamsPage() {
   const [editErrors, setEditErrors] = useState<{ title?: string; description?: string; instructions?: string }>({});
   const [isSavingEdit, setIsSavingEdit] = useState(false);
   const [pendingApprovalsCount, setPendingApprovalsCount] = useState<number>(0);
+  const [adminProfile, setAdminProfile] = useState<{ name?: string; email?: string } | null>(null);
 
   const fetchExams = () => {
     api.get('/admin/exams')
@@ -149,6 +150,10 @@ export default function AdminExamsPage() {
 
   useEffect(() => {
     fetchExams();
+    try {
+      const u = localStorage.getItem('user');
+      if (u) setAdminProfile(JSON.parse(u));
+    } catch (e) {}
   }, []);
 
   const formatDurationDisplay = (mins: number) => {
@@ -402,19 +407,37 @@ export default function AdminExamsPage() {
             >
               <Plus className="w-4 h-4 mr-1.5" /> Create Exam
             </button>
-            <button
-              onClick={() => {
-                if (confirm('Are you sure you want to sign out of the Admin Portal?')) {
-                  localStorage.removeItem('token');
-                  localStorage.removeItem('user');
-                  window.location.href = '/login?role=admin';
-                }
-              }}
-              className="px-3.5 py-2.5 bg-rose-50 hover:bg-rose-100 text-rose-700 font-semibold rounded-lg border border-rose-200 transition shadow-xs flex items-center text-sm cursor-pointer"
-              title="Sign Out of Admin Portal"
-            >
-              <LogOut className="w-4 h-4 mr-1.5" /> Sign Out
-            </button>
+            <div className="flex items-center space-x-2 pl-1 border-l border-slate-200">
+              <div className="w-8 h-8 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center font-bold text-xs border border-blue-200 shrink-0 shadow-2xs">
+                {adminProfile?.name ? (
+                  adminProfile.name.trim().split(/\s+/).length > 1
+                    ? (adminProfile.name.trim().split(/\s+/)[0][0] + adminProfile.name.trim().split(/\s+/)[1][0]).toUpperCase()
+                    : adminProfile.name.substring(0, 2).toUpperCase()
+                ) : 'AD'}
+              </div>
+              <div className="text-left hidden sm:block">
+                <p className="text-xs font-bold text-slate-900 leading-tight">
+                  {adminProfile?.name || 'Admin User'}
+                </p>
+                <p className="text-[11px] text-slate-500 font-medium truncate max-w-[150px]">
+                  {adminProfile?.email || 'admin@proctorguard.local'}
+                </p>
+              </div>
+              <button
+                onClick={() => {
+                  if (confirm('Are you sure you want to sign out of the Admin Portal?')) {
+                    localStorage.removeItem('token');
+                    localStorage.removeItem('user');
+                    window.location.href = '/login?role=admin';
+                  }
+                }}
+                className="inline-flex items-center space-x-1.5 px-3 py-1.5 bg-slate-100 hover:bg-rose-50 text-slate-700 hover:text-rose-600 rounded-lg text-xs font-bold transition-all border border-slate-200 hover:border-rose-200 cursor-pointer shadow-2xs"
+                title="Sign Out of Admin Portal"
+              >
+                <LogOut className="w-3.5 h-3.5 text-slate-500 hover:text-rose-600 transition-colors" />
+                <span>Sign Out</span>
+              </button>
+            </div>
           </div>
         </div>
 
