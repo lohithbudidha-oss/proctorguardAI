@@ -43,6 +43,34 @@ export const approveCandidate = async (req: Request, res: Response, next: NextFu
   }
 };
 
+import Assignment from '../models/Assignment';
+
+export const deleteCandidate = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { id } = req.params;
+    const user = await User.findById(id);
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'Candidate not found' });
+    }
+
+    if (user.role && user.role.toUpperCase() === Role.ADMIN) {
+      return res.status(403).json({ success: false, message: 'Admin accounts cannot be deleted' });
+    }
+
+    await User.findByIdAndDelete(id);
+    await Assignment.deleteMany({ candidateId: id });
+    await Attempt.deleteMany({ candidateId: id });
+    await Result.deleteMany({ candidateId: id });
+
+    res.status(200).json({ 
+      success: true, 
+      message: `Candidate "${user.name || user.email}" deleted successfully` 
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
 import Result from '../models/Result';
 import ViolationEvent from '../models/ViolationEvent';
 import Question from '../models/Question';

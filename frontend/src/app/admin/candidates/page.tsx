@@ -18,7 +18,8 @@ import {
   BarChart3,
   Calendar,
   Sparkles,
-  LifeBuoy
+  LifeBuoy,
+  Trash2
 } from 'lucide-react';
 import api from '@/lib/api';
 import { sanitizeSearchInput } from '@/lib/sanitize';
@@ -46,6 +47,7 @@ function CandidatesContent() {
     isInitialPending ? 'PENDING' : 'ALL'
   );
   const [approvingId, setApprovingId] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
   const [approvalToast, setApprovalToast] = useState<string | null>(null);
   const [adminProfile, setAdminProfile] = useState<{ name?: string; email?: string } | null>(null);
 
@@ -98,6 +100,25 @@ function CandidatesContent() {
       alert(err?.response?.data?.message || 'Failed to approve candidate');
     } finally {
       setApprovingId(null);
+    }
+  };
+
+  const handleDeleteCandidate = async (candidateId: string, candidateName: string) => {
+    if (!confirm(`Are you sure you want to permanently delete candidate "${candidateName || 'this candidate'}"?\n\nThis will remove their profile and all associated exam assignments.`)) {
+      return;
+    }
+
+    setDeletingId(candidateId);
+    try {
+      await api.delete(`/admin/candidates/${candidateId}`);
+      setCandidates(prev => prev.filter(c => c._id !== candidateId));
+      setApprovalToast(`Candidate "${candidateName}" has been successfully deleted.`);
+      setTimeout(() => setApprovalToast(null), 5000);
+    } catch (err: any) {
+      console.error(err);
+      alert(err?.response?.data?.message || 'Failed to delete candidate');
+    } finally {
+      setDeletingId(null);
     }
   };
 
@@ -337,21 +358,33 @@ function CandidatesContent() {
                         </div>
                       </td>
                       <td className="px-6 py-4 align-middle text-center">
-                        <div className="inline-flex items-center justify-center">
+                        <div className="inline-flex items-center justify-center space-x-2">
                           {!isApproved ? (
                             <button
                               onClick={() => handleApprove(candidate._id as string, candidate.name)}
                               disabled={approvingId === candidate._id}
-                              className="inline-flex items-center px-3.5 py-1.5 bg-emerald-600 text-white text-xs font-bold rounded-lg hover:bg-emerald-700 active:scale-95 transition shadow-2xs cursor-pointer disabled:opacity-50"
+                              className="inline-flex items-center px-3 py-1.5 bg-emerald-600 text-white text-xs font-bold rounded-lg hover:bg-emerald-700 active:scale-95 transition shadow-2xs cursor-pointer disabled:opacity-50"
                             >
-                              <UserCheck className="w-3.5 h-3.5 mr-1.5" />
-                              {approvingId === candidate._id ? 'Approving...' : 'Approve Candidate'}
+                              <UserCheck className="w-3.5 h-3.5 mr-1" />
+                              {approvingId === candidate._id ? 'Approving...' : 'Approve'}
                             </button>
                           ) : (
-                            <span className="inline-flex items-center text-xs text-emerald-600 font-semibold bg-emerald-50 px-2.5 py-1 rounded-md">
+                            <span className="inline-flex items-center text-xs text-emerald-600 font-semibold bg-emerald-50 px-2.5 py-1 rounded-md border border-emerald-200">
                               <CheckCircle2 className="w-3.5 h-3.5 mr-1" /> Verified
                             </span>
                           )}
+
+                          {/* Delete Candidate Button */}
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteCandidate(candidate._id as string, candidate.name)}
+                            disabled={deletingId === candidate._id}
+                            className="inline-flex items-center px-2.5 py-1.5 bg-rose-50 text-rose-700 hover:bg-rose-100 hover:text-rose-800 border border-rose-200 text-xs font-bold rounded-lg active:scale-95 transition shadow-2xs cursor-pointer disabled:opacity-50"
+                            title={`Delete candidate ${candidate.name || ''}`}
+                          >
+                            <Trash2 className="w-3.5 h-3.5 mr-1 text-rose-600" />
+                            <span>{deletingId === candidate._id ? 'Deleting...' : 'Delete'}</span>
+                          </button>
                         </div>
                       </td>
                     </tr>
