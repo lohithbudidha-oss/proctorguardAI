@@ -21,7 +21,8 @@ import {
   X,
   ArrowLeft,
   Loader2,
-  Maximize2
+  Maximize2,
+  RefreshCw
 } from 'lucide-react';
 import { useRecordings } from '../../../../../../hooks/useRecordings';
 
@@ -46,6 +47,9 @@ function AttemptContent() {
     title: string;
     message: string;
   } | null>(null);
+
+  const [cameraBlockedMessage, setCameraBlockedMessage] = useState<string | null>(null);
+  const [isRetryingCamera, setIsRetryingCamera] = useState(false);
 
   const [timeRemaining, setTimeRemaining] = useState(3600); // Updated dynamically with wall-clock time
   const expiresAtMsRef = useRef<number | null>(null);
@@ -320,29 +324,29 @@ function AttemptContent() {
       try {
         let stream: MediaStream;
         try {
-          stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
-        } catch (err: any) {
-          if (err.name === 'NotFoundError' || err.message.includes('not found') || err.message.includes('denied')) {
-            // DEMO FALLBACK: Create dummy stream
-            const canvas = document.createElement('canvas');
-            canvas.width = 640;
-            canvas.height = 480;
-            const ctx = canvas.getContext('2d');
-            setInterval(() => {
-              if (ctx) {
-                ctx.fillStyle = '#1e293b';
-                ctx.fillRect(0, 0, 640, 480);
-                ctx.fillStyle = '#ffffff';
-                ctx.font = '24px Arial';
-                ctx.fillText('NO CAMERA (DEMO MODE)', 120, 240);
-                ctx.fillText(new Date().toLocaleTimeString(), 240, 280);
-              }
-            }, 1000);
-            stream = canvas.captureStream(30);
-            addWarning('Demo Mode: Using mock video stream because camera is unavailable.');
-          } else {
-            throw err;
+          stream = await navigator.mediaDevices.getUserMedia({
+            video: { width: { ideal: 640 }, height: { ideal: 480 }, frameRate: { ideal: 15 } },
+            audio: false
+          });
+          const camTrack = stream.getVideoTracks()[0];
+          if (!camTrack || camTrack.readyState !== 'live') {
+            throw new Error('Webcam track is not live or delivering video.');
           }
+
+          camTrack.onended = () => {
+            if (isSubmittedRef.current || examStatus !== 'IN_PROGRESS') return;
+            setCameraBlockedMessage('Webcam connection was lost or stopped functioning. You are not allowed to write the exam until your webcam is re-connected.');
+            handleViolation('CAMERA_UNAVAILABLE', 'CRITICAL', 'Webcam was disconnected or stopped functioning during the exam.');
+          };
+        } catch (camErr: any) {
+          console.error('Webcam initialization failed in attempt:', camErr);
+          const errMsg = camErr.name === 'NotAllowedError'
+            ? 'Webcam permission was denied. Camera access is strictly required to write this exam.'
+            : (camErr.message || 'Webcam is not functioning. A working camera is mandatory for proctored examination.');
+          setCameraBlockedMessage(errMsg);
+          initSocket.emit('camera:status', 'FAILED');
+          handleViolation('CAMERA_UNAVAILABLE', 'CRITICAL', 'Webcam is not functioning or permission denied.');
+          return;
         }
         
         streamRef.current = stream;
@@ -982,7 +986,85 @@ function AttemptContent() {
     setShowWarningModal(true);
   }
 
+  const retryWebcam = async () => {
+    setIsRetryingCamera(true);
+    try {
+      const newStream = await navigator.mediaDevices.getUserMedia({
+        video: { width: { ideal: 640 }, height: { ideal: 480 }, frameRate: { ideal: 15 } },
+        audio: false
+      });
+      const camTrack = newStream.getVideoTracks()[0];
+      if (!camTrack || camTrack.readyState !== 'live') {
+        throw new Error('Webcam is not active or delivering video.');
+      }
+
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach(t => {
+          try { t.stop(); } catch (e) {}
+        });
+      }
+
+      streamRef.current = newStream;
+      if (videoRef.current) {
+        videoRef.current.srcObject = newStream;
+      }
+
+      camTrack.onended = () => {
+        if (isSubmittedRef.current || examStatus !== 'IN_PROGRESS') return;
+        setCameraBlockedMessage('Webcam connection was lost or stopped functioning. You are not allowed to write the exam until the camera is re-connected.');
+        handleViolation('CAMERA_UNAVAILABLE', 'CRITICAL', 'Webcam was disconnected or stopped functioning during the exam.');
+      };
+
+      if (socketRef.current) {
+        socketRef.current.emit('camera:status', 'STARTED');
+      }
+
+      if (!cameraSessionId) {
+        const camSession = await startRecording('CAMERA', newStream);
+        if (camSession) setCameraSessionId(camSession);
+      }
+
+      if (!screenStreamRef.current) {
+        try {
+          const screenStream = await navigator.mediaDevices.getDisplayMedia({ video: true });
+          screenStreamRef.current = screenStream;
+          const screenTrack = screenStream.getVideoTracks()[0];
+          if (screenTrack) {
+            screenTrack.onended = () => {
+              if (isSubmittedRef.current || examStatus !== 'IN_PROGRESS') return;
+              handleViolation('SCREEN_SHARE_STOPPED', 'CRITICAL', 'Screen sharing was stopped.');
+            };
+          }
+          const scrSession = await startRecording('SCREEN', screenStream);
+          if (scrSession) setScreenSessionId(scrSession);
+        } catch (scrErr) {
+          console.warn('Screen share skipped during webcam reconnect:', scrErr);
+        }
+      }
+
+      if (!streamsStarted) {
+        setStreamsStarted(true);
+        if (document.fullscreenElement) {
+          isFullscreenReadyRef.current = true;
+          setIsFullscreenReady(true);
+          startExamTimer();
+        }
+      }
+
+      setCameraBlockedMessage(null);
+    } catch (err: any) {
+      console.error('Failed to reconnect webcam:', err);
+      const errMsg = err.name === 'NotAllowedError'
+        ? 'Webcam permission was denied. Please allow camera permissions in your browser.'
+        : (err.message || 'Webcam is not functioning properly.');
+      setCameraBlockedMessage(`Webcam Not Functioning: ${errMsg}. Remote proctoring requires a functioning webcam. You are not allowed to write the exam.`);
+    } finally {
+      setIsRetryingCamera(false);
+    }
+  };
+
   const handleAnswerSelect = (option: string) => {
+    if (cameraBlockedMessage) return;
     const qId = questions[currentQuestionIdx].id;
     setAnswers(prev => ({ ...prev, [qId]: option }));
     
@@ -1635,6 +1717,67 @@ function AttemptContent() {
             <p className="text-[11px] text-slate-400 mt-2 font-medium">
               Please do not close this window while final results are synchronized.
             </p>
+          </div>
+        </div>
+      )}
+
+      {/* Webcam Failure / Disconnection Blocking Modal */}
+      {cameraBlockedMessage && (
+        <div className="fixed inset-0 bg-slate-950/95 backdrop-blur-md z-[250] flex items-center justify-center p-4 animate-in fade-in duration-200">
+          <div className="bg-white rounded-3xl shadow-2xl max-w-lg w-full p-8 text-center border border-rose-200 flex flex-col items-center">
+            <div className="w-20 h-20 bg-rose-100 text-rose-600 rounded-3xl flex items-center justify-center shadow-lg shadow-rose-500/20 mb-5 animate-pulse">
+              <VideoOff className="w-10 h-10" />
+            </div>
+
+            <div className="inline-flex items-center space-x-1.5 px-3.5 py-1 bg-rose-50 border border-rose-200 rounded-full text-rose-700 text-xs font-bold uppercase tracking-wider mb-3">
+              <AlertTriangle className="w-3.5 h-3.5" />
+              <span>Proctoring Requirement</span>
+            </div>
+
+            <h3 className="text-2xl font-black text-slate-900 mb-2">
+              Webcam Not Functioning
+            </h3>
+
+            <p className="text-slate-600 text-sm leading-relaxed mb-5">
+              You are <strong className="text-rose-600 font-bold">not allowed to write or continue this exam</strong> because your webcam is inactive or not functioning. Remote proctoring strictly mandates an active video feed.
+            </p>
+
+            <div className="w-full bg-rose-50/80 border border-rose-200 rounded-2xl p-4 text-left text-xs text-rose-800 font-medium mb-6 space-y-1.5">
+              <div className="font-bold text-rose-900 flex items-center">
+                <AlertTriangle className="w-4 h-4 mr-1.5 text-rose-600" /> Error Details:
+              </div>
+              <p className="break-words text-rose-700">{cameraBlockedMessage}</p>
+              <p className="text-[11px] text-slate-500 pt-1">
+                Ensure your webcam is plugged in, camera permissions are granted in your browser, and no other app is accessing the camera.
+              </p>
+            </div>
+
+            <div className="w-full flex flex-col sm:flex-row gap-3">
+              <button
+                onClick={retryWebcam}
+                disabled={isRetryingCamera}
+                className="flex-1 py-3 px-4 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl transition shadow-md shadow-blue-500/20 flex items-center justify-center space-x-2 disabled:opacity-50"
+              >
+                {isRetryingCamera ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <span>Checking Camera...</span>
+                  </>
+                ) : (
+                  <>
+                    <RefreshCw className="w-4 h-4" />
+                    <span>Reconnect & Retry Webcam</span>
+                  </>
+                )}
+              </button>
+
+              <button
+                onClick={() => router.push('/candidate/dashboard')}
+                className="sm:w-auto px-5 py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl transition text-sm flex items-center justify-center"
+              >
+                Exit Exam
+              </button>
+            </div>
           </div>
         </div>
       )}

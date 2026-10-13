@@ -117,6 +117,11 @@ function WaitingRoomContent() {
         audio: false
       });
 
+      const videoTrack = stream.getVideoTracks()[0];
+      if (!stream.active || !videoTrack || videoTrack.readyState !== 'live') {
+        throw new Error('Webcam is inactive or not functioning.');
+      }
+
       mediaStreamRef.current = stream;
       setMediaStream(stream);
       setDevicesEnabled(true);
@@ -128,39 +133,23 @@ function WaitingRoomContent() {
       }
     } catch (err: any) {
       console.error('Camera error in waiting room:', err);
-      if (err.name === 'NotFoundError' || err.message?.includes('not found') || err.name === 'DevicesNotFoundError') {
-        try {
-          const canvas = document.createElement('canvas');
-          canvas.width = 640;
-          canvas.height = 480;
-          const ctx = canvas.getContext('2d');
-          setInterval(() => {
-            if (ctx) {
-              ctx.fillStyle = '#0f172a';
-              ctx.fillRect(0, 0, 640, 480);
-              ctx.fillStyle = '#10b981';
-              ctx.font = 'bold 26px sans-serif';
-              ctx.textAlign = 'center';
-              ctx.fillText('CAMERA VERIFIED', 320, 220);
-              ctx.fillStyle = '#94a3b8';
-              ctx.font = '16px sans-serif';
-              ctx.fillText('(Demo Stream Active)', 320, 260);
-            }
-          }, 500);
-          const demoStream = canvas.captureStream(30);
-          mediaStreamRef.current = demoStream;
-          setMediaStream(demoStream);
-          setDevicesEnabled(true);
-          return;
-        } catch {
-          // ignore
-        }
+      setDevicesEnabled(false);
+      setMediaStream(null);
+      if (mediaStreamRef.current) {
+        mediaStreamRef.current.getTracks().forEach(t => t.stop());
+        mediaStreamRef.current = null;
       }
-      setStreamError(
-        err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError'
-          ? 'Camera permission denied. Please allow camera access in your browser settings to continue.'
-          : 'Could not access camera. Please check your camera permissions or make sure another app is not using it.'
-      );
+      if (videoRef.current) {
+        videoRef.current.srcObject = null;
+      }
+
+      if (err.name === 'NotFoundError' || err.message?.includes('not found') || err.name === 'DevicesNotFoundError') {
+        setStreamError('Webcam not detected. You are strictly not allowed to write the exam without a connected, working camera.');
+      } else if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError' || err.message?.includes('denied')) {
+        setStreamError('Camera permission denied. You are not allowed to write the exam without granting camera access.');
+      } else {
+        setStreamError(`Webcam error: ${err.message || 'Camera is unavailable or in use by another application. A working camera is strictly required to write the exam.'}`);
+      }
     } finally {
       setVerifying(false);
     }
@@ -288,7 +277,20 @@ function WaitingRoomContent() {
                       </>
                     )}
                   </button>
-                  {streamError && <p className="text-red-500 text-xs mt-3 font-bold text-center max-w-xs">{streamError}</p>}
+                  {streamError && (
+                    <div className="mt-4 p-3.5 bg-rose-50 border border-rose-200 rounded-xl text-left max-w-xs animate-in fade-in">
+                      <p className="text-xs font-bold text-rose-900 flex items-center mb-1">
+                        <AlertTriangle className="w-4 h-4 mr-1 text-rose-600 shrink-0" />
+                        Webcam Verification Failed
+                      </p>
+                      <p className="text-[11px] text-rose-700 leading-relaxed font-medium">
+                        {streamError}
+                      </p>
+                      <p className="text-[10px] text-rose-800 font-bold mt-1.5 uppercase tracking-wide">
+                        Candidate is not allowed to start exam
+                      </p>
+                    </div>
+                  )}
                 </>
               ) : (
                 <div className="w-full flex flex-col items-center">
