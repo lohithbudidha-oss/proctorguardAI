@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState, useMemo } from 'react';
 import Link from 'next/link';
-import { UserCheck, Clock, UserX, User, ArrowLeft, CheckCircle2, Search, X } from 'lucide-react';
+import { UserCheck, Clock, UserX, User, ArrowLeft, CheckCircle2, Search, X, LogOut } from 'lucide-react';
 import api from '@/lib/api';
 
 export default function CandidatesPage() {
@@ -83,6 +83,19 @@ export default function CandidatesPage() {
             <Link href="/admin/exams" className="px-4 py-2 bg-white text-slate-700 border border-slate-200 font-semibold rounded-lg hover:bg-slate-50 transition shadow-xs text-xs">
               Exams
             </Link>
+            <button
+              onClick={() => {
+                if (confirm('Are you sure you want to sign out of the Admin Portal?')) {
+                  localStorage.removeItem('token');
+                  localStorage.removeItem('user');
+                  window.location.href = '/login?role=admin';
+                }
+              }}
+              className="px-3.5 py-2 bg-rose-50 hover:bg-rose-100 text-rose-700 font-semibold rounded-lg border border-rose-200 transition shadow-xs flex items-center text-xs cursor-pointer"
+              title="Sign Out of Admin Portal"
+            >
+              <LogOut className="w-3.5 h-3.5 mr-1" /> Sign Out
+            </button>
           </div>
         </div>
 

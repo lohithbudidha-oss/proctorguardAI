@@ -100,7 +100,7 @@ export default function CandidateExamRecordsPage() {
   const handleLogout = () => {
     localStorage.removeItem('token');
     localStorage.removeItem('user');
-    router.push('/login?role=admin');
+    window.location.href = '/login?role=admin';
   };
 
   const fetchCandidateRecords = () => {
@@ -332,16 +332,16 @@ export default function CandidateExamRecordsPage() {
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-800 flex font-sans selection:bg-blue-500/20">
-      {/* Sidebar - Flows with page so signout slides along with the page at the bottom */}
-      <aside className="w-64 bg-white border-r border-slate-200 flex flex-col hidden md:flex shadow-sm z-20 relative">
-        <div className="p-6 flex items-center space-x-3 border-b border-slate-100">
+      {/* Sidebar - Sticky at left corner, navigating along with page scroll */}
+      <aside className="w-64 bg-white border-r border-slate-200 flex flex-col hidden md:flex shadow-sm z-30 sticky top-0 h-screen shrink-0">
+        <div className="p-6 flex items-center space-x-3 border-b border-slate-100 shrink-0">
           <div className="bg-gradient-to-tr from-blue-600 to-indigo-600 p-2.5 rounded-xl shadow-md shadow-blue-500/20">
             <ShieldAlert className="w-5 h-5 text-white" />
           </div>
           <span className="text-xl font-extrabold text-slate-900 tracking-tight">ProctorGuardAI</span>
         </div>
 
-        <div className="p-4 space-y-1.5">
+        <div className="p-4 space-y-1.5 flex-1 overflow-y-auto">
           <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-3 px-3">Operations</p>
           
           {/* Active Navigation: Exam Candidates */}
@@ -378,31 +378,32 @@ export default function CandidateExamRecordsPage() {
           </div>
         </div>
 
-        {/* Profile & Sign Out - Positioned at bottom of page, sliding along with page scroll */}
-        <div className="mt-auto p-4 border-t border-slate-100 bg-slate-50/50">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-2.5 min-w-0">
-              <div className="w-9 h-9 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center font-bold text-xs border border-blue-200 shrink-0">
-                {adminProfile?.name ? adminProfile.name.substring(0, 2).toUpperCase() : 'AD'}
-              </div>
-              <div className="min-w-0">
-                <p className="text-xs font-bold text-slate-900 truncate">{adminProfile?.name || 'Administrator'}</p>
-                <p className="text-[11px] text-slate-500 font-medium truncate">{adminProfile?.email || 'admin@proctorguard.local'}</p>
-              </div>
+        {/* Profile & Sign Out - Anchored at the left corner, always visible and navigating along with the page */}
+        <div className="p-4 border-t border-slate-100 bg-slate-50/80 shrink-0 space-y-2.5">
+          <div className="flex items-center space-x-2.5 min-w-0">
+            <div className="w-9 h-9 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center font-bold text-xs border border-blue-200 shrink-0 shadow-2xs">
+              {adminProfile?.name ? adminProfile.name.substring(0, 2).toUpperCase() : 'AD'}
             </div>
-            <button 
-              onClick={() => setShowLogoutConfirm(true)} 
-              className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer shrink-0 ml-1 border border-transparent hover:border-rose-100" 
-              title="Sign Out"
-            >
-              <LogOut className="w-4 h-4" />
-            </button>
+            <div className="min-w-0 flex-1">
+              <p className="text-xs font-bold text-slate-900 truncate">{adminProfile?.name || 'Administrator'}</p>
+              <p className="text-[11px] text-slate-500 font-medium truncate">{adminProfile?.email || 'admin@proctorguard.local'}</p>
+            </div>
           </div>
+
+          <button 
+            type="button"
+            onClick={() => setShowLogoutConfirm(true)} 
+            className="w-full flex items-center justify-center space-x-2 px-3 py-2.5 bg-rose-50 hover:bg-rose-100 text-rose-700 hover:text-rose-800 rounded-xl text-xs font-extrabold transition-all border border-rose-200/80 hover:border-rose-300 shadow-2xs cursor-pointer group active:scale-[0.98]" 
+            title="Sign Out of Admin Portal"
+          >
+            <LogOut className="w-4 h-4 text-rose-500 group-hover:text-rose-700 transition-colors" />
+            <span>Sign Out</span>
+          </button>
         </div>
       </aside>
 
       {/* Main Content */}
-      <div className="flex-1 flex flex-col relative overflow-hidden">
+      <div className="flex-1 flex flex-col min-w-0 relative overflow-hidden">
         {/* Soft Background Accents */}
         <div className="absolute top-[-20%] left-[-10%] w-[50%] h-[50%] bg-blue-100/40 blur-[120px] rounded-full pointer-events-none" />
         <div className="absolute bottom-[-20%] right-[-10%] w-[50%] h-[50%] bg-indigo-100/30 blur-[120px] rounded-full pointer-events-none" />

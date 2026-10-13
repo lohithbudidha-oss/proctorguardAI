@@ -17,7 +17,8 @@ import {
   X, 
   Clock, 
   AlertCircle,
-  Search
+  Search,
+  LogOut
 } from 'lucide-react';
 import api from '@/lib/api';
 
@@ -377,6 +378,19 @@ export default function AdminExamsPage() {
               className="px-5 py-2.5 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition shadow-sm flex items-center shadow-blue-600/20 text-sm cursor-pointer"
             >
               <Plus className="w-4 h-4 mr-1.5" /> Create Exam
+            </button>
+            <button
+              onClick={() => {
+                if (confirm('Are you sure you want to sign out of the Admin Portal?')) {
+                  localStorage.removeItem('token');
+                  localStorage.removeItem('user');
+                  window.location.href = '/login?role=admin';
+                }
+              }}
+              className="px-3.5 py-2.5 bg-rose-50 hover:bg-rose-100 text-rose-700 font-semibold rounded-lg border border-rose-200 transition shadow-xs flex items-center text-sm cursor-pointer"
+              title="Sign Out of Admin Portal"
+            >
+              <LogOut className="w-4 h-4 mr-1.5" /> Sign Out
             </button>
           </div>
         </div>

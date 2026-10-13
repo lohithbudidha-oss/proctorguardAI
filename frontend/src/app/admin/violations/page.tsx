@@ -28,7 +28,8 @@ import {
   RefreshCw,
   BarChart3,
   CheckCircle,
-  Activity
+  Activity,
+  LogOut
 } from 'lucide-react';
 import api from '@/lib/api';
 import { getViolationInfo } from '@/lib/violations';
@@ -858,9 +859,23 @@ export default function ViolationQueuePage() {
           </a>
           <button 
             onClick={fetchViolations}
-            className="px-3.5 py-1.5 bg-white hover:bg-slate-50 text-slate-700 rounded-lg text-xs font-bold border border-slate-200 transition shadow-2xs"
+            className="px-3.5 py-1.5 bg-white hover:bg-slate-50 text-slate-700 rounded-lg text-xs font-bold border border-slate-200 transition shadow-2xs cursor-pointer"
           >
             Refresh Queue
+          </button>
+          <button
+            onClick={() => {
+              if (confirm('Are you sure you want to sign out of the Admin Portal?')) {
+                localStorage.removeItem('token');
+                localStorage.removeItem('user');
+                window.location.href = '/login?role=admin';
+              }
+            }}
+            className="px-3 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 rounded-lg text-xs font-bold border border-rose-200 transition flex items-center cursor-pointer ml-1"
+            title="Sign Out of Admin Portal"
+          >
+            <LogOut className="w-3.5 h-3.5 mr-1" />
+            <span className="hidden sm:inline">Sign Out</span>
           </button>
         </div>
       </header>
