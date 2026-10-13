@@ -4,7 +4,7 @@ import React, { useState, Suspense } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import BrandLogo from '@/components/BrandLogo';
-import { ShieldCheck, Mail, Lock, ArrowRight, ArrowLeft, Fingerprint, Activity, Eye, EyeOff, CheckCircle2, AlertCircle } from 'lucide-react';
+import { ShieldCheck, Mail, Lock, ArrowRight, ArrowLeft, Fingerprint, Activity, Eye, EyeOff, CheckCircle2, AlertCircle, Headphones } from 'lucide-react';
 import api from '@/lib/api';
 
 // Comprehensive Emoji Regex matching pictographic symbols, emojis, flags, symbols, and surrogate pairs
@@ -115,7 +115,7 @@ function LoginContent() {
             State-of-the-art examination integrity platform trusted by enterprises worldwide. Verify identities, monitor behavior, and protect your assessments with advanced AI.
           </p>
 
-          <div className="space-y-6">
+          <div className="space-y-4">
             <div className="flex items-center space-x-4 text-slate-300 bg-slate-800/40 p-4 rounded-xl border border-slate-700/50 backdrop-blur-sm">
               <div className="bg-slate-800 p-2 rounded-lg text-blue-400"><Fingerprint className="w-6 h-6"/></div>
               <div>
@@ -130,6 +130,35 @@ function LoginContent() {
                 <p className="text-sm text-slate-400">Real-time behavior analysis and alerts</p>
               </div>
             </div>
+
+            {/* Candidate Hero Feature - Contact Us Help Desk */}
+            {!isAdminLogin && (
+              <Link 
+                href="/support"
+                className="flex items-center justify-between p-4 rounded-xl border border-blue-500/40 bg-gradient-to-r from-blue-950/60 via-slate-900/60 to-indigo-950/60 hover:from-blue-900/70 hover:to-indigo-900/70 text-slate-200 transition-all duration-200 group backdrop-blur-md shadow-lg hover:border-blue-400 hover:shadow-blue-500/10 cursor-pointer"
+                title="Encountering exam setup or login issues? Contact our help desk"
+              >
+                <div className="flex items-center space-x-3.5">
+                  <div className="bg-blue-600/30 border border-blue-500/40 p-2 rounded-lg text-blue-400 group-hover:scale-105 group-hover:bg-blue-600/50 transition-all">
+                    <Headphones className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <div className="flex items-center space-x-2">
+                      <h3 className="font-bold text-white text-sm">Contact Us</h3>
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-wider bg-blue-500/20 text-blue-300 border border-blue-400/40">
+                        Help Desk
+                      </span>
+                    </div>
+                    <p className="text-xs text-slate-400 mt-0.5">
+                      Need help with webcam, login, or exam access? Reach our support team.
+                    </p>
+                  </div>
+                </div>
+                <div className="w-7 h-7 rounded-full bg-blue-500/20 group-hover:bg-blue-500/30 flex items-center justify-center shrink-0 ml-3 transition-colors">
+                  <ArrowRight className="w-3.5 h-3.5 text-blue-400 group-hover:translate-x-0.5 transition-transform" />
+                </div>
+              </Link>
+            )}
           </div>
         </div>
 
@@ -163,9 +192,20 @@ function LoginContent() {
               <span>Administrator Portal</span>
             </div>
           ) : (
-            <div className="inline-flex items-center space-x-1.5 px-3 py-1 bg-blue-50 text-blue-700 border border-blue-200 rounded-full text-xs font-bold mb-3 shadow-xs">
-              <ShieldCheck className="w-3.5 h-3.5 text-blue-600" />
-              <span>Candidate Portal</span>
+            <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
+              <div className="inline-flex items-center space-x-1.5 px-3 py-1 bg-blue-50 text-blue-700 border border-blue-200 rounded-full text-xs font-bold shadow-xs">
+                <ShieldCheck className="w-3.5 h-3.5 text-blue-600" />
+                <span>Candidate Portal</span>
+              </div>
+              <Link 
+                href="/support"
+                className="inline-flex items-center space-x-1.5 px-3 py-1 bg-blue-50 hover:bg-blue-100 text-blue-700 hover:text-blue-800 border border-blue-200 rounded-full text-xs font-bold transition shadow-2xs group cursor-pointer"
+                title="Contact Proctoring Help Desk"
+              >
+                <Headphones className="w-3.5 h-3.5 text-blue-600" />
+                <span>Contact Us</span>
+                <ArrowRight className="w-3 h-3 ml-0.5 group-hover:translate-x-0.5 transition-transform" />
+              </Link>
             </div>
           )}
 
@@ -176,6 +216,27 @@ function LoginContent() {
             {isAdminLogin ? 'Sign in with your administrative credentials' : 'Sign in to access your assigned examinations'}
           </p>
 
+          {/* Mobile Hero Contact Card */}
+          {!isAdminLogin && (
+            <div className="lg:hidden mb-6 p-3 bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-2xl flex items-center justify-between shadow-2xs">
+              <div className="flex items-center space-x-2.5">
+                <div className="p-1.5 bg-blue-600 text-white rounded-lg shadow-xs">
+                  <Headphones className="w-3.5 h-3.5" />
+                </div>
+                <div>
+                  <p className="text-xs font-bold text-slate-900">Need Help or Support?</p>
+                  <p className="text-[11px] text-slate-500">Camera or login issues? Contact our desk</p>
+                </div>
+              </div>
+              <Link
+                href="/support"
+                className="px-2.5 py-1 bg-white hover:bg-slate-50 text-blue-600 font-bold text-xs rounded-lg border border-blue-200 transition shrink-0 shadow-2xs"
+              >
+                Contact Us &rarr;
+              </Link>
+            </div>
+          )}
+
           {searchParams.get('registered') === 'true' && (
             <div className="bg-emerald-50 border border-emerald-200 text-emerald-800 px-4 py-3.5 rounded-xl text-sm font-medium mb-6 flex items-start space-x-2.5 shadow-xs animate-in fade-in">
               <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5" />
@@ -183,6 +244,18 @@ function LoginContent() {
                 <p className="font-bold text-emerald-900">Registration Submitted Successfully!</p>
                 <p className="text-xs text-emerald-700 mt-0.5">
                   Your candidate account has been created and is currently awaiting administrator approval. You will be able to sign in once approved by an administrator in the admin portal.
+                </p>
+              </div>
+            </div>
+          )}
+
+          {searchParams.get('ticketSubmitted') === 'true' && (
+            <div className="bg-emerald-50 border border-emerald-200 text-emerald-800 px-4 py-3.5 rounded-xl text-sm font-medium mb-6 flex items-start space-x-2.5 shadow-xs animate-in fade-in">
+              <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5" />
+              <div>
+                <p className="font-bold text-emerald-900">Support Inquiry Received!</p>
+                <p className="text-xs text-emerald-700 mt-0.5">
+                  Our proctoring support desk has received your response. Sign in with your candidate email to access your examinations and dashboard.
                 </p>
               </div>
             </div>

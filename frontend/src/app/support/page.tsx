@@ -1,7 +1,8 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { 
   ShieldCheck, 
   HelpCircle, 
@@ -25,6 +26,7 @@ import PublicFooter from '@/components/PublicFooter';
 import api from '@/lib/api';
 
 export default function SupportPage() {
+  const router = useRouter();
   const [activeFaq, setActiveFaq] = useState<number | null>(0);
   const [formSubmitted, setFormSubmitted] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -37,6 +39,23 @@ export default function SupportPage() {
     category: 'TECHNICAL',
     message: ''
   });
+
+  // Pre-fill candidate information if logged in or stored
+  useEffect(() => {
+    try {
+      if (typeof window !== 'undefined') {
+        const stored = localStorage.getItem('user');
+        if (stored) {
+          const u = JSON.parse(stored);
+          setFormData(prev => ({
+            ...prev,
+            name: prev.name || u.name || '',
+            email: prev.email || u.email || ''
+          }));
+        }
+      }
+    } catch (e) {}
+  }, []);
 
   const DESCRIPTION_MAX_LENGTH = 500;
 
@@ -167,6 +186,10 @@ export default function SupportPage() {
         message: trimmedMessage
       });
       setFormSubmitted(true);
+      // Automatically navigate candidate to their dashboard
+      setTimeout(() => {
+        router.push('/candidate/dashboard?ticketSubmitted=true');
+      }, 1800);
     } catch (err: any) {
       console.error('Failed to submit support ticket', err);
       setSubmitError(err?.response?.data?.message || 'Failed to submit support inquiry. Please check your network and try again.');
@@ -280,21 +303,25 @@ export default function SupportPage() {
                 </p>
 
                 {formSubmitted ? (
-                  <div className="p-6 bg-emerald-50 border border-emerald-200 rounded-xl text-center">
-                    <CheckCircle2 className="w-10 h-10 text-emerald-600 mx-auto mb-2" />
-                    <h4 className="font-bold text-emerald-900 text-sm">Message Sent Successfully</h4>
-                    <p className="text-xs text-emerald-700 mt-1">
-                      Our proctoring support desk has received your inquiry. We will contact you at {formData.email}.
+                  <div className="p-6 bg-emerald-50 border border-emerald-200 rounded-2xl text-center animate-in fade-in zoom-in-95 duration-200">
+                    <CheckCircle2 className="w-12 h-12 text-emerald-600 mx-auto mb-3" />
+                    <h4 className="font-extrabold text-emerald-900 text-base">Inquiry Submitted Successfully!</h4>
+                    <p className="text-xs text-emerald-700 mt-1 max-w-sm mx-auto leading-relaxed">
+                      Our proctoring support desk has received your response. We will contact you at <span className="font-bold underline">{formData.email}</span>.
                     </p>
-                    <button
-                      onClick={() => {
-                        setFormSubmitted(false);
-                        setFormData({ name: '', email: '', category: 'TECHNICAL', message: '' });
-                      }}
-                      className="mt-4 text-xs font-bold text-emerald-800 underline hover:text-emerald-950"
-                    >
-                      Send another message
-                    </button>
+                    <div className="mt-5 pt-3.5 border-t border-emerald-200/80 flex flex-col items-center justify-center gap-2">
+                      <p className="text-[11px] text-emerald-800 font-semibold flex items-center">
+                        <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin text-emerald-600" />
+                        Navigating to Candidate Dashboard...
+                      </p>
+                      <button
+                        type="button"
+                        onClick={() => router.push('/candidate/dashboard?ticketSubmitted=true')}
+                        className="mt-1 w-full px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition flex items-center justify-center cursor-pointer shadow-xs active:scale-95"
+                      >
+                        Go to Candidate Dashboard Now &rarr;
+                      </button>
+                    </div>
                   </div>
                 ) : (
                   <form onSubmit={handleSubmit} className="space-y-4">

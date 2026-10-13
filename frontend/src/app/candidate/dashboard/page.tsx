@@ -39,12 +39,23 @@ export default function CandidateDashboard() {
     isOpen: boolean;
     examTitle: string;
   } | null>(null);
+  const [showTicketSubmittedAlert, setShowTicketSubmittedAlert] = useState(false);
 
   useEffect(() => {
     // Check if candidate just submitted an exam
     try {
       const searchParamsObj = new URLSearchParams(window.location.search);
       const isSubmitted = searchParamsObj.get('submitted') === 'true';
+      const isTicketSubmitted = searchParamsObj.get('ticketSubmitted') === 'true';
+      if (isTicketSubmitted) {
+        setShowTicketSubmittedAlert(true);
+        try {
+          const url = new URL(window.location.href);
+          url.searchParams.delete('ticketSubmitted');
+          window.history.replaceState({}, '', url.pathname);
+        } catch (e) {}
+      }
+
       const storedStr = sessionStorage.getItem('just_submitted_exam');
       let storedInfo: any = null;
       if (storedStr) {
@@ -146,6 +157,11 @@ export default function CandidateDashboard() {
     // Check auth token
     const token = localStorage.getItem('token');
     if (!token) {
+      const searchParamsObj = new URLSearchParams(window.location.search);
+      if (searchParamsObj.get('ticketSubmitted') === 'true') {
+        router.push('/login?ticketSubmitted=true');
+        return;
+      }
       router.push('/login');
       return;
     }
@@ -322,6 +338,29 @@ export default function CandidateDashboard() {
 
       {/* Main Dashboard Area */}
       <main className="flex-1 max-w-7xl mx-auto w-full px-6 py-12">
+        {showTicketSubmittedAlert && (
+          <div className="bg-emerald-50 border border-emerald-200 text-emerald-800 p-4 rounded-2xl text-sm font-medium mb-8 flex items-center justify-between shadow-xs animate-in fade-in duration-200">
+            <div className="flex items-center space-x-3.5">
+              <div className="p-2 bg-emerald-600 text-white rounded-xl shadow-xs shrink-0">
+                <CheckCircle2 className="w-5 h-5" />
+              </div>
+              <div>
+                <p className="font-extrabold text-emerald-900 text-sm">Support Response Submitted Successfully!</p>
+                <p className="text-xs text-emerald-700 mt-0.5">
+                  Our proctoring support desk has received your inquiry. We will review your response and contact you promptly.
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={() => setShowTicketSubmittedAlert(false)}
+              className="text-emerald-700 hover:text-emerald-950 p-1.5 rounded-xl hover:bg-emerald-100/70 transition cursor-pointer shrink-0 ml-3"
+              title="Dismiss"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        )}
+
         <div className="mb-8 flex flex-col md:flex-row md:items-end justify-between gap-4">
           <div>
             <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight">Welcome back!</h1>
