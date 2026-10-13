@@ -105,6 +105,15 @@ export default function CandidateExamRecordsPage() {
   };
 
   const fetchCandidateRecords = () => {
+    let cachedEvidence: any[] = [];
+    if (typeof window !== 'undefined') {
+      try {
+        cachedEvidence = JSON.parse(localStorage.getItem('pg_violation_evidence') || '[]');
+      } catch (e) {
+        cachedEvidence = [];
+      }
+    }
+
     api.get('/admin/live').then(res => {
       const records: CandidateExamRecord[] = (res.data.candidates || []).map((cand: any) => ({
         id: cand.candidateId || cand.id,
@@ -129,13 +138,10 @@ export default function CandidateExamRecordsPage() {
         riskScore: cand.riskScore ?? 0,
         violations: (cand.violations || []).map((v: any) => {
           let img = v.screenshot || v.snapshotImage || v.image;
-          if (!img && typeof window !== 'undefined') {
-            try {
-              const cached = JSON.parse(localStorage.getItem('pg_violation_evidence') || '[]');
-              const match = cached.find((c: any) => c.attemptId === cand.attemptId && c.type === v.type) ||
-                            cached.find((c: any) => c.type === v.type);
-              if (match?.screenshot) img = match.screenshot;
-            } catch(e) {}
+          if (!img && cachedEvidence.length > 0) {
+            const match = cachedEvidence.find((c: any) => c.attemptId === cand.attemptId && c.type === v.type) ||
+                          cachedEvidence.find((c: any) => c.type === v.type);
+            if (match?.screenshot) img = match.screenshot;
           }
           return {
             ...v,

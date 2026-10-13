@@ -54,4 +54,9 @@ const AttemptSchema: Schema = new Schema({
   driveFolderUrl: { type: String }
 }, { timestamps: true });
 
+AttemptSchema.index({ candidateId: 1, examId: 1 });
+AttemptSchema.index({ assignmentId: 1 });
+AttemptSchema.index({ status: 1 });
+AttemptSchema.index({ updatedAt: -1, createdAt: -1 });
+
 export default mongoose.model<IAttempt>('Attempt', AttemptSchema);

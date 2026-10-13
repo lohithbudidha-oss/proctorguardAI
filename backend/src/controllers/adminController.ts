@@ -4,7 +4,7 @@ import Attempt, { AttemptStatus } from '../models/Attempt';
 
 export const getCandidates = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const candidates = await User.find({ role: Role.CANDIDATE }).select('-password');
+    const candidates = await User.find({ role: Role.CANDIDATE }).select('-password').lean();
     res.json({ success: true, candidates });
   } catch (err) {
     next(err);
@@ -50,68 +50,78 @@ export const getLiveCandidates = async (req: Request, res: Response, next: NextF
     const attempts = await Attempt.find()
       .populate('candidateId', 'name email')
       .populate('examId', 'title duration scoringRules')
-      .sort({ updatedAt: -1, createdAt: -1 });
+      .sort({ updatedAt: -1, createdAt: -1 })
+      .lean();
 
-    const attemptsData = await Promise.all(
-      attempts
-        .filter((doc: any) => doc.candidateId && doc.examId)
-        .map(async (doc: any) => {
-          const candidate = doc.candidateId;
-          const exam = doc.examId;
-          let result = await Result.findOne({ attemptId: doc._id });
+    const validAttempts = attempts.filter((doc: any) => doc.candidateId && doc.examId);
+    const attemptIds = validAttempts.map((doc: any) => doc._id);
 
-          // Auto-evaluate any completed or submitted attempt that doesn't have a result yet or had 0 correct despite attempting
-          const isFinished = ['SUBMITTED', 'AUTO_SUBMITTED', 'FORCE_SUBMITTED', 'COMPLETED', 'TERMINATED'].includes(doc.status);
-          if (isFinished && (!result || (result.attempted > 0 && result.correct === 0))) {
-            try {
-              const { evaluateAttempt } = require('./attemptController');
-              result = await evaluateAttempt(doc._id.toString(), candidate._id.toString());
-            } catch (evalErr) {
-              console.warn('[Admin] Auto-evaluate attempt error:', evalErr);
-            }
-          }
+    // Batch fetch results in ONE single query
+    const results = await Result.find({ attemptId: { $in: attemptIds } }).lean();
+    const resultMap = new Map<string, any>(results.map((r: any) => [r.attemptId.toString(), r]));
 
-          const violations = await ViolationEvent.find({ attemptId: doc._id }).sort({ detectedAt: -1 });
+    // Batch fetch violations in ONE single query
+    const violations = await ViolationEvent.find({ attemptId: { $in: attemptIds } })
+      .select('attemptId type severity detectedAt description actionTaken screenshot snapshotImage')
+      .sort({ detectedAt: -1 })
+      .lean();
 
-          const riskScore = violations.reduce((acc, v) => acc + (v.severity === 'CRITICAL' ? 40 : v.severity === 'HIGH' ? 20 : 5), 0);
+    const violationMap = new Map<string, any[]>();
+    for (const v of violations) {
+      const attIdStr = v.attemptId.toString();
+      if (!violationMap.has(attIdStr)) {
+        violationMap.set(attIdStr, []);
+      }
+      violationMap.get(attIdStr)!.push({
+        id: v._id,
+        type: v.type,
+        severity: v.severity,
+        detectedAt: v.detectedAt,
+        description: v.description || '',
+        screenshot: v.screenshot || v.snapshotImage || '',
+        snapshotImage: v.snapshotImage || v.screenshot || '',
+        actionTaken: v.actionTaken
+      });
+    }
 
-          return {
-            attemptId: doc._id,
-            candidateId: candidate._id,
-            name: candidate.name,
-            email: candidate.email,
-            examId: exam._id,
-            examName: exam.title,
-            status: doc.status,
-            startedAt: doc.startedAt,
-            submittedAt: doc.submittedAt,
-            expiresAt: doc.expiresAt,
-            score: result ? result.obtainedMarks : doc.score ?? 0,
-            totalMarks: result ? result.totalMarks : 0,
-            percentage: result ? result.percentage : doc.percentage ?? 0,
-            resultStatus: result ? (result.pass ? 'PASS' : 'FAIL') : doc.resultStatus ?? 'PENDING',
-            totalQuestions: result ? result.totalQuestions : 0,
-            attempted: result ? result.attempted : 0,
-            correct: result ? result.correct : 0,
-            wrong: result ? result.wrong : 0,
-            unanswered: result ? result.unanswered : 0,
-            timeTaken: result ? result.timeTaken : 0,
-            riskScore: Math.min(100, result?.riskScore ?? riskScore),
-            violations: violations.map(v => ({
-              id: v._id,
-              type: v.type,
-              severity: v.severity,
-              detectedAt: v.detectedAt,
-              description: v.description || '',
-              screenshot: v.screenshot || v.snapshotImage || '',
-              snapshotImage: v.snapshotImage || v.screenshot || '',
-              actionTaken: v.actionTaken
-            })),
-            camera: 'STARTED',
-            screen: 'STARTED'
-          };
-        })
-    );
+    const attemptsData = validAttempts.map((doc: any) => {
+      const candidate = doc.candidateId;
+      const exam = doc.examId;
+      const attIdStr = doc._id.toString();
+      const result = resultMap.get(attIdStr);
+      const attemptViolations = violationMap.get(attIdStr) || [];
+      const riskScore = attemptViolations.reduce(
+        (acc: number, v: any) => acc + (v.severity === 'CRITICAL' ? 40 : v.severity === 'HIGH' ? 20 : 5),
+        0
+      );
+
+      return {
+        attemptId: doc._id,
+        candidateId: candidate._id,
+        name: candidate.name,
+        email: candidate.email,
+        examId: exam._id,
+        examName: exam.title,
+        status: doc.status,
+        startedAt: doc.startedAt,
+        submittedAt: doc.submittedAt,
+        expiresAt: doc.expiresAt,
+        score: result ? result.obtainedMarks : doc.score ?? 0,
+        totalMarks: result ? result.totalMarks : 0,
+        percentage: result ? result.percentage : doc.percentage ?? 0,
+        resultStatus: result ? (result.pass ? 'PASS' : 'FAIL') : doc.resultStatus ?? 'PENDING',
+        totalQuestions: result ? result.totalQuestions : 0,
+        attempted: result ? result.attempted : 0,
+        correct: result ? result.correct : 0,
+        wrong: result ? result.wrong : 0,
+        unanswered: result ? result.unanswered : 0,
+        timeTaken: result ? result.timeTaken : 0,
+        riskScore: Math.min(100, result?.riskScore ?? riskScore),
+        violations: attemptViolations,
+        camera: 'STARTED',
+        screen: 'STARTED'
+      };
+    });
 
     res.status(200).json({ success: true, candidates: attemptsData });
   } catch (err) {
@@ -176,7 +186,8 @@ export const getViolations = async (req: Request, res: Response, next: NextFunct
       .populate('candidateId', 'name email')
       .populate({ path: 'attemptId', populate: { path: 'examId', select: 'title description duration totalMarks passPercentage' } })
       .sort({ detectedAt: -1 })
-      .limit(200);
+      .limit(200)
+      .lean();
 
     // Fetch all exams/attempts written by the flagged candidates
     const candidateIds = Array.from(
@@ -191,7 +202,8 @@ export const getViolations = async (req: Request, res: Response, next: NextFunct
     if (candidateIds.length > 0) {
       candidateAttempts = await Attempt.find({ candidateId: { $in: candidateIds } })
         .populate('examId', 'title description duration totalMarks passPercentage')
-        .sort({ createdAt: -1 });
+        .sort({ createdAt: -1 })
+        .lean();
     }
       
     res.status(200).json({ success: true, violations, candidateAttempts });
@@ -206,7 +218,8 @@ export const getResults = async (req: Request, res: Response, next: NextFunction
       .populate('candidateId', 'name email status')
       .populate('examId', 'title duration passingPercentage passMark')
       .populate('attemptId', 'startedAt submittedAt status attemptNumber durationSeconds expiresAt')
-      .sort({ createdAt: -1 });
+      .sort({ createdAt: -1 })
+      .lean();
     res.status(200).json({ success: true, results });
   } catch (err) {
     next(err);

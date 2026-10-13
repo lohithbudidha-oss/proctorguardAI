@@ -34,4 +34,6 @@ const UserSchema: Schema = new Schema({
   emailVerifiedAt: { type: Date },
 }, { timestamps: true });
 
+UserSchema.index({ role: 1 });
+
 export default mongoose.model<IUser>('User', UserSchema);

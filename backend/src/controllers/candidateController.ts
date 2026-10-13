@@ -6,16 +6,26 @@ import Exam from '../models/Exam';
 export const getAssignedExams = async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     const candidateId = req.user?.userId;
-    const assignments = await Assignment.find({ candidateId }).populate('examId');
+    const assignments = await Assignment.find({ candidateId }).populate('examId').lean();
+
+    // Batch query: 1 query for all results of this candidate
+    const results = await Result.find({ candidateId }).sort({ createdAt: -1 }).lean();
+    const resultMap = new Map<string, any>();
+    for (const r of results) {
+      const examIdStr = r.examId ? r.examId.toString() : '';
+      if (!resultMap.has(examIdStr)) {
+        resultMap.set(examIdStr, r);
+      }
+    }
     
-    const formattedExams = await Promise.all(assignments.map(async (a) => {
+    const formattedExams = assignments.map((a: any) => {
       const exam = a.examId as any;
       if (!exam) return null;
       
       let resultStatus = 'NONE';
       let attemptId = null;
       if (a.status === 'COMPLETED') {
-        const result = await Result.findOne({ examId: exam._id, candidateId }).sort({ createdAt: -1 });
+        const result = resultMap.get(exam._id.toString());
         if (result) {
           resultStatus = result.status;
           attemptId = result.attemptId;
@@ -31,9 +41,9 @@ export const getAssignedExams = async (req: AuthRequest, res: Response, next: Ne
         resultStatus,
         attemptId
       };
-    }));
+    }).filter(Boolean);
 
-    res.status(200).json({ success: true, exams: formattedExams.filter(Boolean) });
+    res.status(200).json({ success: true, exams: formattedExams });
   } catch (err) {
     next(err);
   }

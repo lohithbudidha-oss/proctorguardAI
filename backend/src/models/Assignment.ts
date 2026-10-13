@@ -25,4 +25,7 @@ const AssignmentSchema: Schema = new Schema({
   status: { type: String, enum: Object.values(AssignmentStatus), default: AssignmentStatus.PENDING }
 }, { timestamps: true });
 
+AssignmentSchema.index({ candidateId: 1, examId: 1 });
+AssignmentSchema.index({ examId: 1 });
+
 export default mongoose.model<IAssignment>('Assignment', AssignmentSchema);

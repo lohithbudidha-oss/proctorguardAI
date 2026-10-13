@@ -48,4 +48,6 @@ const QuestionSchema: Schema = new Schema({
   status: { type: String, enum: ['ACTIVE', 'ARCHIVED'], default: 'ACTIVE' }
 }, { timestamps: true });
 
+QuestionSchema.index({ examId: 1 });
+
 export default mongoose.model<IQuestion>('Question', QuestionSchema);

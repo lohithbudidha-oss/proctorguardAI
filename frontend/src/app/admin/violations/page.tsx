@@ -390,7 +390,7 @@ export default function ViolationQueuePage() {
       const candIdStr = (
         typeof group.candidateId === 'object' && group.candidateId !== null
           ? ((group.candidateId as any)._id || (group.candidateId as any).id)?.toString()
-          : (group.candidateId ? group.candidateId.toString() : '')
+          : (group.candidateId ? String(group.candidateId) : '')
       ) || (typeof group.key === 'string' ? group.key : '');
       const candEmailStr = group.candidateEmail?.toLowerCase().trim();
 
@@ -445,7 +445,7 @@ export default function ViolationQueuePage() {
         let existingEx: CandidateExamSummary | undefined = undefined;
         if (vAttemptId && examMap.has(vAttemptId)) {
           existingEx = examMap.get(vAttemptId);
-          if (vStatus && (!existingEx.attemptStatus || existingEx.attemptStatus === 'IN_PROGRESS' || vStatus === 'TERMINATED')) {
+          if (existingEx && vStatus && (!existingEx.attemptStatus || existingEx.attemptStatus === 'IN_PROGRESS' || vStatus === 'TERMINATED')) {
             existingEx.attemptStatus = vStatus;
           }
         } else if (vAttemptId) {
@@ -490,16 +490,18 @@ export default function ViolationQueuePage() {
           }
         }
 
-        existingEx.violations.push(v);
-        existingEx.totalViolations += 1;
-        if (v.severity === 'CRITICAL') existingEx.criticalCount += 1;
-        if (v.severity === 'HIGH') existingEx.highCount += 1;
-        if (v.severity === 'MEDIUM') existingEx.mediumCount += 1;
-        if (v.severity === 'LOW') existingEx.lowCount += 1;
-        if (v.screenshot) {
-          existingEx.proofCount += 1;
-          if (!existingEx.latestScreenshot) {
-            existingEx.latestScreenshot = v.screenshot;
+        if (existingEx) {
+          existingEx.violations.push(v);
+          existingEx.totalViolations += 1;
+          if (v.severity === 'CRITICAL') existingEx.criticalCount += 1;
+          if (v.severity === 'HIGH') existingEx.highCount += 1;
+          if (v.severity === 'MEDIUM') existingEx.mediumCount += 1;
+          if (v.severity === 'LOW') existingEx.lowCount += 1;
+          if (v.screenshot) {
+            existingEx.proofCount += 1;
+            if (!existingEx.latestScreenshot) {
+              existingEx.latestScreenshot = v.screenshot;
+            }
           }
         }
       });

@@ -95,23 +95,22 @@ export default function CandidateDashboard() {
       router.push('/login');
       return;
     }
-    // Defer state updates out of render cycle to avoid cascading renders
-    const t = setTimeout(() => {
-      setLoading(false);
-      setCurrentTime(new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' }));
-    }, 0);
-
-    api.get('/candidate/exams').then((res: { data: { exams?: { id: string; title: string; duration: number; status: string; scheduledFor: string; resultStatus?: string; attemptId?: string }[] } }) => {
-      const fetchedExams = res.data?.exams || [];
-      setExams(fetchedExams);
-    }).catch(err => console.error('Error fetching exams:', err));
+    setCurrentTime(new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' }));
 
     try {
       const u = localStorage.getItem('user');
       if (u) setCurrentUser(JSON.parse(u));
     } catch (e) {}
 
-    return () => clearTimeout(t);
+    api.get('/candidate/exams')
+      .then((res: { data: { exams?: { id: string; title: string; duration: number; status: string; scheduledFor: string; resultStatus?: string; attemptId?: string }[] } }) => {
+        const fetchedExams = res.data?.exams || [];
+        setExams(fetchedExams);
+      })
+      .catch(err => console.error('Error fetching exams:', err))
+      .finally(() => {
+        setLoading(false);
+      });
   }, [router]);
 
   useEffect(() => {

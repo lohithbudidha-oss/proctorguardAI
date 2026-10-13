@@ -83,14 +83,16 @@ export const getAttempt = async (req: AuthRequest, res: Response, next: NextFunc
     const { attemptId } = req.params;
     const candidateId = req.user?.userId;
 
-    const attempt = await Attempt.findOne({ _id: attemptId, candidateId });
+    const attempt = await Attempt.findOne({ _id: attemptId, candidateId }).lean();
     if (!attempt) return res.status(404).json({ success: false, message: 'Attempt not found' });
 
-    const exam = await Exam.findById(attempt.examId);
-    if (!exam) return res.status(404).json({ success: false, message: 'Exam not found' });
+    const [exam, questions, answers] = await Promise.all([
+      Exam.findById(attempt.examId).lean(),
+      Question.find({ examId: attempt.examId }).select('-correctAnswer').lean(),
+      Answer.find({ attemptId }).lean()
+    ]);
 
-    const questions = await Question.find({ examId: attempt.examId }).select('-correctAnswer');
-    const answers = await Answer.find({ attemptId });
+    if (!exam) return res.status(404).json({ success: false, message: 'Exam not found' });
 
     res.status(200).json({
       success: true,

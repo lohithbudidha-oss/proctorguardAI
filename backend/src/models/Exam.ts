@@ -67,4 +67,7 @@ const ExamSchema: Schema = new Schema({
   version: { type: Number, default: 1 }
 }, { timestamps: true });
 
+ExamSchema.index({ status: 1 });
+ExamSchema.index({ createdAt: -1 });
+
 export default mongoose.model<IExam>('Exam', ExamSchema);

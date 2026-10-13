@@ -45,4 +45,8 @@ const ResultSchema: Schema = new Schema({
   driveFolderUrl: { type: String }
 }, { timestamps: true });
 
+ResultSchema.index({ attemptId: 1 });
+ResultSchema.index({ candidateId: 1, examId: 1 });
+ResultSchema.index({ createdAt: -1 });
+
 export default mongoose.model<IResult>('Result', ResultSchema);

@@ -85,4 +85,8 @@ const ViolationEventSchema: Schema = new Schema({
   driveFolderUrl: { type: String }
 }, { timestamps: true, strict: false });
 
+ViolationEventSchema.index({ attemptId: 1, detectedAt: -1 });
+ViolationEventSchema.index({ candidateId: 1, detectedAt: -1 });
+ViolationEventSchema.index({ detectedAt: -1 });
+
 export default mongoose.model<IViolationEvent>('ViolationEvent', ViolationEventSchema);

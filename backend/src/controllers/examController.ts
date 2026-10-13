@@ -62,8 +62,8 @@ export const createExam = async (req: Request, res: Response, next: NextFunction
 
 export const getExams = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const exams = await Exam.find().sort({ createdAt: -1 });
-    console.log(`[getExams] Retrieved ${exams.length} exams. IDs:`, exams.map(e => e._id.toString()));
+    const exams = await Exam.find().sort({ createdAt: -1 }).lean();
+    console.log(`[getExams] Retrieved ${exams.length} exams. IDs:`, exams.map((e: any) => e._id.toString()));
     res.status(200).json({ success: true, exams });
   } catch (err) {
     next(err);
@@ -73,7 +73,7 @@ export const getExams = async (req: Request, res: Response, next: NextFunction) 
 export const getExamById = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { id } = req.params;
-    const exam = await Exam.findById(id);
+    const exam = await Exam.findById(id).lean();
     if (!exam) return res.status(404).json({ success: false, message: 'Exam not found' });
     res.status(200).json({ success: true, exam });
   } catch (err) {
