@@ -8,6 +8,7 @@ import {
   Plus, 
   Settings, 
   Users, 
+  UserCheck,
   MonitorPlay, 
   FileText, 
   CheckCircle, 
@@ -121,6 +122,7 @@ export default function AdminExamsPage() {
   const [editInstructions, setEditInstructions] = useState('');
   const [editErrors, setEditErrors] = useState<{ title?: string; description?: string; instructions?: string }>({});
   const [isSavingEdit, setIsSavingEdit] = useState(false);
+  const [pendingApprovalsCount, setPendingApprovalsCount] = useState<number>(0);
 
   const fetchExams = () => {
     api.get('/admin/exams')
@@ -132,6 +134,17 @@ export default function AdminExamsPage() {
         console.error('Failed to fetch exams', err);
         setLoading(false);
       });
+
+    api.get('/admin/candidates')
+      .then(res => {
+        const cands = res.data.candidates || [];
+        const pending = cands.filter((c: any) => {
+          const s = (c.status || '').toUpperCase();
+          return s === 'PENDING_VERIFICATION' || s === 'PENDING';
+        }).length;
+        setPendingApprovalsCount(pending);
+      })
+      .catch(() => {});
   };
 
   useEffect(() => {
@@ -371,8 +384,17 @@ export default function AdminExamsPage() {
             <Link href="/admin/violations" className="px-4 py-2.5 bg-rose-50 text-rose-700 border border-rose-200 font-semibold rounded-lg hover:bg-rose-100 transition shadow-xs text-sm">
               Violations
             </Link>
-            <Link href="/admin/candidates" className="px-4 py-2.5 bg-white text-slate-700 border border-slate-200 font-semibold rounded-lg hover:bg-slate-50 transition shadow-xs text-sm flex items-center">
-              <Users className="w-4 h-4 mr-1.5 text-slate-500" /> Candidates
+            <Link 
+              href="/admin/candidates?filter=pending" 
+              className="px-4 py-2.5 bg-amber-50 text-amber-800 border border-amber-200 font-semibold rounded-lg hover:bg-amber-100 transition shadow-xs text-sm flex items-center"
+              title="Candidate Approvals"
+            >
+              <UserCheck className="w-4 h-4 mr-1.5 text-amber-600" /> Candidate Approvals
+              {pendingApprovalsCount > 0 && (
+                <span className="ml-1.5 px-1.5 py-0.5 bg-amber-600 text-white rounded-full text-xs font-bold leading-none">
+                  {pendingApprovalsCount}
+                </span>
+              )}
             </Link>
             <button 
               onClick={handleOpenCreateModal}

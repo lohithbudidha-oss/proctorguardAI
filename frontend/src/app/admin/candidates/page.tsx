@@ -1,8 +1,8 @@
 'use client';
 
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useEffect, useState, useMemo, Suspense } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { 
   UserCheck, 
   Clock, 
@@ -32,14 +32,30 @@ interface CandidateUser {
   createdAt?: string;
 }
 
-export default function CandidatesPage() {
+function CandidatesContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const filterParam = searchParams.get('filter')?.toUpperCase() || searchParams.get('status')?.toUpperCase();
+  const isInitialPending = filterParam === 'PENDING' || searchParams.get('tab') === 'approvals';
+
   const [candidates, setCandidates] = useState<CandidateUser[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
-  const [statusFilter, setStatusFilter] = useState<'ALL' | 'APPROVED' | 'PENDING'>('ALL');
+  const [statusFilter, setStatusFilter] = useState<'ALL' | 'APPROVED' | 'PENDING'>(
+    isInitialPending ? 'PENDING' : 'ALL'
+  );
   const [approvingId, setApprovingId] = useState<string | null>(null);
   const [approvalToast, setApprovalToast] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (filterParam === 'PENDING' || searchParams.get('tab') === 'approvals') {
+      setStatusFilter('PENDING');
+    } else if (filterParam === 'APPROVED') {
+      setStatusFilter('APPROVED');
+    } else if (filterParam === 'ALL') {
+      setStatusFilter('ALL');
+    }
+  }, [filterParam, searchParams]);
 
   const fetchCandidates = () => {
     setLoading(true);
@@ -361,5 +377,17 @@ export default function CandidatesPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function CandidatesPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+        <div className="w-8 h-8 border-3 border-blue-600/30 border-t-blue-600 rounded-full animate-spin" />
+      </div>
+    }>
+      <CandidatesContent />
+    </Suspense>
   );
 }
