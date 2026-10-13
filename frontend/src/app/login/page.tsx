@@ -23,17 +23,31 @@ function LoginContent() {
     setError('');
 
     const normalized = email.trim().toLowerCase();
-    const isAdminCred = normalized === 'admin@proctorguard.local';
 
-    if (!isAdminLogin && !isAdminCred && !/^[a-zA-Z0-9._%+-]+@gmail\.com$/i.test(normalized)) {
-      setError('Only @gmail.com email addresses are accepted (e.g. user@gmail.com).');
-      return;
+    if (isAdminLogin) {
+      if (normalized !== 'admin@proctorguard.local') {
+        setError('Admin Portal accepts administrator credentials only (Email: admin@proctorguard.local). Candidate credentials cannot be used here.');
+        return;
+      }
+    } else {
+      if (normalized === 'admin@proctorguard.local') {
+        setError('Administrator credentials cannot be used for candidate login. Please use the Administrator Sign In portal.');
+        return;
+      }
+      if (!/^[a-zA-Z0-9._%+-]+@gmail\.com$/i.test(normalized)) {
+        setError('Candidate login accepts candidate @gmail.com email addresses only (e.g. user@gmail.com).');
+        return;
+      }
     }
 
     setLoading(true);
 
     try {
-      const res = await api.post('/auth/login', { email, password });
+      const res = await api.post('/auth/login', { 
+        email: normalized, 
+        password,
+        portalRole: isAdminLogin ? 'ADMIN' : 'CANDIDATE'
+      });
       const { token, user } = res.data;
       
       localStorage.setItem('token', token);
@@ -121,18 +135,23 @@ function LoginContent() {
             <span className="text-2xl font-bold text-slate-900 tracking-tight">ProctorGuardAI</span>
           </div>
 
-          {isAdminLogin && (
+          {isAdminLogin ? (
+            <div className="inline-flex items-center space-x-1.5 px-3 py-1 bg-amber-50 text-amber-800 border border-amber-200 rounded-full text-xs font-bold mb-3 shadow-xs">
+              <Lock className="w-3.5 h-3.5 text-amber-600" />
+              <span>Administrator Portal</span>
+            </div>
+          ) : (
             <div className="inline-flex items-center space-x-1.5 px-3 py-1 bg-blue-50 text-blue-700 border border-blue-200 rounded-full text-xs font-bold mb-3 shadow-xs">
-              <Lock className="w-3.5 h-3.5 text-blue-600" />
-              <span>Admin & Proctor Portal</span>
+              <ShieldCheck className="w-3.5 h-3.5 text-blue-600" />
+              <span>Candidate Portal</span>
             </div>
           )}
 
           <h2 className="text-3xl font-bold text-slate-900 mb-2">
-            {isAdminLogin ? 'Admin Sign In' : 'Welcome back'}
+            {isAdminLogin ? 'Administrator Sign In' : 'Candidate Sign In'}
           </h2>
           <p className="text-slate-500 mb-8 font-medium">
-            {isAdminLogin ? 'Sign in with your administrative credentials' : 'Sign in to your account to continue'}
+            {isAdminLogin ? 'Sign in with your administrative credentials' : 'Sign in to access your assigned examinations'}
           </p>
 
           {searchParams.get('registered') === 'true' && (
@@ -155,7 +174,18 @@ function LoginContent() {
             )}
             
             <div className="space-y-1">
-              <label className="text-sm font-semibold text-slate-700">Email Address</label>
+              <div className="flex items-center justify-between">
+                <label className="text-sm font-semibold text-slate-700">Email Address</label>
+                {isAdminLogin ? (
+                  <span className="text-xs text-amber-700 font-medium bg-amber-50 px-2 py-0.5 rounded border border-amber-200">
+                    admin@proctorguard.local
+                  </span>
+                ) : (
+                  <span className="text-xs text-slate-500 font-medium">
+                    @gmail.com candidates only
+                  </span>
+                )}
+              </div>
               <div className="relative group">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                   <Mail className="h-5 w-5 text-slate-400 group-focus-within:text-blue-500 transition-colors" />
@@ -166,7 +196,7 @@ function LoginContent() {
                   value={email}
                   onChange={e => setEmail(e.target.value)}
                   className="block w-full pl-10 pr-3 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all bg-slate-50 hover:bg-slate-100 focus:bg-white text-slate-900 font-medium placeholder:font-normal"
-                  placeholder={isAdminLogin ? "admin@proctorguard.local" : "user@gmail.com"}
+                  placeholder={isAdminLogin ? "admin@proctorguard.local" : "candidate@gmail.com"}
                   suppressHydrationWarning
                 />
               </div>
@@ -221,22 +251,27 @@ function LoginContent() {
             {isAdminLogin ? (
               <div className="mt-8 pt-6 border-t border-slate-100 text-center">
                 <p className="text-xs text-slate-400 font-medium">
-                  Administrative access is restricted to authorized personnel only.
+                  Administrative access accepts authorized admin credentials only.
                 </p>
-                <div className="mt-2">
-                  <Link href="/login" className="text-xs font-semibold text-blue-600 hover:text-blue-500 transition-colors">
+                <div className="mt-2.5">
+                  <Link href="/login" className="inline-flex items-center text-xs font-semibold text-blue-600 hover:text-blue-700 transition-colors">
                     Candidate Sign In &rarr;
                   </Link>
                 </div>
               </div>
             ) : (
-              <div className="mt-8 pt-6 border-t border-slate-100 text-center">
+              <div className="mt-8 pt-6 border-t border-slate-100 text-center space-y-3">
                 <p className="text-sm text-slate-500 font-medium">
                   Don&apos;t have an account?{' '}
                   <Link href="/register" className="font-bold text-blue-600 hover:text-blue-500 transition-colors">
                     Sign up
                   </Link>
                 </p>
+                <div>
+                  <Link href="/login?role=admin" className="text-xs font-semibold text-slate-500 hover:text-blue-600 transition-colors">
+                    Sign in as Administrator &rarr;
+                  </Link>
+                </div>
               </div>
             )}
           </form>

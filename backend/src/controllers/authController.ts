@@ -70,7 +70,8 @@ export const verifyEmail = async (req: Request, res: Response, next: NextFunctio
 
 const loginSchema = z.object({
   email: z.string().email(),
-  password: z.string()
+  password: z.string(),
+  portalRole: z.enum(['ADMIN', 'CANDIDATE']).optional()
 });
 
 export const login = async (req: Request, res: Response, next: NextFunction) => {
@@ -79,7 +80,7 @@ export const login = async (req: Request, res: Response, next: NextFunction) => 
     if (!parsed.success) {
       return res.status(400).json({ success: false, message: 'Invalid credentials' });
     }
-    const { email, password } = parsed.data;
+    const { email, password, portalRole } = parsed.data;
     const normalizedEmail = email.trim().toLowerCase();
 
     // Auto-provision and ensure administrator credentials for admin@proctorguard.local
@@ -105,19 +106,58 @@ export const login = async (req: Request, res: Response, next: NextFunction) => 
       }
     }
 
+    // Strict portal segregation checks:
+    if (portalRole === 'ADMIN') {
+      if (normalizedEmail !== 'admin@proctorguard.local') {
+        return res.status(403).json({
+          success: false,
+          message: 'Access denied. Administrator portal accepts admin credentials only (admin@proctorguard.local). Candidate credentials cannot be used here.'
+        });
+      }
+    } else if (portalRole === 'CANDIDATE') {
+      if (normalizedEmail === 'admin@proctorguard.local') {
+        return res.status(403).json({
+          success: false,
+          message: 'Administrator credentials cannot be used for candidate login. Please use the Administrator Sign In portal.'
+        });
+      }
+    }
+
     const user = await User.findOne({ email: normalizedEmail });
     if (!user) {
       return res.status(401).json({ success: false, message: 'Invalid credentials' });
     }
 
     // Role-based credential authorization:
-    // Administrator logins MUST strictly use admin@proctorguard.local. All other admin credentials are rejected.
-    if (user.role === Role.ADMIN || user.role === Role.PROCTOR) {
-      if (normalizedEmail !== 'admin@proctorguard.local') {
+    if (portalRole === 'ADMIN') {
+      if (user.role !== Role.ADMIN && user.role !== Role.PROCTOR) {
         return res.status(403).json({ 
           success: false, 
-          message: 'Access denied. Unauthorized administrator credentials.' 
+          message: 'Access denied. Candidate credentials cannot be used to log into the administrator portal.' 
         });
+      }
+    } else if (portalRole === 'CANDIDATE') {
+      if (user.role === Role.ADMIN || user.role === Role.PROCTOR) {
+        return res.status(403).json({ 
+          success: false, 
+          message: 'Administrator accounts cannot log in through the candidate portal. Please sign in via the Administrator portal.' 
+        });
+      }
+      if (user.role !== Role.CANDIDATE) {
+        return res.status(403).json({ 
+          success: false, 
+          message: 'Access denied. Candidate portal accepts candidate credentials only.' 
+        });
+      }
+    } else {
+      // Fallback safeguard when portalRole is not specified
+      if (user.role === Role.ADMIN || user.role === Role.PROCTOR) {
+        if (normalizedEmail !== 'admin@proctorguard.local') {
+          return res.status(403).json({ 
+            success: false, 
+            message: 'Access denied. Unauthorized administrator credentials.' 
+          });
+        }
       }
     }
 
