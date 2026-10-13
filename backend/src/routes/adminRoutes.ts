@@ -57,6 +57,11 @@ import {
   getCandidateAnswers, 
   getCandidateReportHtml 
 } from '../controllers/adminController';
+import { 
+  getSupportTickets, 
+  updateSupportTicket, 
+  deleteSupportTicket 
+} from '../controllers/supportController';
 
 router.get('/violations', getViolations);
 router.get('/results', getResults);
@@ -68,5 +73,13 @@ router.patch('/results/:id/verify', verifyResult);
 router.get('/drive/status', getDriveStatus);
 router.get('/drive/files', getDriveFiles);
 router.post('/drive/sync-pending', syncPendingDriveProofs);
+
+// Help Desk & Support Inquiries Management
+router.get('/support', getSupportTickets);
+router.get('/helpdesk', getSupportTickets);
+router.patch('/support/:id', updateSupportTicket);
+router.patch('/helpdesk/:id', updateSupportTicket);
+router.delete('/support/:id', deleteSupportTicket);
+router.delete('/helpdesk/:id', deleteSupportTicket);
 
 export default router;

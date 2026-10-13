@@ -15,15 +15,20 @@ import {
   ChevronDown, 
   ChevronUp, 
   Send,
-  MessageSquare
+  MessageSquare,
+  Loader2,
+  AlertCircle
 } from 'lucide-react';
 
 import PublicNavbar from '@/components/PublicNavbar';
 import PublicFooter from '@/components/PublicFooter';
+import api from '@/lib/api';
 
 export default function SupportPage() {
   const [activeFaq, setActiveFaq] = useState<number | null>(0);
   const [formSubmitted, setFormSubmitted] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -54,14 +59,26 @@ export default function SupportPage() {
     }
   ];
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.name || !formData.email || !formData.message) return;
     if (!/^[a-zA-Z0-9._%+-]+@gmail\.com$/i.test(formData.email.trim())) {
       alert('Only @gmail.com email addresses are accepted (e.g. yourname@gmail.com).');
       return;
     }
-    setFormSubmitted(true);
+    
+    setSubmitting(true);
+    setSubmitError(null);
+
+    try {
+      await api.post('/support', formData);
+      setFormSubmitted(true);
+    } catch (err: any) {
+      console.error('Failed to submit support ticket', err);
+      setSubmitError(err?.response?.data?.message || 'Failed to submit support inquiry. Please check your network and try again.');
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -237,11 +254,29 @@ export default function SupportPage() {
                       />
                     </div>
 
+                    {submitError && (
+                      <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl flex items-start text-xs text-rose-700">
+                        <AlertCircle className="w-4 h-4 mr-2 text-rose-500 shrink-0 mt-0.5" />
+                        <span>{submitError}</span>
+                      </div>
+                    )}
+
                     <button
                       type="submit"
-                      className="w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-extrabold flex items-center justify-center transition shadow-xs"
+                      disabled={submitting}
+                      className="w-full py-2.5 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white rounded-xl text-xs font-extrabold flex items-center justify-center transition shadow-xs cursor-pointer disabled:cursor-not-allowed"
                     >
-                      <Send className="w-3.5 h-3.5 mr-1.5" /> Submit Support Ticket
+                      {submitting ? (
+                        <>
+                          <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />
+                          <span>Submitting Ticket...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Send className="w-3.5 h-3.5 mr-1.5" />
+                          <span>Submit Support Ticket</span>
+                        </>
+                      )}
                     </button>
                   </form>
                 )}

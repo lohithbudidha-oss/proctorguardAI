@@ -31,7 +31,8 @@ import {
   BarChart3,
   ExternalLink,
   UserCheck,
-  ArrowRight
+  ArrowRight,
+  LifeBuoy
 } from 'lucide-react';
 import api from '@/lib/api';
 import { getViolationInfo } from '@/lib/violations';
@@ -94,6 +95,7 @@ export default function CandidateExamRecordsPage() {
   const [adminProfile, setAdminProfile] = useState<{ name?: string; email?: string; role?: string } | null>(null);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [pendingApprovalsCount, setPendingApprovalsCount] = useState<number>(0);
+  const [openTicketsCount, setOpenTicketsCount] = useState<number>(0);
 
   const fetchPendingApprovalsCount = () => {
     api.get('/admin/candidates').then(res => {
@@ -103,6 +105,14 @@ export default function CandidateExamRecordsPage() {
         return s === 'PENDING_VERIFICATION' || s === 'PENDING';
       }).length;
       setPendingApprovalsCount(pending);
+    }).catch(() => {});
+  };
+
+  const fetchOpenTicketsCount = () => {
+    api.get('/admin/helpdesk').then(res => {
+      if (res.data?.stats?.open !== undefined) {
+        setOpenTicketsCount(res.data.stats.open);
+      }
     }).catch(() => {});
   };
 
@@ -179,6 +189,7 @@ export default function CandidateExamRecordsPage() {
   useEffect(() => {
     fetchCandidateRecords();
     fetchPendingApprovalsCount();
+    fetchOpenTicketsCount();
 
     const wsUrl = process.env.NEXT_PUBLIC_WS_URL || (process.env.NEXT_PUBLIC_API_URL ? process.env.NEXT_PUBLIC_API_URL.replace(/\/api\/?$/, '') : 'https://proctorguardai.onrender.com');
     const initSocket = io(wsUrl, {
@@ -412,6 +423,20 @@ export default function CandidateExamRecordsPage() {
             className="text-slate-600 px-4 py-3 rounded-xl font-medium hover:bg-slate-100 hover:text-slate-900 cursor-pointer transition-all flex items-center"
           >
             <CheckCircle2 className="w-5 h-5 mr-3 text-slate-400" /> Integrity Reports
+          </div>
+
+          <div 
+            onClick={() => router.push('/admin/helpdesk')} 
+            className="text-slate-600 px-4 py-3 rounded-xl font-medium hover:bg-slate-100 hover:text-slate-900 cursor-pointer transition-all flex items-center justify-between"
+          >
+            <div className="flex items-center">
+              <LifeBuoy className="w-5 h-5 mr-3 text-slate-400" /> Help Desk
+            </div>
+            {openTicketsCount > 0 && (
+              <span className="bg-amber-500 text-white text-[11px] font-bold px-2 py-0.5 rounded-full shadow-2xs">
+                {openTicketsCount}
+              </span>
+            )}
           </div>
         </div>
       </aside>

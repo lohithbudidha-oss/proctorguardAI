@@ -31,12 +31,14 @@ import authRoutes from './routes/authRoutes';
 import adminRoutes from './routes/adminRoutes';
 import candidateRoutes from './routes/candidateRoutes';
 import recordingRoutes from './routes/recordingRoutes';
+import supportRoutes from './routes/supportRoutes';
 
 // Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/candidate', candidateRoutes);
 app.use('/api/recordings', recordingRoutes);
+app.use('/api/support', supportRoutes);
 
 // Global Error Handler
 app.use((err: any, req: Request, res: Response, next: NextFunction) => {

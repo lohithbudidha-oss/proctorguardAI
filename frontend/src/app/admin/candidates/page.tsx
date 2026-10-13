@@ -17,7 +17,8 @@ import {
   AlertTriangle, 
   BarChart3,
   Calendar,
-  Sparkles
+  Sparkles,
+  LifeBuoy
 } from 'lucide-react';
 import api from '@/lib/api';
 import { sanitizeSearchInput } from '@/lib/sanitize';
@@ -182,6 +183,12 @@ function CandidatesContent() {
               className="px-3 py-1.5 bg-rose-50 text-rose-700 border border-rose-200 font-semibold rounded-lg hover:bg-rose-100 transition shadow-2xs text-xs flex items-center h-8.5 shrink-0 whitespace-nowrap"
             >
               <AlertTriangle className="w-3.5 h-3.5 mr-1.5" /> Violations
+            </Link>
+            <Link 
+              href="/admin/helpdesk" 
+              className="px-3 py-1.5 bg-purple-50 text-purple-700 border border-purple-200 font-semibold rounded-lg hover:bg-purple-100 transition shadow-2xs text-xs flex items-center h-8.5 shrink-0 whitespace-nowrap"
+            >
+              <LifeBuoy className="w-3.5 h-3.5 mr-1.5 text-purple-600" /> Help Desk
             </Link>
           </div>
         </div>
