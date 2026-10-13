@@ -3,6 +3,7 @@
 import React, { useState, Suspense } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
+import BrandLogo from '@/components/BrandLogo';
 import { ShieldCheck, Mail, Lock, ArrowRight, ArrowLeft, Fingerprint, Activity, Eye, EyeOff, CheckCircle2, AlertCircle } from 'lucide-react';
 import api from '@/lib/api';
 
@@ -97,11 +98,10 @@ function LoginContent() {
         <div className="absolute top-0 right-0 -mr-20 -mt-20 w-96 h-96 rounded-full bg-blue-600/10 blur-3xl animate-pulse" />
         <div className="absolute bottom-0 left-0 -ml-20 -mb-20 w-80 h-80 rounded-full bg-indigo-600/10 blur-3xl animate-pulse delay-1000" />
         
-        <div className="relative z-10 flex items-center space-x-3">
-          <div className="bg-blue-600 p-2 rounded-xl">
-            <ShieldCheck className="w-8 h-8 text-white" />
-          </div>
-          <span className="text-2xl font-bold text-white tracking-tight">ProctorGuardAI</span>
+        <div className="relative z-10">
+          <Link href="/" className="inline-block hover:opacity-95 transition-opacity">
+            <BrandLogo size="lg" variant="light" />
+          </Link>
         </div>
 
         <div className="relative z-10 max-w-lg mt-12">
@@ -151,11 +151,10 @@ function LoginContent() {
             </Link>
           </div>
 
-          <div className="lg:hidden flex items-center space-x-3 mb-8">
-            <div className="bg-blue-600 p-2 rounded-xl">
-              <ShieldCheck className="w-8 h-8 text-white" />
-            </div>
-            <span className="text-2xl font-bold text-slate-900 tracking-tight">ProctorGuardAI</span>
+          <div className="lg:hidden mb-8">
+            <Link href="/" className="inline-block hover:opacity-95 transition-opacity">
+              <BrandLogo size="lg" variant="dark" />
+            </Link>
           </div>
 
           {isAdminLogin ? (

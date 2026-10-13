@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, Suspense, useRef, useCallback } from 'react';
 import { useRouter, useParams } from 'next/navigation';
-import { Clock, ShieldAlert, MonitorPlay, AlertTriangle, ArrowLeft, Camera, Loader2 } from 'lucide-react';
+import { Clock, ShieldAlert, ShieldCheck, MonitorPlay, AlertTriangle, ArrowLeft, Camera, Loader2 } from 'lucide-react';
 import Link from 'next/link';
 import api from '@/lib/api';
 
@@ -200,7 +200,9 @@ function WaitingRoomContent() {
       </div>
       <div className="max-w-4xl w-full bg-white rounded-xl shadow-xl overflow-hidden border border-slate-200">
         <div className="bg-slate-900 p-8 text-white flex flex-col items-center justify-center">
-          <ShieldAlert className="w-16 h-16 text-blue-400 mb-4" />
+          <div className="bg-blue-600 p-3.5 rounded-2xl flex items-center justify-center shadow-lg mb-4">
+            <ShieldCheck className="w-10 h-10 text-white" />
+          </div>
           <h1 className="text-3xl font-bold mb-2">Examination Waiting Room</h1>
           <p className="text-slate-300 text-center max-w-lg">
             You are in the secure waiting area. Your environment is being monitored. Please wait until the start time.

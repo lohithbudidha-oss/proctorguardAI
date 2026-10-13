@@ -7,6 +7,7 @@ import api from '@/lib/api';
 import { 
   Clock, 
   ShieldAlert, 
+  ShieldCheck, 
   Monitor, 
   Video, 
   VideoOff, 
@@ -1291,8 +1292,13 @@ function AttemptContent() {
       {/* Header */}
       <header className="bg-slate-900 text-white flex items-center justify-between px-6 py-3 shadow-md z-10 relative shrink-0">
         <div className="flex items-center space-x-3">
-          <ShieldAlert className="w-6 h-6 text-blue-400" />
-          <h1 className="text-xl font-bold tracking-wide">Secure Examination Mode</h1>
+          <div className="bg-blue-600 p-1.5 rounded-xl flex items-center justify-center shrink-0 shadow-xs">
+            <ShieldCheck className="w-5 h-5 text-white" />
+          </div>
+          <div className="flex items-baseline space-x-2">
+            <span className="text-lg font-bold tracking-tight text-white">ProctorGuardAI</span>
+            <span className="text-xs text-slate-400 hidden sm:inline font-medium">| Secure Examination Mode</span>
+          </div>
         </div>
         
         <div className="flex items-center space-x-8">

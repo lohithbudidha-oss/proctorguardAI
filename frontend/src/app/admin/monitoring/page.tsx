@@ -4,6 +4,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import io from 'socket.io-client';
+import BrandLogo from '@/components/BrandLogo';
 import { 
   ShieldAlert, 
   Users, 
@@ -368,11 +369,10 @@ export default function CandidateExamRecordsPage() {
     <div className="min-h-screen bg-slate-50 text-slate-800 flex font-sans selection:bg-blue-500/20">
       {/* Sidebar - Sticky at left corner, navigating along with page scroll */}
       <aside className="w-64 bg-white border-r border-slate-200 flex flex-col hidden md:flex shadow-sm z-30 sticky top-0 h-screen shrink-0">
-        <div className="p-6 flex items-center space-x-3 border-b border-slate-100 shrink-0">
-          <div className="bg-gradient-to-tr from-blue-600 to-indigo-600 p-2.5 rounded-xl shadow-md shadow-blue-500/20">
-            <ShieldAlert className="w-5 h-5 text-white" />
-          </div>
-          <span className="text-xl font-extrabold text-slate-900 tracking-tight">ProctorGuardAI</span>
+        <div className="p-6 border-b border-slate-100 shrink-0">
+          <Link href="/admin/monitoring" className="hover:opacity-95 transition-opacity">
+            <BrandLogo size="md" variant="dark" />
+          </Link>
         </div>
 
         <div className="p-4 space-y-1.5 flex-1 overflow-y-auto">

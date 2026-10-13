@@ -2,7 +2,7 @@
 
 import React from 'react';
 import Link from 'next/link';
-import { ShieldCheck } from 'lucide-react';
+import BrandLogo from '@/components/BrandLogo';
 
 interface PublicNavbarProps {
   activePage?: 'home' | 'about' | 'organizations' | 'support';
@@ -14,9 +14,8 @@ export default function PublicNavbar({ activePage = 'home' }: PublicNavbarProps)
       <div className="max-w-7xl mx-auto px-6 sm:px-8 h-16 flex items-center justify-between">
         {/* Left: Brand Logo */}
         <div className="flex-1 flex items-center justify-start">
-          <Link href="/" className="flex items-center space-x-2.5 text-blue-700 hover:opacity-90 transition-opacity">
-            <ShieldCheck className="w-8 h-8 text-blue-600" />
-            <span className="text-xl font-bold tracking-tight text-slate-900">ProctorGuardAI</span>
+          <Link href="/" className="hover:opacity-90 transition-opacity">
+            <BrandLogo size="md" variant="dark" />
           </Link>
         </div>
 

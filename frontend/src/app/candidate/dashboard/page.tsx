@@ -3,6 +3,7 @@
 import React, { useEffect, useState, useRef, useMemo, Suspense } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import BrandLogo from '@/components/BrandLogo';
 import { 
   ShieldCheck, 
   FileText, 
@@ -206,12 +207,9 @@ export default function CandidateDashboard() {
       {/* Enterprise Header */}
       <header className="bg-white/80 backdrop-blur-xl border-b border-slate-200 sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-6 h-20 flex justify-between items-center">
-          <div className="flex items-center space-x-3">
-            <div className="bg-gradient-to-tr from-blue-600 to-indigo-600 p-2 rounded-xl shadow-lg shadow-blue-600/20">
-              <ShieldCheck className="w-6 h-6 text-white" />
-            </div>
-            <span className="text-xl font-extrabold text-slate-900 tracking-tight">ProctorGuardAI</span>
-          </div>
+          <Link href="/candidate/dashboard" className="hover:opacity-95 transition-opacity">
+            <BrandLogo size="md" variant="dark" />
+          </Link>
           
           <div className="flex items-center space-x-6">
             <div ref={notificationRef} className="relative">
