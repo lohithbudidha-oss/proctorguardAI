@@ -101,6 +101,8 @@ function AttemptContent() {
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
+  const screenStreamRef = useRef<MediaStream | null>(null);
+  const peerConnectionRef = useRef<RTCPeerConnection | null>(null);
 
   const [isLoading, setIsLoading] = useState(true);
 
@@ -227,6 +229,25 @@ function AttemptContent() {
         addWarning('Exam will resume in 10 seconds...');
       } else if (data.action === 'TERMINATE') {
         alert('Examination terminated by Proctor: ' + (data.message || ''));
+        if (streamRef.current) {
+          streamRef.current.getTracks().forEach(t => {
+            try { t.stop(); } catch (e) {}
+          });
+          streamRef.current = null;
+        }
+        if (screenStreamRef.current) {
+          screenStreamRef.current.getTracks().forEach(t => {
+            try {
+              t.onended = null;
+              t.stop();
+            } catch (e) {}
+          });
+          screenStreamRef.current = null;
+        }
+        if (peerConnectionRef.current) {
+          try { peerConnectionRef.current.close(); } catch (e) {}
+          peerConnectionRef.current = null;
+        }
         stopAllRecordings();
         router.push('/candidate/dashboard');
       } else if (data.action === 'MESSAGE') {
@@ -242,6 +263,7 @@ function AttemptContent() {
       peerConnection = new RTCPeerConnection({
         iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
       });
+      peerConnectionRef.current = peerConnection;
 
       // Add local stream tracks to the connection
       if (streamRef.current) {
@@ -355,6 +377,8 @@ function AttemptContent() {
           }
         }
 
+        screenStreamRef.current = screenStream;
+
         const screenTrack = screenStream.getVideoTracks()[0];
         if (screenTrack) {
           screenTrack.onended = () => {
@@ -431,13 +455,50 @@ function AttemptContent() {
 
     return () => {
       if (streamRef.current) {
-        streamRef.current.getTracks().forEach(t => t.stop());
+        streamRef.current.getTracks().forEach(t => {
+          try { t.stop(); } catch (e) {}
+        });
+        streamRef.current = null;
+      }
+      if (screenStreamRef.current) {
+        screenStreamRef.current.getTracks().forEach(t => {
+          try {
+            t.onended = null;
+            t.stop();
+          } catch (e) {}
+        });
+        screenStreamRef.current = null;
+      }
+      if (peerConnectionRef.current) {
+        try { peerConnectionRef.current.close(); } catch (e) {}
+        peerConnectionRef.current = null;
       }
       if (initSocket) {
         initSocket.disconnect();
       }
     };
   }, [isLoading, examStatus, attemptId, examId]);
+
+  // Clean up screen share and media tracks on window unload / refresh
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      if (screenStreamRef.current) {
+        screenStreamRef.current.getTracks().forEach(t => {
+          try {
+            t.onended = null;
+            t.stop();
+          } catch (e) {}
+        });
+      }
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach(t => {
+          try { t.stop(); } catch (e) {}
+        });
+      }
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, []);
 
   const requestAdminReview = (reason: string) => {
     const activeSocket = socketRef.current || socket;
@@ -966,7 +1027,7 @@ function AttemptContent() {
       });
     }
 
-    // 1. Immediately shut down camera tracks and clear video source
+    // 1. Immediately shut down camera tracks, screen share tracks, and clear video source
     try {
       if (streamRef.current) {
         streamRef.current.getTracks().forEach(track => {
@@ -974,8 +1035,21 @@ function AttemptContent() {
         });
         streamRef.current = null;
       }
+      if (screenStreamRef.current) {
+        screenStreamRef.current.getTracks().forEach(track => {
+          try {
+            track.onended = null;
+            track.stop();
+          } catch(e) {}
+        });
+        screenStreamRef.current = null;
+      }
       if (videoRef.current) {
         videoRef.current.srcObject = null;
+      }
+      if (peerConnectionRef.current) {
+        try { peerConnectionRef.current.close(); } catch(e) {}
+        peerConnectionRef.current = null;
       }
     } catch(e) {}
 
