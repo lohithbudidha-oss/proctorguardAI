@@ -436,50 +436,63 @@ export default function CandidateExamRecordsPage() {
         <div className="absolute bottom-[-20%] right-[-10%] w-[50%] h-[50%] bg-indigo-100/30 blur-[120px] rounded-full pointer-events-none" />
 
         {/* Top Header */}
-        <header className="bg-white/80 backdrop-blur-md border-b border-slate-200/80 p-5 px-8 z-10 sticky top-0 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-          <div>
-            <h1 className="text-2xl font-extrabold text-slate-900 tracking-tight flex items-center">
-              <Users className="w-6 h-6 mr-3 text-blue-600" />
-              Candidate Examination Records
-            </h1>
-            <p className="text-sm text-slate-500 mt-1 font-medium">
-              Performance overview and detailed information of candidates who wrote examinations
-            </p>
+        <header className="bg-white/85 backdrop-blur-md border-b border-slate-200/80 px-8 py-5 z-10 sticky top-0 shadow-2xs">
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+            {/* Title & Subtitle */}
+            <div className="min-w-0">
+              <div className="flex items-center space-x-3">
+                <div className="p-2 bg-blue-50 text-blue-600 rounded-xl border border-blue-100 shadow-2xs">
+                  <Users className="w-5 h-5 text-blue-600" />
+                </div>
+                <div>
+                  <h1 className="text-2xl font-extrabold text-slate-900 tracking-tight">
+                    Candidate Examination Records
+                  </h1>
+                </div>
+              </div>
+              <p className="text-sm text-slate-500 mt-1.5 font-medium">
+                Performance overview and detailed information of candidates who wrote examinations
+              </p>
+            </div>
+
+            {/* Top-Right Action Button */}
+            <div className="flex items-center space-x-3 shrink-0 self-start md:self-center">
+              <button 
+                type="button"
+                onClick={() => setShowLogoutConfirm(true)} 
+                className="inline-flex items-center space-x-2 px-4 py-2 bg-rose-50 hover:bg-rose-100 text-rose-700 hover:text-rose-800 rounded-xl text-xs font-bold transition-all border border-rose-200 hover:border-rose-300 shadow-2xs cursor-pointer group active:scale-[0.98]" 
+                title="Sign Out of Admin Portal"
+              >
+                <LogOut className="w-3.5 h-3.5 text-rose-500 group-hover:text-rose-700 transition-colors" />
+                <span>Sign Out</span>
+              </button>
+            </div>
           </div>
 
-          <div className="flex flex-wrap items-center gap-3">
-            <div className="flex items-center text-xs font-bold text-blue-700 bg-blue-50 px-3.5 py-1.5 rounded-full border border-blue-200">
-              <span className="w-2 h-2 bg-blue-500 rounded-full mr-2"></span> 
-              Total Candidates: {totalCandidatesCount}
+          {/* Quick Stats Badges Bar */}
+          <div className="mt-4 pt-3.5 border-t border-slate-100/80 flex items-center gap-2.5 flex-wrap">
+            <div className="inline-flex items-center text-xs font-bold text-blue-700 bg-blue-50/90 px-3.5 py-1.5 rounded-full border border-blue-200 shadow-2xs whitespace-nowrap">
+              <span className="w-2 h-2 bg-blue-500 rounded-full mr-2 shrink-0"></span> 
+              <span>Total Candidates: {totalCandidatesCount}</span>
             </div>
-            <div className="flex items-center text-xs font-bold text-emerald-700 bg-emerald-50 px-3.5 py-1.5 rounded-full border border-emerald-200">
-              <span className="w-2 h-2 bg-emerald-500 rounded-full mr-2"></span> 
-              Exams Completed: {completedCandidatesCount}
+            <div className="inline-flex items-center text-xs font-bold text-emerald-700 bg-emerald-50/90 px-3.5 py-1.5 rounded-full border border-emerald-200 shadow-2xs whitespace-nowrap">
+              <span className="w-2 h-2 bg-emerald-500 rounded-full mr-2 shrink-0"></span> 
+              <span>Exams Completed: {completedCandidatesCount}</span>
             </div>
-            <div className="flex items-center text-xs font-bold text-rose-700 bg-rose-50 px-3.5 py-1.5 rounded-full border border-rose-200">
-              <span className="w-2 h-2 bg-rose-500 rounded-full mr-2"></span> 
-              Flagged Violations: {flaggedCandidatesCount}
+            <div className="inline-flex items-center text-xs font-bold text-rose-700 bg-rose-50/90 px-3.5 py-1.5 rounded-full border border-rose-200 shadow-2xs whitespace-nowrap">
+              <span className="w-2 h-2 bg-rose-500 rounded-full mr-2 shrink-0"></span> 
+              <span>Flagged Violations: {flaggedCandidatesCount}</span>
             </div>
             {pendingApprovalsCount > 0 && (
               <Link 
                 href="/admin/candidates?filter=pending" 
-                className="flex items-center text-xs font-bold text-amber-800 bg-amber-50 hover:bg-amber-100 px-3.5 py-1.5 rounded-full border border-amber-300 transition-colors shadow-2xs"
+                className="inline-flex items-center text-xs font-bold text-amber-800 bg-amber-50 hover:bg-amber-100 px-3.5 py-1.5 rounded-full border border-amber-300 transition-colors shadow-2xs whitespace-nowrap group"
+                title="Review and approve pending candidates"
               >
-                <span className="w-2 h-2 bg-amber-500 rounded-full mr-2 animate-ping"></span> 
-                Pending Approvals: {pendingApprovalsCount}
+                <span className="w-2 h-2 bg-amber-500 rounded-full mr-2 shrink-0 animate-ping"></span> 
+                <span>Pending Approvals: {pendingApprovalsCount}</span>
               </Link>
             )}
-            <div className="h-6 w-px bg-slate-200 hidden sm:block" />
-            {/* Top-Right Sign Out Button */}
-            <button 
-              type="button"
-              onClick={() => setShowLogoutConfirm(true)} 
-              className="inline-flex items-center space-x-1.5 px-3.5 py-2 bg-rose-50 hover:bg-rose-100 text-rose-700 hover:text-rose-800 rounded-xl text-xs font-bold transition-all border border-rose-200 hover:border-rose-300 shadow-2xs cursor-pointer group active:scale-[0.98]" 
-              title="Sign Out of Admin Portal"
-            >
-              <LogOut className="w-3.5 h-3.5 text-rose-500 group-hover:text-rose-700 transition-colors" />
-              <span>Sign Out</span>
-            </button>
           </div>
         </header>
 
