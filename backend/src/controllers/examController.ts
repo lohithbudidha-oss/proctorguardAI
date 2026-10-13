@@ -195,7 +195,7 @@ export const publishExam = async (req: Request, res: Response, next: NextFunctio
 };
 
 import Assignment, { AssignmentStatus } from '../models/Assignment';
-import User from '../models/User';
+import User, { Role } from '../models/User';
 
 export const getExamCandidates = async (req: Request, res: Response, next: NextFunction) => {
   try {
@@ -227,6 +227,64 @@ export const assignCandidate = async (req: Request, res: Response, next: NextFun
     
     await assignment.save();
     res.status(201).json({ success: true, message: 'Candidate assigned', assignment });
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const assignAllCandidates = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { id: examId } = req.params;
+    const { candidateIds, scheduledAt, allowedAttempts } = req.body;
+
+    let targetIds: string[] = [];
+
+    if (Array.isArray(candidateIds) && candidateIds.length > 0) {
+      targetIds = candidateIds.map((id: any) => id.toString());
+    } else {
+      const candidates = await User.find({ role: Role.CANDIDATE }).select('_id');
+      targetIds = candidates.map(c => c._id.toString());
+    }
+
+    if (targetIds.length === 0) {
+      return res.status(200).json({ success: true, message: 'No candidates available to assign', count: 0 });
+    }
+
+    // Find candidates who are already assigned to this exam
+    const existingAssignments = await Assignment.find({
+      examId,
+      candidateId: { $in: targetIds }
+    }).select('candidateId');
+
+    const existingCandidateIds = new Set(
+      existingAssignments.map(a => a.candidateId.toString())
+    );
+
+    const newCandidateIds = targetIds.filter(id => !existingCandidateIds.has(id));
+
+    if (newCandidateIds.length === 0) {
+      return res.status(200).json({
+        success: true,
+        message: 'All candidates are already assigned to this exam',
+        count: 0
+      });
+    }
+
+    const assignmentsToInsert = newCandidateIds.map(candidateId => ({
+      examId,
+      candidateId,
+      scheduledAt: scheduledAt || new Date(),
+      allowedAttempts: allowedAttempts || 1,
+      status: AssignmentStatus.PENDING
+    }));
+
+    await Assignment.insertMany(assignmentsToInsert, { ordered: false });
+
+    res.status(200).json({
+      success: true,
+      message: `Successfully assigned ${assignmentsToInsert.length} candidate(s) to this exam`,
+      count: assignmentsToInsert.length
+    });
   } catch (err) {
     next(err);
   }
