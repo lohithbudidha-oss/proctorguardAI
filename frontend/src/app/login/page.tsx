@@ -174,18 +174,7 @@ function LoginContent() {
             )}
             
             <div className="space-y-1">
-              <div className="flex items-center justify-between">
-                <label className="text-sm font-semibold text-slate-700">Email Address</label>
-                {isAdminLogin ? (
-                  <span className="text-xs text-amber-700 font-medium bg-amber-50 px-2 py-0.5 rounded border border-amber-200">
-                    admin@proctorguard.local
-                  </span>
-                ) : (
-                  <span className="text-xs text-slate-500 font-medium">
-                    @gmail.com candidates only
-                  </span>
-                )}
-              </div>
+              <label className="text-sm font-semibold text-slate-700">Email Address</label>
               <div className="relative group">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                   <Mail className="h-5 w-5 text-slate-400 group-focus-within:text-blue-500 transition-colors" />
