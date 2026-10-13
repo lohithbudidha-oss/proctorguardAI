@@ -143,9 +143,9 @@ function CandidatesContent() {
           <div>
             <div className="flex items-center space-x-3 mb-2">
               <Link 
-                href="/admin/exams" 
+                href="/admin/monitoring" 
                 className="p-2 bg-white rounded-full border border-slate-200 hover:bg-slate-100 transition shadow-2xs" 
-                title="Back to Exam Management"
+                title="Back to Admin Dashboard"
               >
                 <ArrowLeft className="w-5 h-5 text-slate-600" />
               </Link>
@@ -159,11 +159,11 @@ function CandidatesContent() {
           </div>
 
           <div className="flex flex-wrap items-center gap-2.5">
+            <Link href="/admin/monitoring" className="px-3.5 py-2 bg-white text-slate-700 border border-slate-200 font-semibold rounded-lg hover:bg-slate-50 transition shadow-xs text-xs flex items-center">
+              <Users className="w-3.5 h-3.5 mr-1.5 text-blue-600" /> Admin Dashboard
+            </Link>
             <Link href="/admin/exams" className="px-3.5 py-2 bg-white text-slate-700 border border-slate-200 font-semibold rounded-lg hover:bg-slate-50 transition shadow-xs text-xs flex items-center">
               <FileText className="w-3.5 h-3.5 mr-1.5 text-slate-400" /> Exam Management
-            </Link>
-            <Link href="/admin/monitoring" className="px-3.5 py-2 bg-white text-slate-700 border border-slate-200 font-semibold rounded-lg hover:bg-slate-50 transition shadow-xs text-xs flex items-center">
-              <Users className="w-3.5 h-3.5 mr-1.5 text-blue-600" /> Live Monitoring
             </Link>
             <Link href="/admin/results" className="px-3.5 py-2 bg-blue-50 text-blue-700 border border-blue-200 font-semibold rounded-lg hover:bg-blue-100 transition shadow-xs text-xs flex items-center">
               <BarChart3 className="w-3.5 h-3.5 mr-1.5" /> Results
