@@ -1350,16 +1350,6 @@ export default function ViolationQueuePage() {
                   <RefreshCw className={`w-3.5 h-3.5 mr-1 ${refreshing ? 'animate-spin text-blue-600' : 'text-slate-500'}`} />
                   {refreshing ? 'Refreshing...' : 'Refresh'}
                 </button>
-                <a
-                  href={activeCandidateGroup.driveUrl || 'https://drive.google.com/drive/folders/1P_3yKzFloiMrF8Pe1XFl9Lh-nqvPTit1?usp=sharing'}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold inline-flex items-center transition shadow-2xs"
-                >
-                  <HardDrive className="w-3.5 h-3.5 mr-1.5" />
-                  Google Drive Folder
-                  <ExternalLink className="w-3 h-3 ml-1 opacity-70" />
-                </a>
                 <button 
                   onClick={() => setSelectedCandidateKey(null)}
                   className="text-slate-400 hover:text-slate-700 p-2 rounded-xl hover:bg-slate-200/60 transition-colors"
