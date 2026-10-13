@@ -29,12 +29,16 @@ export default function SupportPage() {
   const [formSubmitted, setFormSubmitted] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [nameError, setNameError] = useState<string | null>(null);
+  const [messageError, setMessageError] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     name: '',
     email: '',
     category: 'TECHNICAL',
     message: ''
   });
+
+  const DESCRIPTION_MAX_LENGTH = 500;
 
   const faqs = [
     {
@@ -59,19 +63,109 @@ export default function SupportPage() {
     }
   ];
 
+  // Helper to test if a string contains emojis
+  const containsEmoji = (text: string) => {
+    try {
+      const emojiRegex = /\p{Extended_Pictographic}/u;
+      return emojiRegex.test(text);
+    } catch {
+      return /[\uD83C-\uDBFF\uDC00-\uDFFF]/.test(text);
+    }
+  };
+
+  // Helper to remove emojis from string
+  const removeEmojis = (text: string) => {
+    try {
+      return text.replace(/\p{Extended_Pictographic}/gu, '');
+    } catch {
+      return text.replace(/[\uD83C-\uDBFF\uDC00-\uDFFF]/g, '');
+    }
+  };
+
+  // Handle Full Name Input (Letters and spaces only, no emojis or special chars)
+  const handleNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const raw = e.target.value;
+    // Strip emojis, digits, and special characters; permit only English letters and spaces
+    const cleaned = raw.replace(/[^a-zA-Z\s]/g, '');
+
+    if (raw !== cleaned) {
+      setNameError('Only alphabetical letters (A-Z, a-z) and spaces are allowed. Emojis and special characters are not accepted.');
+    } else {
+      setNameError(null);
+    }
+
+    setFormData(prev => ({ ...prev, name: cleaned }));
+  };
+
+  // Handle Description Input (Plain text, no emojis, max 500 chars)
+  const handleMessageChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const raw = e.target.value;
+    const cleaned = removeEmojis(raw);
+
+    if (raw !== cleaned) {
+      setMessageError('Emojis are not accepted in the issue description. Please use plain text.');
+    } else if (cleaned.length > DESCRIPTION_MAX_LENGTH) {
+      setMessageError(`Character limit reached (${DESCRIPTION_MAX_LENGTH} characters max).`);
+    } else {
+      setMessageError(null);
+    }
+
+    // Enforce max 500 characters
+    const trimmedToMax = cleaned.slice(0, DESCRIPTION_MAX_LENGTH);
+    setFormData(prev => ({ ...prev, message: trimmedToMax }));
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.name || !formData.email || !formData.message) return;
-    if (!/^[a-zA-Z0-9._%+-]+@gmail\.com$/i.test(formData.email.trim())) {
-      alert('Only @gmail.com email addresses are accepted (e.g. yourname@gmail.com).');
+    setSubmitError(null);
+
+    const trimmedName = formData.name.trim();
+    const trimmedEmail = formData.email.trim();
+    const trimmedMessage = formData.message.trim();
+
+    if (!trimmedName || !trimmedEmail || !trimmedMessage) {
+      setSubmitError('Please complete all required fields.');
+      return;
+    }
+
+    // Validate Full Name: strictly letters and spaces, 2 to 60 characters
+    if (!/^[a-zA-Z\s]{2,60}$/.test(trimmedName)) {
+      setSubmitError('Full Name must contain only alphabetical letters and spaces (2-60 characters, no emojis or special characters).');
+      return;
+    }
+
+    // Validate Email: @gmail.com only
+    if (!/^[a-zA-Z0-9._%+-]+@gmail\.com$/i.test(trimmedEmail)) {
+      setSubmitError('Only @gmail.com email addresses are accepted (e.g. yourname@gmail.com).');
+      return;
+    }
+
+    // Validate Description: no emojis
+    if (containsEmoji(trimmedMessage)) {
+      setSubmitError('Description cannot contain emojis. Please remove emojis and describe in plain text.');
+      return;
+    }
+
+    // Validate Description: length limit
+    if (trimmedMessage.length < 10) {
+      setSubmitError('Please provide a more descriptive issue summary (at least 10 characters).');
+      return;
+    }
+
+    if (trimmedMessage.length > DESCRIPTION_MAX_LENGTH) {
+      setSubmitError(`Description exceeds the maximum limit of ${DESCRIPTION_MAX_LENGTH} characters.`);
       return;
     }
     
     setSubmitting(true);
-    setSubmitError(null);
 
     try {
-      await api.post('/support', formData);
+      await api.post('/support', {
+        name: trimmedName,
+        email: trimmedEmail,
+        category: formData.category,
+        message: trimmedMessage
+      });
       setFormSubmitted(true);
     } catch (err: any) {
       console.error('Failed to submit support ticket', err);
@@ -205,15 +299,31 @@ export default function SupportPage() {
                 ) : (
                   <form onSubmit={handleSubmit} className="space-y-4">
                     <div>
-                      <label className="block text-xs font-bold text-slate-700 mb-1">Your Full Name</label>
+                      <div className="flex justify-between items-center mb-1">
+                        <label className="block text-xs font-bold text-slate-700">Your Full Name</label>
+                        <span className="text-[10px] text-slate-400">Letters and spaces only</span>
+                      </div>
                       <input
                         type="text"
                         required
                         placeholder="John Doe"
                         value={formData.name}
-                        onChange={e => setFormData({ ...formData, name: e.target.value })}
-                        className="w-full px-3.5 py-2 border border-slate-300 rounded-xl text-xs text-slate-900 focus:ring-2 focus:ring-blue-500 outline-none"
+                        onChange={handleNameChange}
+                        maxLength={60}
+                        className={`w-full px-3.5 py-2 border rounded-xl text-xs text-slate-900 focus:ring-2 focus:ring-blue-500 outline-none transition ${
+                          nameError ? 'border-rose-400 bg-rose-50/30' : 'border-slate-300'
+                        }`}
                       />
+                      {nameError ? (
+                        <p className="text-[11px] text-rose-600 font-semibold mt-1 flex items-center">
+                          <AlertCircle className="w-3.5 h-3.5 mr-1 shrink-0" />
+                          <span>{nameError}</span>
+                        </p>
+                      ) : (
+                        <p className="text-[11px] text-slate-400 mt-1">
+                          No emojis, numbers, or special characters permitted.
+                        </p>
+                      )}
                     </div>
 
                     <div>
@@ -243,15 +353,39 @@ export default function SupportPage() {
                     </div>
 
                     <div>
-                      <label className="block text-xs font-bold text-slate-700 mb-1">Description of Issue</label>
+                      <div className="flex justify-between items-center mb-1">
+                        <label className="block text-xs font-bold text-slate-700">Description of Issue</label>
+                        <span className={`text-[10px] font-bold ${
+                          formData.message.length >= DESCRIPTION_MAX_LENGTH 
+                            ? 'text-rose-600' 
+                            : formData.message.length > 400 
+                            ? 'text-amber-600' 
+                            : 'text-slate-400'
+                        }`}>
+                          {formData.message.length} / {DESCRIPTION_MAX_LENGTH}
+                        </span>
+                      </div>
                       <textarea
                         rows={3}
                         required
-                        placeholder="Please describe what occurred..."
+                        placeholder="Please describe what occurred (plain text only, no emojis)..."
                         value={formData.message}
-                        onChange={e => setFormData({ ...formData, message: e.target.value })}
-                        className="w-full px-3.5 py-2 border border-slate-300 rounded-xl text-xs text-slate-900 focus:ring-2 focus:ring-blue-500 outline-none resize-none"
+                        onChange={handleMessageChange}
+                        maxLength={DESCRIPTION_MAX_LENGTH}
+                        className={`w-full px-3.5 py-2 border rounded-xl text-xs text-slate-900 focus:ring-2 focus:ring-blue-500 outline-none resize-none transition ${
+                          messageError ? 'border-rose-400 bg-rose-50/30' : 'border-slate-300'
+                        }`}
                       />
+                      {messageError ? (
+                        <p className="text-[11px] text-rose-600 font-semibold mt-1 flex items-center">
+                          <AlertCircle className="w-3.5 h-3.5 mr-1 shrink-0" />
+                          <span>{messageError}</span>
+                        </p>
+                      ) : (
+                        <p className="text-[11px] text-slate-400 mt-1">
+                          Plain text only. Max 500 characters, emojis are not accepted.
+                        </p>
+                      )}
                     </div>
 
                     {submitError && (

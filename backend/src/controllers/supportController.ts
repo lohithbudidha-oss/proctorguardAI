@@ -17,6 +17,40 @@ export const createSupportTicket = async (req: Request, res: Response) => {
     const cleanName = String(name).trim();
     const cleanMessage = String(message).trim();
 
+    // 1. Name validation: letters and spaces only (no emojis or special characters)
+    const nameRegex = /^[a-zA-Z\s]{2,60}$/;
+    if (!nameRegex.test(cleanName)) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Full name must contain only alphabetical letters (A-Z, a-z) and spaces. Emojis and special characters are not allowed.' 
+      });
+    }
+
+    // 2. Email validation: @gmail.com only
+    if (!/^[a-zA-Z0-9._%+-]+@gmail\.com$/i.test(cleanEmail)) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Only @gmail.com email addresses are accepted.' 
+      });
+    }
+
+    // 3. Description validation: no emojis
+    const emojiRegex = /\p{Extended_Pictographic}/u;
+    if (emojiRegex.test(cleanMessage)) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Description cannot contain emojis. Please describe your issue using plain text only.' 
+      });
+    }
+
+    // 4. Description length limit: 10 to 500 characters
+    if (cleanMessage.length < 10 || cleanMessage.length > 500) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Description must be between 10 and 500 characters.' 
+      });
+    }
+
     // Default priority mapping based on issue severity
     let initialPriority: TicketPriority = 'MEDIUM';
     if (category === 'TECHNICAL' || category === 'EXAM_ACCESS') {
