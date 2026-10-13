@@ -1,9 +1,26 @@
 'use client';
 
-import React, { useEffect, useState, useRef, useMemo } from 'react';
+import React, { useEffect, useState, useRef, useMemo, Suspense } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { ShieldCheck, FileText, CheckCircle2, Clock, Calendar, ArrowRight, Bell, UserCircle, LogOut, X, Search, Check } from 'lucide-react';
+import { 
+  ShieldCheck, 
+  FileText, 
+  CheckCircle2, 
+  Clock, 
+  Calendar, 
+  ArrowRight, 
+  Bell, 
+  UserCircle, 
+  LogOut, 
+  X, 
+  Search, 
+  Check,
+  Sparkles,
+  CheckCircle,
+  Award,
+  Info
+} from 'lucide-react';
 import api from '@/lib/api';
 import { sanitizeSearchInput } from '@/lib/sanitize';
 
@@ -17,6 +34,42 @@ export default function CandidateDashboard() {
   const notificationRef = useRef<HTMLDivElement>(null);
   const [currentUser, setCurrentUser] = useState<{ name?: string; email?: string } | null>(null);
   const [exams, setExams] = useState<{ id: string; title: string; duration: number; status: string; scheduledFor: string; resultStatus?: string; attemptId?: string }[]>([]);
+  const [submissionSuccessModal, setSubmissionSuccessModal] = useState<{
+    isOpen: boolean;
+    examTitle: string;
+  } | null>(null);
+
+  useEffect(() => {
+    // Check if candidate just submitted an exam
+    try {
+      const searchParamsObj = new URLSearchParams(window.location.search);
+      const isSubmitted = searchParamsObj.get('submitted') === 'true';
+      const storedStr = sessionStorage.getItem('just_submitted_exam');
+      let storedInfo: any = null;
+      if (storedStr) {
+        try { storedInfo = JSON.parse(storedStr); } catch (e) {}
+      }
+
+      if (isSubmitted || storedInfo) {
+        const title = storedInfo?.examTitle || 'Your Examination';
+        setSubmissionSuccessModal({
+          isOpen: true,
+          examTitle: title
+        });
+        sessionStorage.removeItem('just_submitted_exam');
+      }
+    } catch (e) {}
+  }, []);
+
+  const closeSubmissionModal = () => {
+    setSubmissionSuccessModal(null);
+    try {
+      const url = new URL(window.location.href);
+      url.searchParams.delete('submitted');
+      url.searchParams.delete('examId');
+      window.history.replaceState({}, '', url.pathname);
+    } catch (e) {}
+  };
 
   const filteredExams = useMemo(() => {
     const tokens = searchQuery.trim().toLowerCase().split(/\s+/).filter(Boolean);
@@ -445,6 +498,92 @@ export default function CandidateDashboard() {
                 Yes, Sign Out
               </button>
             </div>
+          </div>
+        </div>
+      )}
+      {/* Post-Submission Result Guidance Pop-up Modal */}
+      {submissionSuccessModal?.isOpen && (
+        <div className="fixed inset-0 z-[150] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-in fade-in duration-200">
+          <div className="bg-white rounded-3xl border border-slate-200 shadow-2xl max-w-xl w-full p-6 sm:p-8 transform transition-all animate-in zoom-in-95 duration-200 relative overflow-hidden">
+            
+            {/* Top decorative gradient bar */}
+            <div className="absolute top-0 left-0 right-0 h-2 bg-gradient-to-r from-emerald-500 via-teal-500 to-blue-600" />
+
+            {/* Close Button */}
+            <button
+              onClick={closeSubmissionModal}
+              className="absolute top-5 right-5 p-2 rounded-full text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer"
+              title="Close Notification"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            {/* Header with celebratory icon */}
+            <div className="text-center mb-6">
+              <div className="w-16 h-16 rounded-2xl bg-emerald-100 text-emerald-600 flex items-center justify-center mx-auto mb-3.5 shadow-lg shadow-emerald-500/20 ring-4 ring-emerald-50 animate-bounce duration-1000">
+                <CheckCircle2 className="w-9 h-9 stroke-[2.2]" />
+              </div>
+              <div className="inline-flex items-center space-x-1.5 px-3 py-1 bg-emerald-50 border border-emerald-200 rounded-full text-emerald-800 text-xs font-black uppercase tracking-wider mb-2">
+                <Sparkles className="w-3.5 h-3.5 text-emerald-600" />
+                <span>Exam Submitted Successfully</span>
+              </div>
+              <h2 className="text-2xl font-black text-slate-900 tracking-tight">
+                {submissionSuccessModal.examTitle}
+              </h2>
+              <p className="text-xs text-slate-500 mt-1 font-medium">
+                Your examination responses and AI proctoring telemetry have been recorded.
+              </p>
+            </div>
+
+            {/* Key Information Guidance Cards */}
+            <div className="space-y-3.5 mb-7">
+              {/* When will results be displayed? */}
+              <div className="p-4 rounded-2xl bg-blue-50/80 border border-blue-200/90 text-left">
+                <div className="flex items-center space-x-2 text-blue-900 font-extrabold text-sm mb-1.5">
+                  <Clock className="w-4 h-4 text-blue-600 shrink-0" />
+                  <h4>When will results be displayed?</h4>
+                </div>
+                <p className="text-xs text-blue-800/90 leading-relaxed font-medium">
+                  Your assessment is undergoing proctoring audit (facial presence, tab-switching, and screen share verification). Results are displayed <strong>as soon as proctor verification and admin approval is completed</strong> in the Admin Portal (typically within <strong>24 to 48 hours</strong>).
+                </p>
+              </div>
+
+              {/* Where to check results? */}
+              <div className="p-4 rounded-2xl bg-emerald-50/80 border border-emerald-200/90 text-left">
+                <div className="flex items-center space-x-2 text-emerald-950 font-extrabold text-sm mb-1.5">
+                  <CheckCircle className="w-4 h-4 text-emerald-600 shrink-0" />
+                  <h4>Where to check your results?</h4>
+                </div>
+                <div className="text-xs text-emerald-900/90 space-y-1.5 leading-relaxed font-medium">
+                  <p>
+                    Right here on your <strong>Candidate Dashboard</strong>! Under the <strong>&quot;Assigned Assessments&quot;</strong> section below:
+                  </p>
+                  <ul className="list-disc list-inside space-y-1 pl-1 text-[11px] text-emerald-800">
+                    <li>
+                      <strong>While under review:</strong> The exam card will show <span className="inline-block px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 border border-amber-300 font-bold text-[10px]">Pending Verification</span>.
+                    </li>
+                    <li>
+                      <strong>Once approved:</strong> A green <span className="inline-block px-2 py-0.5 rounded bg-emerald-600 text-white font-bold text-[10px]">View Results</span> button will appear!
+                    </li>
+                    <li>
+                      <strong>What you will see:</strong> Clicking &quot;View Results&quot; shows the full question paper with the official verified correct answers, your selected options, and marks scored.
+                    </li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+
+            {/* Action Button */}
+            <div className="flex items-center justify-end">
+              <button
+                onClick={closeSubmissionModal}
+                className="w-full py-3.5 px-6 rounded-xl font-extrabold bg-blue-600 hover:bg-blue-700 text-white shadow-md shadow-blue-600/20 transition-all flex items-center justify-center space-x-2 text-sm cursor-pointer"
+              >
+                <span>I Understand & Go to Dashboard</span>
+                <ArrowRight className="w-4 h-4" />
+              </button>
+            </div>
+
           </div>
         </div>
       )}

@@ -1167,15 +1167,32 @@ function AttemptContent() {
         }
       } catch(e) {}
 
+      try {
+        sessionStorage.setItem('just_submitted_exam', JSON.stringify({
+          examId,
+          attemptId,
+          examTitle: exam?.title || 'Examination',
+          submittedAt: new Date().toISOString()
+        }));
+      } catch (e) {}
+
       // Smooth delay so candidate sees final submission overlay and redirected cleanly
       setTimeout(() => {
-        router.push(`/candidate/dashboard`);
+        router.push(`/candidate/dashboard?submitted=true&examId=${examId}`);
       }, 1800);
     } catch (err) {
       console.error('Submit failed', err);
+      try {
+        sessionStorage.setItem('just_submitted_exam', JSON.stringify({
+          examId,
+          attemptId,
+          examTitle: exam?.title || 'Examination',
+          submittedAt: new Date().toISOString()
+        }));
+      } catch (e) {}
       // Force routing even if API fails to prevent candidate being stuck
       setTimeout(() => {
-        router.push(`/candidate/dashboard`);
+        router.push(`/candidate/dashboard?submitted=true&examId=${examId}`);
       }, 1800);
     }
   }
