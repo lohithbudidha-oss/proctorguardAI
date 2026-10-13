@@ -23,7 +23,11 @@ import {
   ArrowLeft,
   Loader2,
   Maximize2,
-  RefreshCw
+  RefreshCw,
+  Smartphone,
+  Camera,
+  AlertOctagon,
+  Ban
 } from 'lucide-react';
 import { useRecordings } from '../../../../../../hooks/useRecordings';
 
@@ -97,6 +101,19 @@ function AttemptContent() {
   const headTurnFrames = useRef(0);
   const lastViolationTimeRef = useRef<Record<string, number>>({});
   const isSubmittedRef = useRef(false);
+
+  // Mobile phone & electronic device tracking: 3 warnings limit, auto-terminate on 4th infraction
+  const [mobilePhoneStrikes, setMobilePhoneStrikes] = useState<number>(0);
+  const mobilePhoneStrikesRef = useRef<number>(0);
+  const mobilePhoneCooldownUntilRef = useRef<number>(0);
+  const phoneDetectedFramesRef = useRef<number>(0);
+  const [mobilePhoneModal, setMobilePhoneModal] = useState<{
+    isOpen: boolean;
+    strike: number;
+    title: string;
+    message: string;
+    evidenceImg?: string;
+  } | null>(null);
   
   const [questions, setQuestions] = useState<{ id: string; text: string; type: string; options: string[]; marks: number; negativeMarks: number; correctAnswer: string }[]>([]);
   const currentQuestionIdxRef = useRef(0);
@@ -520,10 +537,168 @@ function AttemptContent() {
     }
   };
 
+  const playProctorTone = (mode: 'warning' | 'final' | 'terminated') => {
+    try {
+      if (typeof window === 'undefined') return;
+      const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+      if (!AudioCtx) return;
+      const ctx = new AudioCtx();
+      if (mode === 'terminated') {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(440, ctx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(140, ctx.currentTime + 0.8);
+        gain.gain.setValueAtTime(0.4, ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.8);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start();
+        osc.stop(ctx.currentTime + 0.8);
+      } else if (mode === 'final') {
+        [0, 0.14, 0.28].forEach((t) => {
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+          osc.type = 'square';
+          osc.frequency.setValueAtTime(880, ctx.currentTime + t);
+          gain.gain.setValueAtTime(0.3, ctx.currentTime + t);
+          gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + t + 0.11);
+          osc.connect(gain);
+          gain.connect(ctx.destination);
+          osc.start(ctx.currentTime + t);
+          osc.stop(ctx.currentTime + t + 0.11);
+        });
+      } else {
+        [0, 0.16].forEach((t) => {
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(659, ctx.currentTime + t);
+          gain.gain.setValueAtTime(0.35, ctx.currentTime + t);
+          gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + t + 0.13);
+          osc.connect(gain);
+          gain.connect(ctx.destination);
+          osc.start(ctx.currentTime + t);
+          osc.stop(ctx.currentTime + t + 0.13);
+        });
+      }
+    } catch (e) {}
+  };
+
+  const dismissMobilePhoneModal = () => {
+    setMobilePhoneModal(null);
+    // Give 5 seconds grace cooldown after user manually acknowledges so they can safely put the device away
+    mobilePhoneCooldownUntilRef.current = Date.now() + 5000;
+  };
+
+  const triggerMobilePhoneViolation = (customMsg?: string) => {
+    if (isSubmittedRef.current || examStatus === 'SUBMITTED' || examStatus === 'TERMINATED') {
+      return;
+    }
+    const now = Date.now();
+    // Enforce cooldown so multiple strikes aren't fired on a single occurrence
+    if (now < mobilePhoneCooldownUntilRef.current) {
+      return;
+    }
+
+    const nextStrike = mobilePhoneStrikesRef.current + 1;
+    mobilePhoneStrikesRef.current = nextStrike;
+    setMobilePhoneStrikes(nextStrike);
+
+    // Set cooldown window of 10s so candidate has time to see notification and remove phone
+    mobilePhoneCooldownUntilRef.current = now + 10000;
+
+    // Capture visual snapshot evidence immediately
+    let evidenceSnapshot = '';
+    try {
+      const video = videoRef.current;
+      if (video && (video.readyState >= 1 || (video.videoWidth > 0 && video.videoHeight > 0))) {
+        const c = document.createElement('canvas');
+        c.width = video.videoWidth || 640;
+        c.height = video.videoHeight || 480;
+        const ctx = c.getContext('2d');
+        if (ctx) {
+          ctx.drawImage(video, 0, 0, c.width, c.height);
+          // Highlight violation overlay on snapshot
+          ctx.strokeStyle = '#ef4444';
+          ctx.lineWidth = 6;
+          ctx.strokeRect(10, 10, c.width - 20, c.height - 20);
+          ctx.fillStyle = 'rgba(220, 38, 38, 0.9)';
+          ctx.fillRect(0, 0, c.width, 36);
+          ctx.fillStyle = '#ffffff';
+          ctx.font = 'bold 14px sans-serif';
+          ctx.fillText(`[AI PROCTOR ALERT] MOBILE PHONE DETECTED - STRIKE ${nextStrike > 3 ? '4 (AUTO-TERMINATED)' : `${nextStrike}/3`}`, 12, 23);
+          evidenceSnapshot = c.toDataURL('image/jpeg', 0.85);
+        }
+      }
+    } catch (e) {}
+
+    if (nextStrike <= 3) {
+      // 1ST, 2ND, OR 3RD WARNING
+      playProctorTone(nextStrike === 3 ? 'final' : 'warning');
+
+      const warningTitles: Record<number, string> = {
+        1: 'Warning 1 of 3: Mobile Phone / Electronic Device Detected',
+        2: 'Warning 2 of 3: Mobile Phone Detected!',
+        3: '🚨 FINAL WARNING (3 of 3): Mobile Phone Detected!'
+      };
+
+      const warningDescriptions: Record<number, string> = {
+        1: 'Strike 1/3: Candidate detected holding or using an electronic device (mobile phone/camera) in front of the exam screen.',
+        2: 'Strike 2/3: Repeated mobile phone or electronic device usage to photograph or view exam content.',
+        3: 'Strike 3/3 (FINAL WARNING): Critical mobile phone infraction. Next occurrence will automatically terminate the exam immediately.'
+      };
+
+      const warningExplanations: Record<number, string> = {
+        1: 'An electronic device (mobile phone / camera) was detected in your camera frame. Photographing exam questions and using mobile devices are strictly prohibited. This is your 1st warning out of 3.',
+        2: 'Mobile phone detected again! Photographing or recording exam questions violates strict academic integrity rules. This is your 2nd warning out of 3. Any further infractions will trigger your final warning before automatic termination.',
+        3: 'CRITICAL ALERT: This is your 3rd and FINAL WARNING. You have reached 3 warnings for electronic device usage. If a mobile phone or electronic device is detected ONE MORE TIME, your exam will be AUTOMATICALLY AND PERMANENTLY TERMINATED immediately without further notice!'
+      };
+
+      setMobilePhoneModal({
+        isOpen: true,
+        strike: nextStrike,
+        title: warningTitles[nextStrike] || `Warning ${nextStrike} of 3`,
+        message: customMsg || warningExplanations[nextStrike],
+        evidenceImg: evidenceSnapshot
+      });
+
+      handleViolation(
+        'MOBILE_PHONE_DETECTED',
+        'CRITICAL',
+        customMsg || warningDescriptions[nextStrike],
+        'WARNING'
+      );
+      addWarning(warningExplanations[nextStrike]);
+    } else {
+      // 4TH STRIKE -> IMMEDIATE AUTO-TERMINATION!
+      // Requirement: "give the warning notification for 3 times after three times that candidate should done the same thing then that candidate should make automatically terminated from the exam"
+      playProctorTone('terminated');
+      setMobilePhoneModal(null);
+
+      captureSnapshotAndReport(
+        'MOBILE_PHONE_DETECTED',
+        'CRITICAL',
+        'AUTOMATIC TERMINATION: Candidate exceeded 3 warnings for electronic device (mobile phone) usage. Auto-terminated on 4th infraction.',
+        'TERMINATE'
+      );
+
+      submitExam(
+        'Your examination has been automatically terminated due to repeated electronic device (mobile phone) infractions after receiving 3 warnings. Your attempt is locked and submitted for proctor investigation.',
+        true, // isTermination
+        false
+      );
+    }
+  };
+
   function triggerAIViolation(
-    type: 'MULTIPLE_FACES' | 'FACE_NOT_FOUND' | 'LOOKING_AWAY' | 'UNAUTHORIZED_DEVICE' | 'TAB_SWITCH' | 'COPY_PASTE' | 'SCREEN_SHARE_STOPPED',
+    type: 'MULTIPLE_FACES' | 'FACE_NOT_FOUND' | 'LOOKING_AWAY' | 'UNAUTHORIZED_DEVICE' | 'TAB_SWITCH' | 'COPY_PASTE' | 'SCREEN_SHARE_STOPPED' | 'MOBILE_PHONE_DETECTED',
     customMessage?: string
   ) {
+    if (type === 'MOBILE_PHONE_DETECTED') {
+      triggerMobilePhoneViolation(customMessage);
+      return;
+    }
     if (type === 'MULTIPLE_FACES') {
       handleViolation('MULTIPLE_FACES', 'CRITICAL', customMessage || 'Multiple faces detected in the camera frame.');
       addWarning('Multiple individuals detected in camera view! Academic integrity policy breached.');
@@ -548,16 +723,17 @@ function AttemptContent() {
     }
   }
 
-  // AI Face & Head Turn Detection (Mediapipe BlazeFace)
+  // AI Face & Object Detection (Mediapipe BlazeFace & EfficientDet)
   useEffect(() => {
     let faceDetector: import('@mediapipe/tasks-vision').FaceDetector;
+    let objectDetector: any = null;
     let animationFrameId: number;
     let lastDetect = 0;
     let isRunning = false;
 
     const initAI = async () => {
       try {
-        const { FaceDetector, FilesetResolver } = await import('@mediapipe/tasks-vision');
+        const { FaceDetector, ObjectDetector, FilesetResolver } = await import('@mediapipe/tasks-vision');
         const vision = await FilesetResolver.forVisionTasks(
           "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.3/wasm"
         );
@@ -569,8 +745,22 @@ function AttemptContent() {
           runningMode: "IMAGE",
           minDetectionConfidence: 0.3
         });
+
+        // Initialize ObjectDetector for electronic device & mobile phone detection
+        try {
+          objectDetector = await ObjectDetector.createFromOptions(vision, {
+            baseOptions: {
+              modelAssetPath: "https://storage.googleapis.com/mediapipe-models/object_detector/efficientdet_lite0/float16/1/efficientdet_lite0.tflite",
+              delegate: "CPU"
+            },
+            runningMode: "IMAGE",
+            scoreThreshold: 0.28
+          });
+        } catch (objErr) {
+          console.warn('ObjectDetector load fallback:', objErr);
+        }
         
-        setAiStatus('AI Active & Monitoring');
+        setAiStatus('AI Active: Face & Device Surveillance Active');
         isRunning = true;
         detectFaces();
       } catch (e) {
@@ -587,6 +777,41 @@ function AttemptContent() {
         lastDetect = now;
         try {
           if (videoRef.current.readyState >= 2 && videoRef.current.videoWidth > 0) {
+            // A. CHECK FOR ELECTRONIC DEVICE / MOBILE PHONE
+            let isPhoneInFrame = false;
+            if (objectDetector) {
+              try {
+                const objDets = objectDetector.detect(videoRef.current);
+                const matched = objDets?.detections?.filter((d: any) =>
+                  d.categories?.some((c: any) => {
+                    const label = (c.categoryName || '').toLowerCase();
+                    return (
+                      label.includes('cell phone') ||
+                      label.includes('phone') ||
+                      label.includes('camera') ||
+                      label.includes('remote') ||
+                      label.includes('electronic')
+                    ) && c.score >= 0.28;
+                  })
+                ) || [];
+                if (matched.length > 0) {
+                  isPhoneInFrame = true;
+                }
+              } catch (e) {}
+            }
+
+            if (isPhoneInFrame) {
+              phoneDetectedFramesRef.current += 1;
+              setAiStatus('AI Alert: Mobile Phone Detected!');
+              if (phoneDetectedFramesRef.current >= 2) {
+                triggerMobilePhoneViolation('Candidate was detected holding or using an electronic device (mobile phone/camera) in front of the examination screen.');
+                phoneDetectedFramesRef.current = 0;
+              }
+            } else {
+              phoneDetectedFramesRef.current = Math.max(0, phoneDetectedFramesRef.current - 1);
+            }
+
+            // B. FACE DETECTION
             const detections = faceDetector.detect(videoRef.current);
             const count = detections?.detections?.length || 0;
 
@@ -662,12 +887,14 @@ function AttemptContent() {
                 }
               } else {
                 headTurnFrames.current = Math.max(0, headTurnFrames.current - 1);
-                setAiStatus('AI Active: 1 Face Detected (Attentive)');
+                if (!isPhoneInFrame) {
+                  setAiStatus('AI Active: 1 Face Detected (Attentive)');
+                }
               }
             }
           }
         } catch (err) {
-          console.error('Face detection error:', err);
+          console.error('Detection error:', err);
         }
       }
 
@@ -683,7 +910,12 @@ function AttemptContent() {
     return () => {
       isRunning = false;
       if (animationFrameId) cancelAnimationFrame(animationFrameId);
-      if (faceDetector) faceDetector.close();
+      if (faceDetector) {
+        try { faceDetector.close(); } catch (e) {}
+      }
+      if (objectDetector && objectDetector.close) {
+        try { objectDetector.close(); } catch (e) {}
+      }
     };
   }, [streamsStarted]);
 
@@ -736,11 +968,13 @@ function AttemptContent() {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (isSubmittedRef.current || examStatus !== 'IN_PROGRESS') return;
 
-      // PrintScreen / Screenshot attempt
-      if (e.key === 'PrintScreen') {
+      // PrintScreen / Screenshot / Photographing screen attempt
+      if (
+        e.key === 'PrintScreen' ||
+        (e.shiftKey && (e.metaKey || (e as any).winKey) && (e.key === 'S' || e.key === 's'))
+      ) {
         e.preventDefault();
-        handleViolation('WINDOW_FOCUS_LOST', 'HIGH', 'Candidate attempted to take a screenshot via PrintScreen key.');
-        addWarning('Screenshots are prohibited during the examination.');
+        triggerMobilePhoneViolation('Candidate attempted to capture a photograph or screenshot of the examination screen.');
         return;
       }
 
@@ -824,7 +1058,7 @@ function AttemptContent() {
     return () => clearInterval(timer);
   }, [isLoading, timerStarted, examStatus]);
 
-  async function captureSnapshotAndReport(type: string, severity: string, message: string) {
+  async function captureSnapshotAndReport(type: string, severity: string, message: string, actionTaken: string = 'LOG') {
     if (isSubmittedRef.current || examStatus === 'SUBMITTED' || examStatus === 'TERMINATED') {
       return;
     }
@@ -946,7 +1180,7 @@ function AttemptContent() {
         type, 
         severity, 
         source: 'BROWSER', 
-        actionTaken: 'LOG',
+        actionTaken,
         description: message,
         screenshot,
         image: screenshot,
@@ -969,6 +1203,7 @@ function AttemptContent() {
       type,
       severity,
       source: 'BROWSER',
+      actionTaken,
       description: message,
       screenshot,
       image: screenshot,
@@ -976,7 +1211,7 @@ function AttemptContent() {
     }).catch(err => console.error('REST violation report error:', err));
   }
 
-  function handleViolation(type: string, severity: string, message: string) {
+  function handleViolation(type: string, severity: string, message: string, actionTaken: string = 'LOG') {
     if (isSubmittedRef.current || examStatus === 'SUBMITTED' || examStatus === 'TERMINATED') {
       return;
     }
@@ -987,7 +1222,7 @@ function AttemptContent() {
       return;
     }
     lastViolationTimeRef.current[type] = now;
-    captureSnapshotAndReport(type, severity, message);
+    captureSnapshotAndReport(type, severity, message, actionTaken);
   }
 
   function addWarning(message: string) {
@@ -1154,6 +1389,9 @@ function AttemptContent() {
     // 3. Disconnect socket to prevent any further events
     try {
       if (socket) {
+        if (isTermination) {
+          socket.emit('attempt:terminated', { attemptId, reason, action: 'TERMINATE' });
+        }
         socket.disconnect();
       }
     } catch(e) {}
@@ -1164,7 +1402,11 @@ function AttemptContent() {
     }
 
     try {
-      await api.post(`/candidate/attempts/${attemptId}/submit`);
+      await api.post(`/candidate/attempts/${attemptId}/submit`, {
+        isTermination,
+        status: isTermination ? 'TERMINATED' : 'SUBMITTED',
+        reason: reason || ''
+      });
       
       // Record local completion for dashboard state
       const completedStr = localStorage.getItem('completed_exams') || '[]';
@@ -1301,7 +1543,25 @@ function AttemptContent() {
           </div>
         </div>
         
-        <div className="flex items-center space-x-8">
+        <div className="flex items-center space-x-4 sm:space-x-6">
+          {/* Mobile Phone / Electronic Device Warning Indicator */}
+          <div className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all border ${
+            mobilePhoneStrikes >= 3
+              ? 'bg-rose-950/90 text-rose-300 border-rose-500 animate-pulse ring-2 ring-rose-500/50'
+              : mobilePhoneStrikes > 0
+                ? 'bg-amber-950/80 text-amber-300 border-amber-500'
+                : 'bg-slate-800 text-slate-300 border-slate-700'
+          }`}>
+            <Smartphone className={`w-3.5 h-3.5 ${mobilePhoneStrikes > 0 ? 'text-rose-400' : 'text-slate-400'}`} />
+            <span>
+              {mobilePhoneStrikes === 0 
+                ? 'Device: 0/3 Warnings' 
+                : mobilePhoneStrikes >= 3
+                  ? 'FINAL WARNING: 3/3'
+                  : `Device: ${mobilePhoneStrikes}/3 Warnings`}
+            </span>
+          </div>
+
           <div className="flex items-center space-x-2 bg-slate-800 px-4 py-1.5 rounded-md">
             <Wifi className="w-4 h-4 text-green-400" />
             <span className="text-sm font-medium">Connected</span>
@@ -1346,11 +1606,34 @@ function AttemptContent() {
             <p className="text-center text-xs text-emerald-400 font-bold mt-2 flex items-center justify-center">
               <ShieldAlert className="w-3 h-3 mr-1" /> {aiStatus}
             </p>
+
+            {mobilePhoneStrikes > 0 && (
+              <div className={`mt-2 py-1.5 px-2 rounded-lg text-xs font-bold text-center flex items-center justify-center space-x-1 border ${
+                mobilePhoneStrikes >= 3
+                  ? 'bg-rose-500/20 text-rose-300 border-rose-500/40 animate-pulse'
+                  : 'bg-amber-500/20 text-amber-300 border-amber-500/30'
+              }`}>
+                <Smartphone className="w-3.5 h-3.5 mr-1 text-rose-400" />
+                <span>Device Warnings: {mobilePhoneStrikes}/3 ({mobilePhoneStrikes >= 3 ? 'Final Warning' : 'Active'})</span>
+              </div>
+            )}
             
             {/* AI Test Panel (Only visible for testing purposes) */}
             <div className="mt-4 p-3 bg-slate-900/50 rounded-lg border border-slate-700">
               <p className="text-[10px] text-slate-500 uppercase font-bold mb-2 tracking-wider">AI Simulation Panel</p>
               <div className="flex flex-col space-y-2">
+                <button 
+                  onClick={() => triggerMobilePhoneViolation('Candidate detected using an electronic device (mobile phone) or photographing screen.')}
+                  className="text-xs bg-rose-500/20 text-rose-300 hover:bg-rose-500/30 py-1.5 px-2 rounded border border-rose-500/40 transition-colors font-bold text-left flex items-center justify-between cursor-pointer"
+                >
+                  <span className="flex items-center">
+                    <Smartphone className="w-3.5 h-3.5 mr-1.5 text-rose-400" />
+                    Simulate: Phone
+                  </span>
+                  <span className="bg-rose-600/50 text-white px-1.5 py-0.5 rounded text-[10px]">
+                    {mobilePhoneStrikes < 3 ? `Strike ${mobilePhoneStrikes + 1}/3` : 'Auto-Terminate'}
+                  </span>
+                </button>
                 <button 
                   onClick={() => triggerAIViolation('MULTIPLE_FACES')}
                   className="text-xs bg-red-500/20 text-red-400 hover:bg-red-500/30 py-1.5 rounded border border-red-500/30 transition-colors"
@@ -1713,11 +1996,159 @@ function AttemptContent() {
         </div>
       )}
 
+      {/* Dedicated Mobile Phone & Electronic Device Warning Modal (3 Warnings Limit) */}
+      {mobilePhoneModal && (
+        <div className="fixed inset-0 bg-slate-950/90 backdrop-blur-md z-[220] flex items-center justify-center p-4 animate-in fade-in duration-200">
+          <div className="bg-white rounded-3xl shadow-2xl max-w-lg w-full p-6 sm:p-8 text-center border-2 border-rose-500 flex flex-col items-center relative overflow-hidden">
+            {/* Top red pulsing accent stripe */}
+            <div className="absolute top-0 left-0 right-0 h-2 bg-gradient-to-r from-rose-600 via-amber-500 to-rose-600 animate-pulse" />
+
+            {/* Strike Progress Indicator */}
+            <div className="w-full flex items-center justify-between mb-5 bg-slate-50 border border-slate-200 rounded-2xl p-3">
+              <span className="text-xs font-bold text-slate-700 uppercase tracking-wider">
+                Infraction Strikes
+              </span>
+              <div className="flex items-center space-x-2">
+                {[1, 2, 3].map((num) => {
+                  const isPastOrCurrent = num <= mobilePhoneModal.strike;
+                  const isCurrent = num === mobilePhoneModal.strike;
+                  return (
+                    <div
+                      key={num}
+                      className={`flex items-center justify-center w-8 h-8 rounded-full text-xs font-black transition-all ${
+                        isCurrent
+                          ? 'bg-rose-600 text-white ring-4 ring-rose-300 scale-110 shadow-md animate-pulse'
+                          : isPastOrCurrent
+                            ? 'bg-amber-500 text-white shadow-sm'
+                            : 'bg-slate-200 text-slate-500'
+                      }`}
+                    >
+                      {num}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Warning Icon */}
+            <div className="relative mb-3">
+              <div className={`w-20 h-20 rounded-3xl flex items-center justify-center shadow-xl ${
+                mobilePhoneModal.strike === 3
+                  ? 'bg-rose-600 text-white shadow-rose-600/40 animate-pulse'
+                  : mobilePhoneModal.strike === 2
+                    ? 'bg-orange-500 text-white shadow-orange-500/30'
+                    : 'bg-amber-500 text-white shadow-amber-500/30'
+              }`}>
+                <Smartphone className="w-10 h-10" />
+              </div>
+              <div className="absolute -bottom-1 -right-1 bg-red-700 text-white text-[10px] font-black px-2 py-0.5 rounded-full ring-2 ring-white">
+                STRIKE {mobilePhoneModal.strike}/3
+              </div>
+            </div>
+
+            {/* Badge */}
+            <div className={`inline-flex items-center space-x-1.5 px-4 py-1.5 rounded-full text-xs font-extrabold uppercase tracking-wider mb-2 ${
+              mobilePhoneModal.strike === 3
+                ? 'bg-rose-100 text-rose-800 border border-rose-300 animate-pulse'
+                : mobilePhoneModal.strike === 2
+                  ? 'bg-orange-100 text-orange-800 border border-orange-300'
+                  : 'bg-amber-100 text-amber-800 border border-amber-300'
+            }`}>
+              <AlertTriangle className="w-4 h-4 mr-1 text-rose-600" />
+              {mobilePhoneModal.strike === 3
+                ? '🚨 FINAL WARNING (3 OF 3) — TERMINATION ON NEXT STRIKE'
+                : `WARNING ${mobilePhoneModal.strike} OF 3`}
+            </div>
+
+            {/* Title */}
+            <h3 className="text-2xl font-black text-slate-900 mb-2">
+              {mobilePhoneModal.title}
+            </h3>
+
+            {/* Explanation Message */}
+            <p className="text-slate-600 text-sm leading-relaxed mb-4">
+              {mobilePhoneModal.message}
+            </p>
+
+            {/* Policy Box */}
+            <div className="w-full bg-rose-50 border border-rose-200 rounded-2xl p-4 text-left text-xs text-rose-900 mb-4 space-y-1.5">
+              <div className="font-bold flex items-center text-rose-700">
+                <AlertOctagon className="w-4 h-4 mr-1.5 text-rose-600" />
+                <span>Strict Academic Integrity Rule:</span>
+              </div>
+              <p className="text-rose-800 leading-normal">
+                Using an electronic device (mobile phone, camera, tablet) or attempting to photograph the examination screen is strictly prohibited.
+              </p>
+              <div className="pt-1.5 font-bold text-rose-950 border-t border-rose-200">
+                {mobilePhoneModal.strike === 3 ? (
+                  <span className="text-rose-600 uppercase tracking-wide">
+                    ⚠️ CRITICAL: You have used all 3 warnings. If you use a mobile phone or electronic device again, your exam will be AUTOMATICALLY AND PERMANENTLY TERMINATED!
+                  </span>
+                ) : (
+                  <span>
+                    Warning {mobilePhoneModal.strike} of 3 recorded. If repeated after 3 warnings (4th occurrence), the exam will be automatically terminated immediately.
+                  </span>
+                )}
+              </div>
+            </div>
+
+            {/* Snapshot Evidence Preview if available */}
+            {mobilePhoneModal.evidenceImg && (
+              <div className="w-full mb-4">
+                <div className="text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1 text-left flex items-center">
+                  <Camera className="w-3.5 h-3.5 mr-1 text-rose-600" />
+                  Captured Incident Proof:
+                </div>
+                <div className="w-full h-32 rounded-xl overflow-hidden border-2 border-rose-300 bg-slate-900 relative shadow-inner">
+                  <img
+                    src={mobilePhoneModal.evidenceImg}
+                    alt="Phone Detection Evidence"
+                    className="w-full h-full object-cover"
+                  />
+                  <span className="absolute bottom-1 right-1 bg-red-600/95 text-white text-[9px] font-mono font-bold px-1.5 py-0.5 rounded shadow">
+                    AI CAPTURE
+                  </span>
+                </div>
+              </div>
+            )}
+
+            {/* Acknowledge Button */}
+            <button
+              onClick={dismissMobilePhoneModal}
+              className={`w-full py-3.5 px-6 font-black rounded-xl text-white shadow-lg transition-all transform hover:scale-[1.01] active:scale-[0.99] cursor-pointer text-sm flex items-center justify-center space-x-2 ${
+                mobilePhoneModal.strike === 3
+                  ? 'bg-rose-600 hover:bg-rose-700 shadow-rose-600/30'
+                  : mobilePhoneModal.strike === 2
+                    ? 'bg-orange-600 hover:bg-orange-700 shadow-orange-600/30'
+                    : 'bg-slate-900 hover:bg-slate-800 shadow-slate-900/30'
+              }`}
+            >
+              <span>
+                {mobilePhoneModal.strike === 3
+                  ? 'I Understand — Final Chance (Phone Put Away)'
+                  : mobilePhoneModal.strike === 2
+                    ? 'I Acknowledge Warning 2/3 & Removed Device'
+                    : 'I Understand & Put Phone Away'}
+              </span>
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Auto-Submit & Submission Confirmation Overlay */}
       {submissionOverlay && (
         <div className="fixed inset-0 bg-slate-950/85 backdrop-blur-md z-[200] flex items-center justify-center p-4 animate-in fade-in duration-200">
           <div className="bg-white rounded-3xl shadow-2xl max-w-lg w-full p-8 text-center border border-slate-100 flex flex-col items-center">
-            {submissionOverlay.isAutoSubmitted ? (
+            {submissionOverlay.title === 'Examination Terminated' ? (
+              <div className="relative mb-6">
+                <div className="w-20 h-20 bg-rose-100 text-rose-600 rounded-3xl flex items-center justify-center shadow-lg shadow-rose-500/20 animate-pulse">
+                  <AlertOctagon className="w-10 h-10" />
+                </div>
+                <div className="absolute -bottom-1 -right-1 w-7 h-7 bg-rose-600 text-white rounded-full flex items-center justify-center ring-4 ring-white shadow-xs">
+                  <Ban className="w-4 h-4" />
+                </div>
+              </div>
+            ) : submissionOverlay.isAutoSubmitted ? (
               <div className="relative mb-6">
                 <div className="w-20 h-20 bg-amber-100 text-amber-600 rounded-3xl flex items-center justify-center shadow-lg shadow-amber-500/20 animate-pulse">
                   <Clock className="w-10 h-10" />

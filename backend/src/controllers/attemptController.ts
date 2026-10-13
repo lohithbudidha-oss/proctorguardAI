@@ -179,8 +179,10 @@ export const submitAttempt = async (req: AuthRequest, res: Response, next: NextF
       return res.status(404).json({ success: false, message: 'Attempt not found' });
     }
 
-    // If already submitted or auto-submitted, return success idempotently
-    if (attempt.status === AttemptStatus.SUBMITTED || attempt.status === AttemptStatus.AUTO_SUBMITTED) {
+    const { isTermination, status: requestedStatus, reason } = req.body || {};
+
+    // If already submitted, auto-submitted, or terminated, return success idempotently
+    if (attempt.status === AttemptStatus.SUBMITTED || attempt.status === AttemptStatus.AUTO_SUBMITTED || attempt.status === AttemptStatus.TERMINATED) {
       return res.status(200).json({ success: true, message: 'Exam already finalized and submitted' });
     }
 
@@ -190,7 +192,12 @@ export const submitAttempt = async (req: AuthRequest, res: Response, next: NextF
 
     const now = new Date();
     const isTimerExpired = Boolean(attempt.expiresAt && now > attempt.expiresAt);
-    attempt.status = isTimerExpired ? AttemptStatus.AUTO_SUBMITTED : AttemptStatus.SUBMITTED;
+    
+    if (isTermination || requestedStatus === 'TERMINATED') {
+      attempt.status = AttemptStatus.TERMINATED;
+    } else {
+      attempt.status = isTimerExpired ? AttemptStatus.AUTO_SUBMITTED : AttemptStatus.SUBMITTED;
+    }
     attempt.submittedAt = now;
     await attempt.save();
 
@@ -202,9 +209,24 @@ export const submitAttempt = async (req: AuthRequest, res: Response, next: NextF
 
     await evaluateAttempt(attemptId as string, candidateId as string);
 
+    // Notify proctors via socket if terminated
+    try {
+      const io = getIO();
+      if (io) {
+        io.to('proctors').emit('attempt:status_change', {
+          attemptId,
+          candidateId,
+          status: attempt.status,
+          reason: reason || (isTermination ? 'Terminated due to prohibited device infractions' : 'Exam finalized')
+        });
+      }
+    } catch (sErr) {}
+
     res.status(200).json({ 
       success: true, 
-      message: isTimerExpired ? 'Exam timer completed. Exam automatically submitted.' : 'Exam submitted successfully' 
+      message: attempt.status === AttemptStatus.TERMINATED
+        ? 'Exam terminated due to violation policy'
+        : (isTimerExpired ? 'Exam timer completed. Exam automatically submitted.' : 'Exam submitted successfully')
     });
   } catch (err) {
     next(err);
@@ -480,7 +502,7 @@ export const recordViolation = async (req: AuthRequest, res: Response, next: Nex
       severity: severity || 'CRITICAL',
       source: source || 'BROWSER',
       detectedAt: new Date(),
-      actionTaken: 'LOG',
+      actionTaken: req.body.actionTaken || 'LOG',
       description: description || '',
       screenshot: shot,
       snapshotImage: shot,

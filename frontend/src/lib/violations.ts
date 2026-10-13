@@ -83,6 +83,27 @@ export const VIOLATION_DETAILS: Record<string, ViolationExplanation> = {
     ruleBreached: 'Single-Display Environment: Multi-monitor and secondary display setups are prohibited.',
     defaultSeverity: 'CRITICAL',
     category: 'DEVICE_INTEGRITY'
+  },
+  MOBILE_PHONE_DETECTED: {
+    title: 'Mobile Phone / Electronic Device Detected',
+    actionDone: 'Candidate was detected holding or using an electronic device (mobile phone or camera) and attempting to take photographs of the examination screen or browse prohibited materials.',
+    ruleBreached: 'Strict No-Electronic-Device Policy: Mobile phones, electronic recording devices, and photographing the screen are strictly prohibited during the exam.',
+    defaultSeverity: 'CRITICAL',
+    category: 'AI_VISION'
+  },
+  PROHIBITED_OBJECT: {
+    title: 'Prohibited Device in Exam Area',
+    actionDone: 'A forbidden physical device or smartphone was detected in candidate view or pointed towards the monitor.',
+    ruleBreached: 'Clean Desk Policy: All electronic devices must remain completely outside the examination area.',
+    defaultSeverity: 'CRITICAL',
+    category: 'AI_VISION'
+  },
+  ELECTRONIC_DEVICE_DETECTED: {
+    title: 'Electronic Device Detected',
+    actionDone: 'Candidate was observed using an unauthorized electronic device during the examination session.',
+    ruleBreached: 'Prohibited Device Rule: No secondary electronic devices are permitted during test sessions.',
+    defaultSeverity: 'CRITICAL',
+    category: 'DEVICE_INTEGRITY'
   }
 };
 
