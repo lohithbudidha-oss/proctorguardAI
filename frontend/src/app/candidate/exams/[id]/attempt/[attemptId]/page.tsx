@@ -107,8 +107,16 @@ function AttemptContent() {
   const streamRef = useRef<MediaStream | null>(null);
   const screenStreamRef = useRef<MediaStream | null>(null);
   const peerConnectionRef = useRef<RTCPeerConnection | null>(null);
+  const questionScrollRef = useRef<HTMLDivElement>(null);
 
   const [isLoading, setIsLoading] = useState(true);
+
+  // Auto-scroll question viewport to top whenever navigating to another question
+  useEffect(() => {
+    if (questionScrollRef.current) {
+      questionScrollRef.current.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  }, [currentQuestionIdx]);
 
   useEffect(() => {
     // Fetch attempt details
@@ -1210,7 +1218,7 @@ function AttemptContent() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 flex flex-col select-none">
+    <div className="h-screen max-h-screen w-screen overflow-hidden bg-slate-50 flex flex-col select-none">
       {/* Fullscreen Entry Gate: Ensures exam timer and questions only activate after fullscreen is entered */}
       {(!isFullscreenReady || !streamsStarted) && !isLoading && examStatus !== 'SUBMITTED' && examStatus !== 'TERMINATED' && (
         <div className="fixed inset-0 bg-slate-900/95 backdrop-blur-md z-[90] flex items-center justify-center p-6 text-center">
@@ -1281,7 +1289,7 @@ function AttemptContent() {
         </div>
       )}
       {/* Header */}
-      <header className="bg-slate-900 text-white flex items-center justify-between px-6 py-3 shadow-md z-10 relative">
+      <header className="bg-slate-900 text-white flex items-center justify-between px-6 py-3 shadow-md z-10 relative shrink-0">
         <div className="flex items-center space-x-3">
           <ShieldAlert className="w-6 h-6 text-blue-400" />
           <h1 className="text-xl font-bold tracking-wide">Secure Examination Mode</h1>
@@ -1311,11 +1319,11 @@ function AttemptContent() {
       </header>
 
       {/* Main Content Layout */}
-      <div className="flex flex-1 overflow-hidden">
+      <div className="flex flex-1 overflow-hidden min-h-0">
         
         {/* Left Sidebar (Camera & Monitor) */}
-        <aside className="w-64 bg-slate-800 flex flex-col border-r border-slate-700 shadow-inner">
-          <div className="p-4 border-b border-slate-700">
+        <aside className="w-64 bg-slate-800 flex flex-col border-r border-slate-700 shadow-inner h-full min-h-0 shrink-0 overflow-hidden">
+          <div className="p-4 border-b border-slate-700 shrink-0">
             <div className="aspect-video bg-black rounded-lg overflow-hidden relative shadow-lg">
               <video 
                 ref={videoRef} 
@@ -1353,7 +1361,7 @@ function AttemptContent() {
             </div>
           </div>
 
-          <div className="p-4 flex-1">
+          <div className="p-4 flex-1 overflow-y-auto min-h-0">
             <h3 className="text-slate-300 text-sm font-semibold mb-3 uppercase tracking-wider">Question Palette</h3>
             <div className="grid grid-cols-4 gap-2">
               {questions.map((q, idx) => {
@@ -1394,7 +1402,7 @@ function AttemptContent() {
         </aside>
 
         {/* Center Exam Area */}
-        <main className="flex-1 bg-white flex flex-col relative">
+        <main className="flex-1 bg-white flex flex-col relative h-full min-h-0 overflow-hidden">
           {isLoading ? (
             <div className="flex-1 flex items-center justify-center">
               <p className="text-slate-500 font-bold">Loading questions...</p>
@@ -1414,7 +1422,7 @@ function AttemptContent() {
             </div>
           ) : (
             <>
-          <div className="flex-1 overflow-y-auto p-10">
+          <div ref={questionScrollRef} className="flex-1 overflow-y-auto min-h-0 p-6 lg:p-10">
             <div className="max-w-3xl mx-auto">
               <div className="flex justify-between items-end mb-8 border-b border-slate-100 pb-4">
                 <h2 className="text-3xl font-bold text-slate-800">Question {currentQuestionIdx + 1}</h2>
@@ -1450,8 +1458,8 @@ function AttemptContent() {
             </div>
           </div>
 
-          {/* Footer Controls */}
-          <footer className="bg-slate-50 border-t border-slate-200 p-4 px-10 flex flex-wrap gap-4 justify-between items-center shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
+          {/* Footer Controls - Always visible at bottom of initial page */}
+          <footer className="bg-slate-50 border-t border-slate-200 p-3.5 px-6 lg:px-10 flex flex-wrap gap-3 justify-between items-center shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] shrink-0 z-20 sticky bottom-0">
             <div className="flex items-center space-x-3">
               <button 
                 onClick={toggleReview}
