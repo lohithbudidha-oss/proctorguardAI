@@ -48,12 +48,15 @@ export default function CandidateDashboard() {
       try {
         const cached = sessionStorage.getItem('pg_cached_candidate_exams');
         if (cached) {
-          const list = JSON.parse(cached);
+          const parsed = JSON.parse(cached);
           const completedStr = localStorage.getItem('completed_exams') || '[]';
-          const completedList: string[] = JSON.parse(completedStr);
-          return list.map((e: any) => {
-            if (completedList.includes(e.id)) {
-              return { ...e, status: 'COMPLETED' };
+          let completedList: string[] = [];
+          try { completedList = JSON.parse(completedStr); } catch (e) {}
+          const searchParams = new URLSearchParams(window.location.search);
+          const justSubmittedExamId = searchParams.get('examId');
+          return parsed.map((e: any) => {
+            if (completedList.includes(e.id) || (justSubmittedExamId && e.id === justSubmittedExamId)) {
+              return { ...e, status: 'COMPLETED', resultStatus: e.resultStatus && e.resultStatus !== 'NONE' ? e.resultStatus : 'PENDING' };
             }
             return e;
           });
@@ -223,65 +226,54 @@ export default function CandidateDashboard() {
       }
     } catch (e) {}
 
-    const fetchCandidateExams = () => {
-      setIsRefreshing(true);
-      api.get('/candidate/exams', {
-        params: { _t: Date.now() },
-        headers: {
-          'Cache-Control': 'no-cache, no-store, must-revalidate',
-          'Pragma': 'no-cache'
+    setIsRefreshing(true);
+    api.get(`/candidate/exams?_t=${Date.now()}`, {
+      headers: {
+        'Cache-Control': 'no-cache, no-store, must-revalidate',
+        'Pragma': 'no-cache',
+        'Expires': '0'
+      }
+    })
+      .then((res: any) => {
+        let fetchedExams = res.data?.exams || [];
+        const completedStr = localStorage.getItem('completed_exams') || '[]';
+        let completedList: string[] = [];
+        try { completedList = JSON.parse(completedStr); } catch (e) {}
+        const searchParams = new URLSearchParams(window.location.search);
+        const justSubmittedExamId = searchParams.get('examId');
+
+        fetchedExams = fetchedExams.map((e: any) => {
+          if (completedList.includes(e.id) || (justSubmittedExamId && e.id === justSubmittedExamId)) {
+            return {
+              ...e,
+              status: 'COMPLETED',
+              resultStatus: e.resultStatus && e.resultStatus !== 'NONE' ? e.resultStatus : 'PENDING'
+            };
+          }
+          return e;
+        });
+
+        setExams(fetchedExams);
+        if (res.data?.candidateProfile) {
+          setCurrentUser(res.data.candidateProfile);
+          try {
+            localStorage.setItem('user', JSON.stringify(res.data.candidateProfile));
+          } catch (e) {}
+        }
+        try {
+          sessionStorage.setItem('pg_cached_candidate_exams', JSON.stringify(fetchedExams));
+        } catch (e) {}
+      })
+      .catch((err: any) => {
+        console.error('Error fetching exams:', err);
+        if (err?.response?.status === 401 || err?.response?.status === 403) {
+          router.replace('/login');
         }
       })
-        .then((res: any) => {
-          let fetchedExams = res.data?.exams || [];
-          try {
-            const completedStr = localStorage.getItem('completed_exams') || '[]';
-            const completedList: string[] = JSON.parse(completedStr);
-            const searchParamsObj = new URLSearchParams(window.location.search);
-            const submittedExamId = searchParamsObj.get('examId');
-
-            fetchedExams = fetchedExams.map((ex: any) => {
-              if (completedList.includes(ex.id) || (submittedExamId && ex.id === submittedExamId)) {
-                return {
-                  ...ex,
-                  status: 'COMPLETED',
-                  attemptId: ex.attemptId || (submittedExamId && ex.id === submittedExamId ? searchParamsObj.get('attemptId') || ex.attemptId : ex.attemptId)
-                };
-              }
-              return ex;
-            });
-          } catch (e) {}
-
-          setExams(fetchedExams);
-          if (res.data?.candidateProfile) {
-            setCurrentUser(res.data.candidateProfile);
-            try {
-              localStorage.setItem('user', JSON.stringify(res.data.candidateProfile));
-            } catch (e) {}
-          }
-          try {
-            sessionStorage.setItem('pg_cached_candidate_exams', JSON.stringify(fetchedExams));
-          } catch (e) {}
-        })
-        .catch((err: any) => {
-          console.error('Error fetching exams:', err);
-          if (err?.response?.status === 401 || err?.response?.status === 403) {
-            router.replace('/login');
-          }
-        })
-        .finally(() => {
-          setLoading(false);
-          setIsRefreshing(false);
-        });
-    };
-
-    fetchCandidateExams();
-
-    const handleFocus = () => {
-      fetchCandidateExams();
-    };
-    window.addEventListener('focus', handleFocus);
-    return () => window.removeEventListener('focus', handleFocus);
+      .finally(() => {
+        setLoading(false);
+        setIsRefreshing(false);
+      });
   }, [router]);
 
   useEffect(() => {
@@ -538,96 +530,141 @@ export default function CandidateDashboard() {
         
         {/* Assessment Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filteredExams.map((exam) => (
-            <div 
-              key={exam.id} 
-              className={`bg-white rounded-2xl border transition-all duration-300 flex flex-col group ${
-                exam.status === 'AVAILABLE' 
-                  ? 'border-blue-200 shadow-[0_8px_30px_rgba(37,99,235,0.08)] hover:-translate-y-1 hover:shadow-[0_15px_40px_rgba(37,99,235,0.12)]' 
-                  : exam.status === 'IN_PROGRESS'
-                  ? 'border-amber-200 shadow-[0_8px_30px_rgba(245,158,11,0.08)] hover:-translate-y-1 hover:shadow-[0_15px_40px_rgba(245,158,11,0.12)]'
-                  : 'border-slate-200 shadow-sm hover:shadow-md opacity-90 hover:opacity-100'
-              }`}
-            >
-              <div className="p-8 flex-1">
-                <div className="flex justify-between items-start mb-6">
-                  <div className={`p-3 rounded-xl ${exam.status === 'AVAILABLE' ? 'bg-blue-600 shadow-lg shadow-blue-600/20' : exam.status === 'IN_PROGRESS' ? 'bg-amber-600 shadow-lg shadow-amber-600/20' : 'bg-emerald-600 shadow-lg shadow-emerald-600/20'}`}>
-                    <FileText className="w-6 h-6 text-white" />
+          {filteredExams.map((exam) => {
+            const isCompleted = exam.status === 'COMPLETED';
+            const isPendingVerification = isCompleted && (!exam.resultStatus || exam.resultStatus === 'PENDING' || exam.resultStatus === 'NONE');
+            const isApproved = isCompleted && exam.resultStatus === 'APPROVED';
+            const isRejected = isCompleted && exam.resultStatus === 'REJECTED';
+            const isInProgress = exam.status === 'IN_PROGRESS';
+            const isAvailable = exam.status === 'AVAILABLE';
+
+            return (
+              <div 
+                key={exam.id} 
+                className={`bg-white rounded-2xl border transition-all duration-300 flex flex-col group ${
+                  isAvailable 
+                    ? 'border-blue-200 shadow-[0_8px_30px_rgba(37,99,235,0.08)] hover:-translate-y-1 hover:shadow-[0_15px_40px_rgba(37,99,235,0.12)]' 
+                    : isInProgress
+                    ? 'border-amber-200 shadow-[0_8px_30px_rgba(245,158,11,0.08)] hover:-translate-y-1 hover:shadow-[0_15px_40px_rgba(245,158,11,0.12)]'
+                    : isPendingVerification
+                    ? 'border-amber-200 bg-amber-50/10 shadow-[0_8px_30px_rgba(245,158,11,0.05)] hover:-translate-y-1 hover:shadow-md'
+                    : 'border-slate-200 shadow-sm hover:shadow-md opacity-90 hover:opacity-100'
+                }`}
+              >
+                <div className="p-8 flex-1">
+                  <div className="flex justify-between items-start mb-6">
+                    <div className={`p-3 rounded-xl ${
+                      isAvailable 
+                        ? 'bg-blue-600 shadow-lg shadow-blue-600/20' 
+                        : isInProgress 
+                        ? 'bg-amber-600 shadow-lg shadow-amber-600/20' 
+                        : isApproved 
+                        ? 'bg-emerald-600 shadow-lg shadow-emerald-600/20' 
+                        : 'bg-amber-500 shadow-lg shadow-amber-500/20'
+                    }`}>
+                      <FileText className="w-6 h-6 text-white" />
+                    </div>
+                    {isAvailable ? (
+                      <span className="px-3 py-1.5 bg-emerald-50 text-emerald-700 border border-emerald-200 text-xs font-bold uppercase tracking-wider rounded-lg flex items-center">
+                        <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full mr-2 animate-pulse"></span> Available Now
+                      </span>
+                    ) : isInProgress ? (
+                      <span className="px-3 py-1.5 bg-amber-50 text-amber-700 border border-amber-200 text-xs font-bold uppercase tracking-wider rounded-lg flex items-center">
+                        <span className="w-1.5 h-1.5 bg-amber-500 rounded-full mr-2 animate-pulse"></span> In Progress
+                      </span>
+                    ) : isPendingVerification ? (
+                      <span className="px-3 py-1.5 bg-amber-50 text-amber-800 border border-amber-300 text-xs font-bold uppercase tracking-wider rounded-lg flex items-center shadow-2xs">
+                        <Clock className="w-3.5 h-3.5 mr-1.5 text-amber-600 animate-pulse shrink-0" /> Pending Verification
+                      </span>
+                    ) : isApproved ? (
+                      <span className="px-3 py-1.5 bg-emerald-50 text-emerald-700 border border-emerald-200 text-xs font-bold uppercase tracking-wider rounded-lg flex items-center">
+                        <CheckCircle2 className="w-3.5 h-3.5 mr-1.5 text-emerald-600 shrink-0" /> Verified & Approved
+                      </span>
+                    ) : isRejected ? (
+                      <span className="px-3 py-1.5 bg-rose-50 text-rose-700 border border-rose-200 text-xs font-bold uppercase tracking-wider rounded-lg flex items-center">
+                        <X className="w-3.5 h-3.5 mr-1.5 text-rose-600 shrink-0" /> Rejected
+                      </span>
+                    ) : isCompleted ? (
+                      <span className="px-3 py-1.5 bg-amber-50 text-amber-800 border border-amber-300 text-xs font-bold uppercase tracking-wider rounded-lg flex items-center">
+                        <Clock className="w-3.5 h-3.5 mr-1.5 text-amber-600 animate-pulse shrink-0" /> Pending Verification
+                      </span>
+                    ) : (
+                      <span className="px-3 py-1.5 bg-slate-100 text-slate-600 border border-slate-200 text-xs font-bold uppercase tracking-wider rounded-lg">
+                        Scheduled
+                      </span>
+                    )}
                   </div>
-                  {exam.status === 'AVAILABLE' ? (
-                    <span className="px-3 py-1.5 bg-emerald-50 text-emerald-700 border border-emerald-200 text-xs font-bold uppercase tracking-wider rounded-lg flex items-center">
-                      <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full mr-2 animate-pulse"></span> Available Now
-                    </span>
-                  ) : exam.status === 'IN_PROGRESS' ? (
-                    <span className="px-3 py-1.5 bg-amber-50 text-amber-700 border border-amber-200 text-xs font-bold uppercase tracking-wider rounded-lg flex items-center">
-                      <span className="w-1.5 h-1.5 bg-amber-500 rounded-full mr-2 animate-pulse"></span> In Progress
-                    </span>
-                  ) : exam.status === 'COMPLETED' ? (
-                    <span className="px-3 py-1.5 bg-emerald-50 text-emerald-700 border border-emerald-200 text-xs font-bold uppercase tracking-wider rounded-lg flex items-center">
-                      <CheckCircle2 className="w-3.5 h-3.5 mr-1.5 text-emerald-600" /> Completed
-                    </span>
-                  ) : (
-                    <span className="px-3 py-1.5 bg-slate-100 text-slate-600 border border-slate-200 text-xs font-bold uppercase tracking-wider rounded-lg">
-                      Scheduled
-                    </span>
-                  )}
+
+                  <h3 className="text-xl font-extrabold mb-4 leading-tight text-slate-900">{exam.title}</h3>
+                  
+                  <div className="space-y-3 mt-4">
+                    <div className="flex items-center text-sm font-medium text-slate-600 bg-slate-50 px-3 py-2 rounded-lg border border-slate-100">
+                      <Clock className={`w-4 h-4 mr-3 ${isCompleted ? 'text-slate-400' : 'text-blue-500'}`} /> {exam.duration} Minutes Duration
+                    </div>
+                    <div className="flex items-center text-sm font-medium text-slate-600 bg-slate-50 px-3 py-2 rounded-lg border border-slate-100">
+                      <CheckCircle2 className={`w-4 h-4 mr-3 ${isCompleted ? 'text-emerald-500' : 'text-blue-500'}`} /> AI-Proctored Session
+                    </div>
+                    <div className="flex items-center text-sm font-medium text-slate-600 bg-slate-50 px-3 py-2 rounded-lg border border-slate-100">
+                      <Calendar className={`w-4 h-4 mr-3 ${isCompleted ? 'text-slate-400' : 'text-indigo-500'}`} /> {new Date(exam.scheduledFor).toLocaleDateString()}
+                    </div>
+                  </div>
                 </div>
 
-                <h3 className="text-xl font-extrabold mb-4 leading-tight text-slate-900">{exam.title}</h3>
-                
-                <div className="space-y-3 mt-4">
-                  <div className="flex items-center text-sm font-medium text-slate-600 bg-slate-50 px-3 py-2 rounded-lg border border-slate-100">
-                    <Clock className={`w-4 h-4 mr-3 ${exam.status === 'COMPLETED' ? 'text-slate-400' : 'text-blue-500'}`} /> {exam.duration} Minutes Duration
-                  </div>
-                  <div className="flex items-center text-sm font-medium text-slate-600 bg-slate-50 px-3 py-2 rounded-lg border border-slate-100">
-                    <CheckCircle2 className={`w-4 h-4 mr-3 ${exam.status === 'COMPLETED' ? 'text-emerald-500' : 'text-blue-500'}`} /> AI-Proctored Session
-                  </div>
-                  <div className="flex items-center text-sm font-medium text-slate-600 bg-slate-50 px-3 py-2 rounded-lg border border-slate-100">
-                    <Calendar className={`w-4 h-4 mr-3 ${exam.status === 'COMPLETED' ? 'text-slate-400' : 'text-indigo-500'}`} /> {new Date(exam.scheduledFor).toLocaleDateString()}
-                  </div>
-                </div>
-              </div>
-
-              <div className="p-4 border-t border-slate-100 bg-slate-50/50 rounded-b-2xl">
-                {exam.status === 'COMPLETED' ? (
-                  exam.attemptId ? (
+                <div className="p-4 border-t border-slate-100 bg-slate-50/50 rounded-b-2xl">
+                  {isPendingVerification ? (
+                    <div className="flex items-center justify-center w-full py-3.5 px-4 rounded-xl font-bold bg-amber-50 text-amber-800 border border-amber-200/80 cursor-default shadow-xs text-sm">
+                      <Clock className="w-4 h-4 mr-2 text-amber-600 animate-pulse shrink-0" />
+                      <span>Pending Verification</span>
+                    </div>
+                  ) : isApproved ? (
+                    exam.attemptId ? (
+                      <Link 
+                        href={`/candidate/exams/${exam.id}/result/${exam.attemptId}`}
+                        className="flex items-center justify-center w-full py-3.5 rounded-xl font-bold bg-blue-600 hover:bg-blue-700 text-white shadow-md hover:shadow-lg transition-all"
+                      >
+                        View Results
+                      </Link>
+                    ) : (
+                      <div className="flex items-center justify-center w-full py-3.5 rounded-xl font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 cursor-default">
+                        Assessment Approved
+                      </div>
+                    )
+                  ) : isRejected ? (
+                    <div className="flex items-center justify-center w-full py-3.5 rounded-xl font-bold bg-rose-50 text-rose-700 border border-rose-200 cursor-default">
+                      Verification Rejected
+                    </div>
+                  ) : isCompleted ? (
+                    <div className="flex items-center justify-center w-full py-3.5 px-4 rounded-xl font-bold bg-amber-50 text-amber-800 border border-amber-200/80 cursor-default shadow-xs text-sm">
+                      <Clock className="w-4 h-4 mr-2 text-amber-600 animate-pulse shrink-0" />
+                      <span>Pending Verification</span>
+                    </div>
+                  ) : isInProgress ? (
                     <Link 
-                      href={`/candidate/exams/${exam.id}/result/${exam.attemptId}`}
-                      className="flex items-center justify-center w-full py-3.5 rounded-xl font-bold bg-blue-600 hover:bg-blue-700 text-white shadow-md hover:shadow-lg transition-all"
+                      href={`/candidate/exams/${exam.id}/attempt/${exam.attemptId}`}
+                      className="flex items-center justify-center w-full py-3.5 rounded-xl font-bold bg-amber-600 hover:bg-amber-700 text-white shadow-md hover:shadow-lg transition-all"
                     >
-                      View Results
+                      Resume Exam <ArrowRight className="w-4 h-4 ml-2 group-hover:translate-x-1 transition-transform" />
                     </Link>
                   ) : (
-                    <div className="flex items-center justify-center w-full py-3.5 rounded-xl font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 cursor-default">
-                      Assessment Completed
-                    </div>
-                  )
-                ) : exam.status === 'IN_PROGRESS' ? (
-                  <Link 
-                    href={`/candidate/exams/${exam.id}/attempt/${exam.attemptId}`}
-                    className="flex items-center justify-center w-full py-3.5 rounded-xl font-bold bg-amber-600 hover:bg-amber-700 text-white shadow-md hover:shadow-lg transition-all"
-                  >
-                    Resume Exam <ArrowRight className="w-4 h-4 ml-2 group-hover:translate-x-1 transition-transform" />
-                  </Link>
-                ) : (
-                  <Link 
-                    href={`/candidate/exams/${exam.id}/system-check`}
-                    className={`flex items-center justify-center w-full py-3.5 rounded-xl font-bold transition-all ${
-                      exam.status === 'AVAILABLE' 
-                        ? 'bg-blue-600 text-white hover:bg-blue-700 shadow-md hover:shadow-lg hover:shadow-blue-600/20' 
-                        : 'bg-white text-slate-600 border border-slate-300 hover:bg-slate-50'
-                    }`}
-                  >
-                    {exam.status === 'AVAILABLE' ? (
-                      <>Start System Check <ArrowRight className="w-4 h-4 ml-2 group-hover:translate-x-1 transition-transform" /></>
-                    ) : (
-                      'View Details'
-                    )}
-                  </Link>
-                )}
+                    <Link 
+                      href={`/candidate/exams/${exam.id}/system-check`}
+                      className={`flex items-center justify-center w-full py-3.5 rounded-xl font-bold transition-all ${
+                        isAvailable 
+                          ? 'bg-blue-600 text-white hover:bg-blue-700 shadow-md hover:shadow-lg hover:shadow-blue-600/20' 
+                          : 'bg-white text-slate-600 border border-slate-300 hover:bg-slate-50'
+                      }`}
+                    >
+                      {isAvailable ? (
+                        <>Start System Check <ArrowRight className="w-4 h-4 ml-2 group-hover:translate-x-1 transition-transform" /></>
+                      ) : (
+                        'View Details'
+                      )}
+                    </Link>
+                  )}
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
 
         {exams.length === 0 && (

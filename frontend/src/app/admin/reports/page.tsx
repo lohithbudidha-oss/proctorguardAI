@@ -2,7 +2,6 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
 import { 
   ArrowLeft, 
   CheckCircle2, 
@@ -12,31 +11,30 @@ import {
   ShieldAlert, 
   ExternalLink, 
   HardDrive, 
-  Search, 
-  BarChart3, 
-  Eye, 
-  Clock, 
-  Award, 
-  AlertTriangle, 
-  Printer, 
-  ChevronRight, 
-  HelpCircle, 
-  Camera, 
-  FolderOpen, 
-  Cloud, 
-  RefreshCw, 
-  Folder, 
-  Download, 
-  Shield, 
-  FileCheck, 
-  LogOut, 
-  Users 
+  Search,
+  BarChart3,
+  Eye,
+  Clock,
+  Award,
+  AlertTriangle,
+  Printer,
+  ChevronRight,
+  HelpCircle,
+  Camera,
+  FolderOpen,
+  Cloud,
+  RefreshCw,
+  Folder,
+  Download,
+  Shield,
+  FileCheck,
+  LogOut,
+  Users
 } from 'lucide-react';
 import api from '@/lib/api';
 import { sanitizeSearchInput } from '@/lib/sanitize';
 
 export default function ResultsVerificationPage() {
-  const router = useRouter();
   const [results, setResults] = useState<any[]>(() => {
     if (typeof window !== 'undefined') {
       try {
@@ -129,10 +127,6 @@ export default function ResultsVerificationPage() {
       return data;
     } catch (error: any) {
       console.error('Failed to fetch results', error);
-      if (error?.response && (error.response.status === 401 || error.response.status === 403)) {
-        router.replace('/login?role=admin');
-        return;
-      }
       if (isManual) {
         const errMsg = error?.response?.data?.message || error?.message || 'Failed to refresh records';
         setRefreshError(errMsg);
@@ -147,15 +141,7 @@ export default function ResultsVerificationPage() {
   };
 
   const handleRefresh = async () => {
-    try {
-      sessionStorage.removeItem('pg_cached_integrity_reports');
-    } catch (e) {}
-    if (isDriveModalOpen) {
-      api.get('/admin/drive/files', {
-        params: { _t: Date.now() },
-        headers: { 'Cache-Control': 'no-cache, no-store, must-revalidate', 'Pragma': 'no-cache' }
-      }).then(res => setDriveData(res.data)).catch(() => {});
-    }
+    if (refreshing) return;
     await fetchResults(true);
   };
 
@@ -209,25 +195,20 @@ export default function ResultsVerificationPage() {
     }
   };
 
-  const pendingCount = useMemo(() => results.filter(r => (r.status || 'PENDING').toUpperCase() === 'PENDING').length, [results]);
-  const approvedCount = useMemo(() => results.filter(r => (r.status || '').toUpperCase() === 'APPROVED').length, [results]);
-  const rejectedCount = useMemo(() => results.filter(r => (r.status || '').toUpperCase() === 'REJECTED').length, [results]);
-
   const filteredResults = useMemo(() => {
     const tokens = searchQuery.trim().toLowerCase().split(/\s+/).filter(Boolean);
 
     return results.filter(r => {
-      const itemStatus = (r.status || 'PENDING').toUpperCase();
-      const matchesStatus = statusFilter === 'ALL' || itemStatus === statusFilter;
+      const matchesStatus = statusFilter === 'ALL' || r.status === statusFilter;
       if (!matchesStatus) return false;
       if (tokens.length === 0) return true;
 
-      const candName = r.candidateId?.name || r.attemptId?.candidateId?.name || '';
-      const candEmail = r.candidateId?.email || r.attemptId?.candidateId?.email || '';
+      const candName = r.candidateId?.name || '';
+      const candEmail = r.candidateId?.email || '';
       const examTitle = r.examId?.title || '';
-      const statusText = itemStatus;
+      const statusText = r.status || '';
       const passText = r.pass ? 'pass passed' : 'fail failed';
-      const scoreText = `${r.obtainedMarks}/${r.totalMarks} ${(r.percentage ?? 0).toFixed(1)}% score marks`;
+      const scoreText = `${r.obtainedMarks}/${r.totalMarks} ${r.percentage ? r.percentage.toFixed(1) : ''}% score marks`;
       const violText = `${r.violations || 0} violations infractions flags`;
 
       const blob = `${candName} ${candEmail} ${examTitle} ${statusText} ${passText} ${scoreText} ${violText}`.toLowerCase();
@@ -301,7 +282,7 @@ export default function ResultsVerificationPage() {
             <button 
               type="button"
               onClick={handleRefresh}
-              disabled={refreshing}
+              disabled={refreshing || loading}
               className={`px-3.5 py-1.5 rounded-lg text-xs font-bold border transition shadow-2xs cursor-pointer flex items-center h-8.5 shrink-0 whitespace-nowrap active:scale-95 disabled:opacity-60 ${
                 refreshSuccess
                   ? 'bg-emerald-50 text-emerald-700 border-emerald-300'
@@ -311,7 +292,7 @@ export default function ResultsVerificationPage() {
               }`}
               title="Refresh latest verification and integrity records"
             >
-              <RefreshCw className={`w-3.5 h-3.5 mr-1.5 ${refreshing ? 'animate-spin text-blue-600' : refreshSuccess ? 'text-emerald-600' : 'text-slate-500'}`} />
+              <RefreshCw className={`w-3.5 h-3.5 mr-1.5 ${refreshing || loading ? 'animate-spin text-blue-600' : refreshSuccess ? 'text-emerald-600' : 'text-slate-500'}`} />
               {refreshing ? 'Refreshing...' : refreshSuccess ? refreshSuccess : refreshError ? 'Refresh Failed' : 'Refresh'}
             </button>
           </div>
@@ -350,20 +331,17 @@ export default function ResultsVerificationPage() {
                     : 'text-slate-600 hover:text-slate-900'
                 }`}
               >
-                {tab === 'ALL' ? `All (${results.length})` : 
-                 tab === 'PENDING' ? `Pending (${pendingCount})` : 
-                 tab === 'APPROVED' ? `Approved (${approvedCount})` : 
-                 `Rejected (${rejectedCount})`}
+                {tab === 'ALL' ? `All (${results.length})` : tab}
               </button>
             ))}
             <button
               type="button"
               onClick={handleRefresh}
-              disabled={refreshing}
+              disabled={refreshing || loading}
               className="p-1.5 text-slate-500 hover:text-slate-900 rounded-lg hover:bg-white transition-all cursor-pointer disabled:opacity-50"
               title="Refresh integrity records"
             >
-              <RefreshCw className={`w-3.5 h-3.5 ${refreshing ? 'animate-spin text-blue-600' : ''}`} />
+              <RefreshCw className={`w-3.5 h-3.5 ${refreshing || loading ? 'animate-spin text-blue-600' : ''}`} />
             </button>
           </div>
         </div>
@@ -404,8 +382,8 @@ export default function ResultsVerificationPage() {
                         {new Date(r.createdAt).toLocaleDateString()}
                       </td>
                       <td className="p-4 align-middle text-left">
-                        <div className="font-semibold text-slate-800">{r.candidateId?.name || r.attemptId?.candidateId?.name || 'Candidate'}</div>
-                        <div className="text-xs text-slate-500">{r.candidateId?.email || r.attemptId?.candidateId?.email || 'N/A'}</div>
+                        <div className="font-semibold text-slate-800">{r.candidateId?.name || 'Unknown'}</div>
+                        <div className="text-xs text-slate-500">{r.candidateId?.email || 'N/A'}</div>
                       </td>
                       <td className="p-4 align-middle text-left text-sm font-medium text-slate-700">
                         {r.examId?.title || 'Unknown Exam'}
@@ -413,7 +391,7 @@ export default function ResultsVerificationPage() {
                       <td className="p-4 align-middle text-center">
                         <div className="inline-flex flex-col items-center justify-center">
                           <span className={`font-bold ${r.pass ? 'text-emerald-600' : 'text-rose-600'}`}>
-                            {(r.percentage ?? 0).toFixed(1)}%
+                            {r.percentage.toFixed(1)}%
                           </span>
                           <div className="text-xs text-slate-500">{r.obtainedMarks}/{r.totalMarks} Marks</div>
                         </div>

@@ -356,16 +356,9 @@ export const setupSockets = (io: Server) => {
           });
 
           if (activeAttempt) {
-            // If attempt has already been finalized or submitted, do not log a window closure violation
-            if (activeAttempt.submittedAt || ['SUBMITTED', 'AUTO_SUBMITTED', 'FORCE_SUBMITTED', 'COMPLETED', 'TERMINATED', 'INVALIDATED'].includes(activeAttempt.status as any)) {
+            if (activeAttempt.submittedAt) {
               return;
             }
-            const Result = require('../models/Result').default;
-            const alreadyResult = await Result.findOne({ attemptId: activeAttempt._id });
-            if (alreadyResult) {
-              return;
-            }
-
             const now = new Date();
             const isExpired = activeAttempt.expiresAt && now > activeAttempt.expiresAt;
             if (!isExpired) {

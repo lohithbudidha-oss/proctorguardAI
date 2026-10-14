@@ -12,6 +12,8 @@ import { evaluateAttempt } from './attemptController';
 
 export const getAssignedExams = async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+
     const candidateId = req.user?.userId;
     if (!candidateId) {
       return res.status(401).json({ success: false, message: 'Unauthorized' });
@@ -48,27 +50,27 @@ export const getAssignedExams = async (req: AuthRequest, res: Response, next: Ne
       
       const examAttempts = attemptsByExam.get(examIdStr) || [];
       const allowedAttempts = a.allowedAttempts || 1;
+
       const resObj = resultMap.get(examIdStr);
+      const hasResult = Boolean(resObj);
 
       // Check for finalized attempt
       const completedAttempt = examAttempts.find((att: any) => 
         ['SUBMITTED', 'AUTO_SUBMITTED', 'FORCE_SUBMITTED', 'COMPLETED', 'TERMINATED', 'INVALIDATED'].includes(att.status) ||
-        Boolean(att.submittedAt) ||
-        Boolean(resObj && (att._id.toString() === resObj.attemptId?.toString() || att._id.toString() === resObj.attemptId))
+        att.submittedAt != null
       );
 
       // Check for active in-progress attempt that hasn't expired and hasn't been submitted
       const now = new Date();
-      const activeAttempt = examAttempts.find((att: any) => 
+      const activeAttempt = !hasResult && !completedAttempt && examAttempts.find((att: any) => 
         [AttemptStatus.IN_PROGRESS, AttemptStatus.PAUSED].includes(att.status) &&
         !att.submittedAt &&
-        (!resObj || (att._id.toString() !== resObj.attemptId?.toString() && att._id.toString() !== resObj.attemptId)) &&
         (!att.expiresAt || now < new Date(att.expiresAt))
       );
 
       const isCompleted = Boolean(
         completedAttempt || 
-        Boolean(resObj) ||
+        hasResult ||
         a.status === AssignmentStatus.COMPLETED || 
         (examAttempts.length >= allowedAttempts && examAttempts.length > 0)
       );
@@ -79,16 +81,14 @@ export const getAssignedExams = async (req: AuthRequest, res: Response, next: Ne
 
       if (isCompleted) {
         status = 'COMPLETED';
-        const targetAttempt = completedAttempt || (resObj?.attemptId ? examAttempts.find(att => att._id.toString() === resObj.attemptId.toString()) : null) || examAttempts[0];
-        attemptId = targetAttempt ? targetAttempt._id.toString() : (resObj?.attemptId ? resObj.attemptId.toString() : null);
-        resultStatus = resObj?.status || (targetAttempt?.percentage !== undefined || targetAttempt?.score !== undefined ? 'APPROVED' : 'APPROVED');
+        const targetAttempt = completedAttempt || examAttempts[0];
+        attemptId = targetAttempt ? targetAttempt._id.toString() : null;
+        const resObj = resultMap.get(examIdStr);
+        resultStatus = resObj?.status || 'PENDING';
 
         // Heal Assignment status in MongoDB if needed
         if (a.status !== AssignmentStatus.COMPLETED) {
-          Assignment.updateOne({ _id: a._id }, { status: AssignmentStatus.COMPLETED }).exec().catch(() => {});
-        }
-        if (targetAttempt && !['SUBMITTED', 'AUTO_SUBMITTED', 'FORCE_SUBMITTED', 'COMPLETED', 'TERMINATED'].includes(targetAttempt.status)) {
-          Attempt.updateOne({ _id: targetAttempt._id }, { status: AttemptStatus.SUBMITTED, submittedAt: targetAttempt.submittedAt || new Date() }).exec().catch(() => {});
+          Assignment.updateMany({ examId: exam._id, candidateId }, { $set: { status: AssignmentStatus.COMPLETED } }).exec().catch(() => {});
         }
       } else if (activeAttempt) {
         status = 'IN_PROGRESS';
@@ -145,25 +145,19 @@ export const getExamDetails = async (req: AuthRequest, res: Response, next: Next
     // Check attempts for this exam
     const attempts = await Attempt.find({ candidateId, examId }).sort({ createdAt: -1 }).lean();
     const allowedAttempts = assignment.allowedAttempts || 1;
-    const resultObj = await Result.findOne({ candidateId, examId }).sort({ createdAt: -1 }).lean();
 
     const completedAttempt = attempts.find((att: any) => 
-      ['SUBMITTED', 'AUTO_SUBMITTED', 'FORCE_SUBMITTED', 'COMPLETED', 'TERMINATED', 'INVALIDATED'].includes(att.status) ||
-      Boolean(att.submittedAt) ||
-      Boolean(resultObj && att._id.toString() === resultObj.attemptId?.toString())
+      ['SUBMITTED', 'AUTO_SUBMITTED', 'FORCE_SUBMITTED', 'COMPLETED', 'TERMINATED', 'INVALIDATED'].includes(att.status)
     );
 
     const now = new Date();
     const activeAttempt = attempts.find((att: any) => 
       [AttemptStatus.IN_PROGRESS, AttemptStatus.PAUSED].includes(att.status) &&
-      !att.submittedAt &&
-      (!resultObj || att._id.toString() !== resultObj.attemptId?.toString()) &&
       (!att.expiresAt || now < new Date(att.expiresAt))
     );
 
     const isCompleted = Boolean(
       completedAttempt || 
-      Boolean(resultObj) ||
       assignment.status === AssignmentStatus.COMPLETED || 
       (attempts.length >= allowedAttempts && attempts.length > 0)
     );
@@ -180,7 +174,7 @@ export const getExamDetails = async (req: AuthRequest, res: Response, next: Next
         endAt: exam.endAt,
         status: isCompleted ? 'COMPLETED' : assignment.status,
         isCompleted,
-        completedAttemptId: completedAttempt?._id?.toString() || resultObj?.attemptId?.toString() || attempts[0]?._id?.toString() || null,
+        completedAttemptId: completedAttempt?._id?.toString() || attempts[0]?._id?.toString() || null,
         hasActiveAttempt: Boolean(activeAttempt),
         activeAttemptId: activeAttempt?._id?.toString() || null,
         attemptsUsed: attempts.length,

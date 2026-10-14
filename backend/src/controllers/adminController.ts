@@ -96,6 +96,8 @@ import { googleDriveService } from '../services/googleDriveService';
 
 export const getLiveCandidates = async (req: Request, res: Response, next: NextFunction) => {
   try {
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+
     const attempts = await Attempt.find()
       .populate('candidateId', 'name email')
       .populate('examId', 'title duration scoringRules')
@@ -133,6 +135,8 @@ export const getLiveCandidates = async (req: Request, res: Response, next: NextF
         });
     }
 
+    const now = new Date();
+
     const attemptsData = validAttempts.map((doc: any) => {
       const candidate = doc.candidateId;
       const exam = doc.examId;
@@ -144,27 +148,18 @@ export const getLiveCandidates = async (req: Request, res: Response, next: NextF
         0
       );
 
-      let resolvedStatus = doc.status;
-      const isExpired = doc.expiresAt && new Date() > new Date(doc.expiresAt);
-
-      if (result || doc.submittedAt) {
-        resolvedStatus = ['TERMINATED', 'FORCE_SUBMITTED', 'AUTO_SUBMITTED'].includes(doc.status)
-          ? doc.status
-          : 'SUBMITTED';
-
-        if (doc.status === AttemptStatus.IN_PROGRESS || doc.status === AttemptStatus.PAUSED || doc.status === 'LOCKED') {
-          Attempt.updateOne(
-            { _id: doc._id },
-            { status: AttemptStatus.SUBMITTED, submittedAt: doc.submittedAt || new Date() }
-          ).exec().catch(() => {});
-        }
-      } else if (isExpired && doc.status === AttemptStatus.IN_PROGRESS) {
-        resolvedStatus = 'AUTO_SUBMITTED';
-        Attempt.updateOne(
-          { _id: doc._id },
-          { status: AttemptStatus.AUTO_SUBMITTED, submittedAt: doc.expiresAt }
-        ).exec().catch(() => {});
+      let effectiveStatus = doc.status;
+      if (['SUBMITTED', 'AUTO_SUBMITTED', 'FORCE_SUBMITTED', 'COMPLETED', 'TERMINATED'].includes(doc.status)) {
+        effectiveStatus = doc.status;
+      } else if (result || doc.submittedAt) {
+        effectiveStatus = 'SUBMITTED';
+        Attempt.updateOne({ _id: doc._id }, { $set: { status: AttemptStatus.SUBMITTED } }).exec().catch(() => {});
+      } else if (doc.status === 'IN_PROGRESS' && doc.expiresAt && now > new Date(doc.expiresAt)) {
+        effectiveStatus = 'AUTO_SUBMITTED';
+        Attempt.updateOne({ _id: doc._id }, { $set: { status: AttemptStatus.AUTO_SUBMITTED } }).exec().catch(() => {});
       }
+
+      const verificationStatus = result ? result.status : (doc.resultStatus || 'PENDING');
 
       return {
         attemptId: doc._id,
@@ -173,7 +168,8 @@ export const getLiveCandidates = async (req: Request, res: Response, next: NextF
         email: candidate.email,
         examId: exam._id,
         examName: exam.title,
-        status: resolvedStatus,
+        status: effectiveStatus,
+        verificationStatus,
         startedAt: doc.startedAt,
         submittedAt: doc.submittedAt || (result ? result.createdAt : undefined),
         expiresAt: doc.expiresAt,
@@ -411,69 +407,12 @@ export const getViolations = async (req: Request, res: Response, next: NextFunct
 
 export const getResults = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
-
-    const now = new Date();
-
-    // 1. Auto-finalize any expired active attempts
-    try {
-      const expiredAttempts: any[] = await Attempt.find({
-        status: AttemptStatus.IN_PROGRESS,
-        expiresAt: { $exists: true, $lte: now }
-      });
-      for (const exp of expiredAttempts) {
-        exp.status = AttemptStatus.AUTO_SUBMITTED;
-        exp.submittedAt = exp.submittedAt || exp.expiresAt || now;
-        await exp.save();
-      }
-    } catch (expErr) {
-      console.error('Error auto-finalizing expired attempts in getResults:', expErr);
-    }
-
-    // 2. Discover all finalized/submitted attempts that don't have a Result record yet
-    try {
-      const finalizedAttempts: any[] = await Attempt.find({
-        $or: [
-          { status: { $in: [
-            AttemptStatus.SUBMITTED,
-            AttemptStatus.AUTO_SUBMITTED,
-            AttemptStatus.FORCE_SUBMITTED,
-            AttemptStatus.COMPLETED,
-            AttemptStatus.TERMINATED,
-            AttemptStatus.INVALIDATED
-          ] } },
-          { submittedAt: { $exists: true, $ne: null } }
-        ]
-      }).lean();
-
-      const existingResults: any[] = await Result.find().select('attemptId').lean();
-      const existingAttemptIds = new Set(existingResults.map((r: any) => r.attemptId?.toString()).filter(Boolean));
-
-      const { evaluateAttempt } = require('./attemptController');
-      for (const att of finalizedAttempts) {
-        const attIdStr = att?._id ? att._id.toString() : '';
-        if (attIdStr && !existingAttemptIds.has(attIdStr)) {
-          try {
-            const candIdStr = att?.candidateId ? att.candidateId.toString() : undefined;
-            await evaluateAttempt(attIdStr, candIdStr);
-            existingAttemptIds.add(attIdStr);
-          } catch (evalErr) {
-            console.error('Error auto-evaluating attempt for results in getResults:', evalErr);
-          }
-        }
-      }
-    } catch (syncErr) {
-      console.error('Error syncing finalized attempts in getResults:', syncErr);
-    }
-
-    // 3. Query all results with full population
     const results = await Result.find()
-      .populate('candidateId', 'name email status role')
+      .populate('candidateId', 'name email status')
       .populate('examId', 'title duration passingPercentage passMark')
-      .populate('attemptId', 'startedAt submittedAt status attemptNumber durationSeconds expiresAt candidateId')
+      .populate('attemptId', 'startedAt submittedAt status attemptNumber durationSeconds expiresAt')
       .sort({ createdAt: -1 })
       .lean();
-
     res.status(200).json({ success: true, results });
   } catch (err) {
     next(err);

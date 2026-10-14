@@ -60,6 +60,7 @@ interface CandidateExamRecord {
   examName: string;
   examId?: string;
   status: string;
+  verificationStatus?: string;
   startedAt?: string;
   submittedAt?: string;
   score: number;
@@ -238,7 +239,8 @@ export default function CandidateExamRecordsPage() {
       params: { _t: Date.now() },
       headers: {
         'Cache-Control': 'no-cache, no-store, must-revalidate',
-        'Pragma': 'no-cache'
+        'Pragma': 'no-cache',
+        'Expires': '0'
       }
     }).then(res => {
       const records: CandidateExamRecord[] = (res.data.candidates || []).map((cand: any) => ({
@@ -249,6 +251,7 @@ export default function CandidateExamRecordsPage() {
         examName: cand.examName || cand.exam || 'Assessment',
         examId: cand.examId,
         status: cand.status || 'SUBMITTED',
+        verificationStatus: cand.verificationStatus || 'PENDING',
         startedAt: cand.startedAt,
         submittedAt: cand.submittedAt,
         score: cand.score ?? 0,
@@ -296,40 +299,25 @@ export default function CandidateExamRecordsPage() {
     fetchPendingApprovalsCount();
     fetchOpenTicketsCount();
 
+    const interval = setInterval(() => {
+      fetchCandidateRecords();
+      fetchPendingApprovalsCount();
+    }, 5000);
+
     const wsUrl = process.env.NEXT_PUBLIC_WS_URL || (process.env.NEXT_PUBLIC_API_URL ? process.env.NEXT_PUBLIC_API_URL.replace(/\/api\/?$/, '') : 'https://proctorguardai.onrender.com');
     const initSocket = io(wsUrl, {
       auth: { token: typeof window !== 'undefined' ? localStorage.getItem('token') : '' }
     });
 
-    // Real-time status update when candidate submits, auto-submits, or terminates
-    const handleStatusUpdate = (data: any) => {
-      if (!data) return;
-      const targetAttemptId = data.attemptId?._id || data.attemptId || data.id;
-      const newStatus = data.status || 'SUBMITTED';
+    initSocket.on('attempt:status_change', () => {
+      fetchCandidateRecords();
+      fetchPendingApprovalsCount();
+    });
 
-      setCandidates(prev => prev.map(c => {
-        const matchAttempt = targetAttemptId && String(c.attemptId) === String(targetAttemptId);
-        const matchCand = data.candidateId && String(c.id) === String(data.candidateId);
-        if (matchAttempt || matchCand) {
-          return {
-            ...c,
-            status: newStatus,
-            submittedAt: data.submittedAt || c.submittedAt || new Date().toISOString()
-          };
-        }
-        return c;
-      }));
-
-      // Proactively refresh candidate records to fetch full score calculation and violations
-      setTimeout(() => {
-        fetchCandidateRecords();
-      }, 600);
-    };
-
-    initSocket.on('attempt:status_change', handleStatusUpdate);
-    initSocket.on('attempt:submitted', handleStatusUpdate);
-    initSocket.on('attempt:completed', handleStatusUpdate);
-    initSocket.on('attempt:terminated', handleStatusUpdate);
+    initSocket.on('candidate:status_update', () => {
+      fetchCandidateRecords();
+      fetchPendingApprovalsCount();
+    });
 
     initSocket.on('violation:alert', (data) => {
       if (data?.candidateId && data?.violation) {
@@ -399,18 +387,8 @@ export default function CandidateExamRecordsPage() {
       }
     });
 
-    const handleWindowFocus = () => {
-      fetchCandidateRecords();
-    };
-    window.addEventListener('focus', handleWindowFocus);
-
-    const pollingInterval = setInterval(() => {
-      fetchCandidateRecords();
-    }, 12000);
-
     return () => {
-      window.removeEventListener('focus', handleWindowFocus);
-      clearInterval(pollingInterval);
+      clearInterval(interval);
       initSocket.disconnect();
     };
   }, []);
@@ -446,7 +424,7 @@ export default function CandidateExamRecordsPage() {
   };
 
   const isCompletedStatus = (status: string) => {
-    return ['SUBMITTED', 'COMPLETED', 'AUTO_SUBMITTED', 'FORCE_SUBMITTED', 'TERMINATED', 'INVALIDATED'].includes(status);
+    return ['SUBMITTED', 'COMPLETED', 'AUTO_SUBMITTED', 'FORCE_SUBMITTED'].includes(status);
   };
 
   const filteredCandidates = useMemo(() => {
@@ -795,8 +773,10 @@ export default function CandidateExamRecordsPage() {
                         <div className="flex items-center space-x-3 min-w-0">
                           <div className={`w-12 h-12 rounded-xl flex items-center justify-center font-black text-lg border shrink-0 ${
                             isCompleted 
-                              ? 'bg-blue-50 text-blue-600 border-blue-200' 
-                              : 'bg-amber-50 text-amber-600 border-amber-200'
+                              ? cand.verificationStatus === 'APPROVED'
+                                ? 'bg-emerald-50 text-emerald-600 border-emerald-200'
+                                : 'bg-amber-50 text-amber-700 border-amber-200' 
+                              : 'bg-blue-50 text-blue-600 border-blue-200'
                           }`}>
                             {cand.name.charAt(0).toUpperCase()}
                           </div>
@@ -810,12 +790,29 @@ export default function CandidateExamRecordsPage() {
                           </div>
                         </div>
 
-                        <span className={`px-2.5 py-1 rounded-full text-[11px] font-extrabold uppercase tracking-wide border shrink-0 ${
+                        <span className={`px-2.5 py-1 rounded-full text-[11px] font-extrabold uppercase tracking-wide border shrink-0 flex items-center ${
                           isCompleted
-                            ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                            : 'bg-amber-50 text-amber-700 border-amber-200 animate-pulse'
+                            ? cand.verificationStatus === 'APPROVED'
+                              ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                              : cand.verificationStatus === 'REJECTED'
+                              ? 'bg-rose-50 text-rose-700 border-rose-200'
+                              : 'bg-amber-50 text-amber-800 border-amber-300'
+                            : 'bg-blue-50 text-blue-700 border-blue-200 animate-pulse'
                         }`}>
-                          {cand.status.replace(/_/g, ' ')}
+                          {isCompleted ? (
+                            cand.verificationStatus === 'APPROVED' ? (
+                              'Approved'
+                            ) : cand.verificationStatus === 'REJECTED' ? (
+                              'Rejected'
+                            ) : (
+                              <>
+                                <span className="w-1.5 h-1.5 rounded-full bg-amber-500 mr-1.5 animate-pulse shrink-0"></span>
+                                Submitted • Pending Verification
+                              </>
+                            )
+                          ) : (
+                            cand.status.replace(/_/g, ' ')
+                          )}
                         </span>
                       </div>
 
@@ -976,12 +973,29 @@ export default function CandidateExamRecordsPage() {
               <div className="bg-slate-50 rounded-2xl p-5 border border-slate-200">
                 <div className="flex items-center justify-between mb-3">
                   <span className="text-xs font-bold uppercase tracking-wider text-slate-500">Exam Details</span>
-                  <span className={`text-[11px] font-extrabold uppercase px-2 py-0.5 rounded-full border ${
+                  <span className={`text-[11px] font-extrabold uppercase px-2.5 py-0.5 rounded-full border flex items-center ${
                     isCompletedStatus(selectedCandidate.status)
-                      ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                      : 'bg-amber-50 text-amber-700 border-amber-200'
+                      ? selectedCandidate.verificationStatus === 'APPROVED'
+                        ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                        : selectedCandidate.verificationStatus === 'REJECTED'
+                        ? 'bg-rose-50 text-rose-700 border-rose-200'
+                        : 'bg-amber-50 text-amber-800 border-amber-300'
+                      : 'bg-blue-50 text-blue-700 border-blue-200'
                   }`}>
-                    {selectedCandidate.status.replace(/_/g, ' ')}
+                    {isCompletedStatus(selectedCandidate.status) ? (
+                      selectedCandidate.verificationStatus === 'APPROVED' ? (
+                        'Approved'
+                      ) : selectedCandidate.verificationStatus === 'REJECTED' ? (
+                        'Rejected'
+                      ) : (
+                        <>
+                          <span className="w-1.5 h-1.5 rounded-full bg-amber-500 mr-1.5 animate-pulse shrink-0"></span>
+                          Submitted • Pending Verification
+                        </>
+                      )
+                    ) : (
+                      selectedCandidate.status.replace(/_/g, ' ')
+                    )}
                   </span>
                 </div>
                 
@@ -1179,6 +1193,26 @@ export default function CandidateExamRecordsPage() {
                       <AlertTriangle className="w-3.5 h-3.5 mr-1.5 text-rose-600" /> Finalize & Submit Exam
                     </button>
                   </div>
+                </div>
+              )}
+
+              {/* Integrity & Verification Action for Completed & Submitted Sessions */}
+              {isCompletedStatus(selectedCandidate.status) && selectedCandidate.verificationStatus !== 'APPROVED' && (
+                <div className="bg-amber-50/80 rounded-2xl p-4 border border-amber-300 shadow-2xs">
+                  <span className="text-xs font-extrabold uppercase tracking-wider text-amber-900 block mb-1.5 flex items-center">
+                    <Clock className="w-3.5 h-3.5 mr-1.5 text-amber-600 shrink-0 animate-pulse" />
+                    Pending Administrator Verification
+                  </span>
+                  <p className="text-xs text-amber-800 leading-relaxed mb-3 font-medium">
+                    Assessment submitted. Review candidate answers, telemetry, and integrity infractions to approve or reject this submission.
+                  </p>
+                  <Link
+                    href={`/admin/results?search=${encodeURIComponent(selectedCandidate.name || selectedCandidate.email || '')}`}
+                    className="flex items-center justify-center p-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition shadow-xs"
+                  >
+                    <span>Verify in Integrity & Results Portal</span>
+                    <ArrowRight className="w-3.5 h-3.5 ml-1.5" />
+                  </Link>
                 </div>
               )}
 

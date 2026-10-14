@@ -1468,53 +1468,7 @@ function AttemptContent() {
       });
     }
 
-    // Invalidate stale cached candidate exams immediately so dashboard shows fresh state
-    try {
-      sessionStorage.removeItem('pg_cached_candidate_exams');
-    } catch (e) {}
-
-    // Record local completion for dashboard state immediately
-    const completedStr = localStorage.getItem('completed_exams') || '[]';
-    try {
-      const completedExams = JSON.parse(completedStr);
-      if (!completedExams.includes(examId)) {
-        completedExams.push(examId);
-        localStorage.setItem('completed_exams', JSON.stringify(completedExams));
-      }
-    } catch(e) {}
-
-    try {
-      sessionStorage.setItem('just_submitted_exam', JSON.stringify({
-        examId,
-        attemptId,
-        examTitle: exam?.title || 'Examination',
-        submittedAt: new Date().toISOString()
-      }));
-    } catch (e) {}
-
-    // Notify socket proctors immediately of submission
-    try {
-      if (socket && socket.connected) {
-        if (isTermination) {
-          socket.emit('attempt:terminated', { attemptId, reason, action: 'TERMINATE' });
-        } else {
-          socket.emit('attempt:submitted', { attemptId, examId, status: 'SUBMITTED' });
-        }
-      }
-    } catch(e) {}
-
-    // Send final submission request to server before shutting down connection
-    try {
-      await api.post(`/candidate/attempts/${attemptId}/submit`, {
-        isTermination,
-        status: isTermination ? 'TERMINATED' : 'SUBMITTED',
-        reason: reason || ''
-      });
-    } catch (err) {
-      console.error('Submit API error', err);
-    }
-
-    // 1. Shut down camera tracks, screen share tracks, and clear video source
+    // 1. Immediately shut down camera tracks, screen share tracks, and clear video source
     try {
       if (streamRef.current) {
         streamRef.current.getTracks().forEach(track => {
@@ -1540,16 +1494,19 @@ function AttemptContent() {
       }
     } catch(e) {}
 
-    // 2. Stop recording sessions
+    // 2. Immediately stop recording sessions
     try {
       if (cameraSessionId) stopRecording(cameraSessionId);
       if (screenSessionId) stopRecording(screenSessionId);
       stopAllRecordings();
     } catch(e) {}
 
-    // 3. Disconnect socket cleanly now that backend has received submission
+    // 3. Disconnect socket to prevent any further events
     try {
       if (socket) {
+        if (isTermination) {
+          socket.emit('attempt:terminated', { attemptId, reason, action: 'TERMINATE' });
+        }
         socket.disconnect();
       }
     } catch(e) {}
@@ -1559,10 +1516,55 @@ function AttemptContent() {
       document.exitFullscreen().catch(()=>{});
     }
 
-    // Smooth delay so candidate sees final submission overlay and is redirected cleanly
-    setTimeout(() => {
-      router.push(`/candidate/dashboard?submitted=true&examId=${examId}`);
-    }, 1800);
+    try {
+      await api.post(`/candidate/attempts/${attemptId}/submit`, {
+        isTermination,
+        status: isTermination ? 'TERMINATED' : 'SUBMITTED',
+        reason: reason || ''
+      });
+      
+      // Record local completion for dashboard state
+      try {
+        sessionStorage.removeItem('pg_cached_candidate_exams');
+      } catch (e) {}
+
+      const completedStr = localStorage.getItem('completed_exams') || '[]';
+      try {
+        const completedExams = JSON.parse(completedStr);
+        if (!completedExams.includes(examId)) {
+          completedExams.push(examId);
+          localStorage.setItem('completed_exams', JSON.stringify(completedExams));
+        }
+      } catch(e) {}
+
+      try {
+        sessionStorage.setItem('just_submitted_exam', JSON.stringify({
+          examId,
+          attemptId,
+          examTitle: exam?.title || 'Examination',
+          submittedAt: new Date().toISOString()
+        }));
+      } catch (e) {}
+
+      // Smooth delay so candidate sees final submission overlay and redirected cleanly
+      setTimeout(() => {
+        router.push(`/candidate/dashboard?submitted=true&examId=${examId}`);
+      }, 1800);
+    } catch (err) {
+      console.error('Submit failed', err);
+      try {
+        sessionStorage.setItem('just_submitted_exam', JSON.stringify({
+          examId,
+          attemptId,
+          examTitle: exam?.title || 'Examination',
+          submittedAt: new Date().toISOString()
+        }));
+      } catch (e) {}
+      // Force routing even if API fails to prevent candidate being stuck
+      setTimeout(() => {
+        router.push(`/candidate/dashboard?submitted=true&examId=${examId}`);
+      }, 1800);
+    }
   }
 
   const currentQ = questions[currentQuestionIdx];
