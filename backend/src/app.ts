@@ -10,7 +10,7 @@ dotenv.config();
 const app: Application = express();
 
 // Trust reverse proxy (e.g. Render, Vercel, Cloudflare) for accurate client IP in rate limiters
-app.set('trust proxy', 1);
+app.set('trust proxy', true);
 
 // Performance Middleware: Enable Gzip Compression for all API payloads
 app.use(compression());
@@ -22,6 +22,7 @@ app.use(cors({ origin: process.env.CORS_ORIGIN ? process.env.CORS_ORIGIN.split('
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
   max: 5000, // Increased dramatically to allow video chunk uploads every 5-10 seconds
+  validate: { xForwardedForHeader: false, default: false },
   message: 'Too many requests from this IP, please try again later.'
 });
 app.use('/api/', limiter);

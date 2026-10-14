@@ -222,7 +222,13 @@ function CandidatesContent() {
               href="/admin/violations" 
               className="px-3 py-1.5 bg-rose-50 text-rose-700 border border-rose-200 font-semibold rounded-lg hover:bg-rose-100 transition shadow-2xs text-xs flex items-center h-8.5 shrink-0 whitespace-nowrap"
             >
-              <AlertTriangle className="w-3.5 h-3.5 mr-1.5" /> Violations
+              <AlertTriangle className="w-3.5 h-3.5 mr-1.5 text-rose-600" /> Violations
+            </Link>
+            <Link 
+              href="/admin/reports" 
+              className="px-3 py-1.5 bg-slate-50 text-slate-700 border border-slate-200 font-semibold rounded-lg hover:bg-slate-100 transition shadow-2xs text-xs flex items-center h-8.5 shrink-0 whitespace-nowrap"
+            >
+              <CheckCircle2 className="w-3.5 h-3.5 mr-1.5 text-emerald-600" /> Integrity Reports
             </Link>
             <Link 
               href="/admin/helpdesk" 

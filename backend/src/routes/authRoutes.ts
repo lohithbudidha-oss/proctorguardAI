@@ -8,6 +8,7 @@ const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
   max: 300, // Limit failed attempts per IP
   skipSuccessfulRequests: true, // Successful logins never count against rate limit
+  validate: { xForwardedForHeader: false, default: false },
   message: { success: false, message: 'Too many failed login attempts, please try again in a few minutes.' }
 });
 

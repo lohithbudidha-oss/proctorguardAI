@@ -27,7 +27,9 @@ import {
   LogOut,
   ChevronRight,
   Sparkles,
-  Download
+  Download,
+  UserCheck,
+  LifeBuoy
 } from 'lucide-react';
 import api from '@/lib/api';
 import { sanitizeSearchInput } from '@/lib/sanitize';
@@ -292,12 +294,19 @@ export default function AdminResultsPage() {
           </div>
 
           {/* Right: Navigation Links & Action */}
-          <div className="flex items-center gap-2 shrink-0 flex-wrap sm:flex-nowrap">
+          {/* Right: Navigation Links & Actions */}
+          <div className="flex items-center gap-2 shrink-0 flex-nowrap overflow-x-auto max-w-full pb-1 xl:pb-0">
             <Link 
               href="/admin/monitoring" 
               className="px-3 py-1.5 bg-white text-slate-700 border border-slate-200 font-semibold rounded-lg hover:bg-slate-50 transition shadow-2xs text-xs flex items-center h-8.5 shrink-0 whitespace-nowrap"
             >
               <Users className="w-3.5 h-3.5 mr-1.5 text-blue-600" /> Candidates
+            </Link>
+            <Link 
+              href="/admin/candidates?filter=pending" 
+              className="px-3 py-1.5 bg-amber-50 text-amber-800 border border-amber-200 font-semibold rounded-lg hover:bg-amber-100 transition shadow-2xs text-xs flex items-center h-8.5 shrink-0 whitespace-nowrap"
+            >
+              <UserCheck className="w-3.5 h-3.5 mr-1.5 text-amber-600" /> Approvals
             </Link>
             <Link 
               href="/admin/exams" 
@@ -310,6 +319,18 @@ export default function AdminResultsPage() {
               className="px-3 py-1.5 bg-rose-50 text-rose-700 border border-rose-200 font-semibold rounded-lg hover:bg-rose-100 transition shadow-2xs text-xs flex items-center h-8.5 shrink-0 whitespace-nowrap"
             >
               <ShieldAlert className="w-3.5 h-3.5 mr-1.5 text-rose-600" /> Violations
+            </Link>
+            <Link 
+              href="/admin/reports" 
+              className="px-3 py-1.5 bg-slate-50 text-slate-700 border border-slate-200 font-semibold rounded-lg hover:bg-slate-100 transition shadow-2xs text-xs flex items-center h-8.5 shrink-0 whitespace-nowrap"
+            >
+              <CheckCircle2 className="w-3.5 h-3.5 mr-1.5 text-emerald-600" /> Integrity
+            </Link>
+            <Link 
+              href="/admin/helpdesk" 
+              className="px-3 py-1.5 bg-purple-50 text-purple-700 border border-purple-200 font-semibold rounded-lg hover:bg-purple-100 transition shadow-2xs text-xs flex items-center h-8.5 shrink-0 whitespace-nowrap"
+            >
+              <LifeBuoy className="w-3.5 h-3.5 mr-1.5 text-purple-600" /> Help Desk
             </Link>
             <button 
               type="button"

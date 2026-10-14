@@ -552,8 +552,8 @@ export default function CandidateExamRecordsPage() {
             <Users className="w-5 h-5 mr-3 text-blue-600" /> Exam Candidates
           </div>
 
-          <div 
-            onClick={() => router.push('/admin/candidates?filter=pending')} 
+          <Link 
+            href="/admin/candidates?filter=pending" 
             className="text-slate-600 px-4 py-3 rounded-xl font-medium hover:bg-slate-100 hover:text-slate-900 cursor-pointer transition-all flex items-center justify-between"
           >
             <div className="flex items-center">
@@ -564,38 +564,38 @@ export default function CandidateExamRecordsPage() {
                 {pendingApprovalsCount}
               </span>
             )}
-          </div>
+          </Link>
 
-          <div 
-            onClick={() => router.push('/admin/exams')} 
+          <Link 
+            href="/admin/exams" 
             className="text-slate-600 px-4 py-3 rounded-xl font-medium hover:bg-slate-100 hover:text-slate-900 cursor-pointer transition-all flex items-center"
           >
             <FileText className="w-5 h-5 mr-3 text-slate-400" /> Exam Management
-          </div>
+          </Link>
 
-          <div 
-            onClick={() => router.push('/admin/violations')} 
+          <Link 
+            href="/admin/violations" 
             className="text-slate-600 px-4 py-3 rounded-xl font-medium hover:bg-slate-100 hover:text-slate-900 cursor-pointer transition-all flex items-center"
           >
             <AlertTriangle className="w-5 h-5 mr-3 text-slate-400" /> Violation Queue
-          </div>
+          </Link>
 
-          <div 
-            onClick={() => router.push('/admin/results')} 
+          <Link 
+            href="/admin/results" 
             className="text-slate-600 px-4 py-3 rounded-xl font-medium hover:bg-slate-100 hover:text-slate-900 cursor-pointer transition-all flex items-center"
           >
             <BarChart3 className="w-5 h-5 mr-3 text-slate-400" /> Results
-          </div>
+          </Link>
 
-          <div 
-            onClick={() => router.push('/admin/reports')} 
+          <Link 
+            href="/admin/reports" 
             className="text-slate-600 px-4 py-3 rounded-xl font-medium hover:bg-slate-100 hover:text-slate-900 cursor-pointer transition-all flex items-center"
           >
             <CheckCircle2 className="w-5 h-5 mr-3 text-slate-400" /> Integrity Reports
-          </div>
+          </Link>
 
-          <div 
-            onClick={() => router.push('/admin/helpdesk')} 
+          <Link 
+            href="/admin/helpdesk" 
             className="text-slate-600 px-4 py-3 rounded-xl font-medium hover:bg-slate-100 hover:text-slate-900 cursor-pointer transition-all flex items-center justify-between"
           >
             <div className="flex items-center">
@@ -606,7 +606,7 @@ export default function CandidateExamRecordsPage() {
                 {openTicketsCount}
               </span>
             )}
-          </div>
+          </Link>
         </div>
       </aside>
 
@@ -1615,22 +1615,19 @@ export default function CandidateExamRecordsPage() {
                 Displaying {filteredCandidateQueueViolations.length} of {selectedCandidate.violations.length} incidents recorded for {selectedCandidate.name}
               </span>
               <div className="flex items-center space-x-3">
-                <button
-                  type="button"
-                  onClick={() => {
-                    const params = new URLSearchParams();
-                    if (selectedCandidate.id) params.set('candidateId', selectedCandidate.id);
-                    if (selectedCandidate.email) params.set('candidateEmail', selectedCandidate.email);
-                    if (selectedCandidate.name) params.set('candidateName', selectedCandidate.name);
-                    if (selectedCandidate.attemptId) params.set('attemptId', selectedCandidate.attemptId);
-                    if (selectedCandidate.examId) params.set('examId', selectedCandidate.examId);
-                    router.push(`/admin/violations?${params.toString()}`);
-                  }}
+                <Link
+                  href={`/admin/violations?${new URLSearchParams({
+                    ...(selectedCandidate.id ? { candidateId: selectedCandidate.id } : {}),
+                    ...(selectedCandidate.email ? { candidateEmail: selectedCandidate.email } : {}),
+                    ...(selectedCandidate.name ? { candidateName: selectedCandidate.name } : {}),
+                    ...(selectedCandidate.attemptId ? { attemptId: selectedCandidate.attemptId } : {}),
+                    ...(selectedCandidate.examId ? { examId: selectedCandidate.examId } : {})
+                  }).toString()}`}
                   className="px-3.5 py-2 text-xs font-bold text-rose-600 hover:text-rose-700 hover:bg-rose-50 rounded-xl transition cursor-pointer flex items-center"
                   title="Open in complete Violation Portal with Drive archive"
                 >
                   Open in Violation Queue Portal &rarr;
-                </button>
+                </Link>
                 <button
                   type="button"
                   onClick={() => setShowCandidateViolationQueueModal(false)}

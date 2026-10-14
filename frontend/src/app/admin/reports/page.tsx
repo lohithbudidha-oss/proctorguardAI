@@ -29,7 +29,9 @@ import {
   Shield,
   FileCheck,
   LogOut,
-  Users
+  Users,
+  UserCheck,
+  LifeBuoy
 } from 'lucide-react';
 import api from '@/lib/api';
 import { sanitizeSearchInput } from '@/lib/sanitize';
@@ -259,13 +261,19 @@ export default function ResultsVerificationPage() {
               href="/admin/monitoring" 
               className="px-3 py-1.5 bg-white text-slate-700 border border-slate-200 font-semibold rounded-lg hover:bg-slate-50 transition shadow-2xs text-xs flex items-center h-8.5 shrink-0 whitespace-nowrap"
             >
-              <Users className="w-3.5 h-3.5 mr-1.5 text-blue-600" /> Admin Dashboard
+              <Users className="w-3.5 h-3.5 mr-1.5 text-blue-600" /> Candidates
+            </Link>
+            <Link 
+              href="/admin/candidates?filter=pending" 
+              className="px-3 py-1.5 bg-amber-50 text-amber-800 border border-amber-200 font-semibold rounded-lg hover:bg-amber-100 transition shadow-2xs text-xs flex items-center h-8.5 shrink-0 whitespace-nowrap"
+            >
+              <UserCheck className="w-3.5 h-3.5 mr-1.5 text-amber-600" /> Approvals
             </Link>
             <Link 
               href="/admin/exams" 
               className="px-3 py-1.5 bg-white text-slate-700 border border-slate-200 font-semibold rounded-lg hover:bg-slate-50 transition shadow-2xs text-xs flex items-center h-8.5 shrink-0 whitespace-nowrap"
             >
-              <FileText className="w-3.5 h-3.5 mr-1.5 text-slate-400" /> Exam Management
+              <FileText className="w-3.5 h-3.5 mr-1.5 text-slate-400" /> Exams
             </Link>
             <Link 
               href="/admin/results" 
@@ -278,6 +286,12 @@ export default function ResultsVerificationPage() {
               className="px-3 py-1.5 bg-rose-50 text-rose-700 border border-rose-200 font-semibold rounded-lg hover:bg-rose-100 transition shadow-2xs text-xs flex items-center h-8.5 shrink-0 whitespace-nowrap"
             >
               <ShieldAlert className="w-3.5 h-3.5 mr-1.5 text-rose-600" /> Violations
+            </Link>
+            <Link 
+              href="/admin/helpdesk" 
+              className="px-3 py-1.5 bg-purple-50 text-purple-700 border border-purple-200 font-semibold rounded-lg hover:bg-purple-100 transition shadow-2xs text-xs flex items-center h-8.5 shrink-0 whitespace-nowrap"
+            >
+              <LifeBuoy className="w-3.5 h-3.5 mr-1.5 text-purple-600" /> Help Desk
             </Link>
             <button 
               type="button"

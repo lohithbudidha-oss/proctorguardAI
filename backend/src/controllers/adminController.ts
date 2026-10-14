@@ -101,13 +101,78 @@ export const getLiveCandidates = async (req: Request, res: Response, next: NextF
     const attempts = await Attempt.find()
       .select('candidateId examId status startedAt submittedAt expiresAt score percentage resultStatus updatedAt createdAt')
       .populate('candidateId', 'name email')
-      .populate('examId', 'title duration scoringRules')
+      .populate('examId', 'title duration totalMarks passPercentage scoringRules')
       .sort({ updatedAt: -1, createdAt: -1 })
       .limit(100)
       .lean();
 
-    const validAttempts = attempts.filter((doc: any) => doc.candidateId && doc.examId);
-    const attemptIds = validAttempts.map((doc: any) => doc._id);
+    // Gather all candidate and exam IDs to backfill any unpopulated references
+    const candidateIdSet = new Set<string>();
+    const examIdSet = new Set<string>();
+
+    attempts.forEach((doc: any) => {
+      const cId = (doc.candidateId?._id || doc.candidateId)?.toString();
+      if (cId && mongoose.Types.ObjectId.isValid(cId)) candidateIdSet.add(cId);
+
+      const eId = (doc.examId?._id || doc.examId)?.toString();
+      if (eId && mongoose.Types.ObjectId.isValid(eId)) examIdSet.add(eId);
+    });
+
+    const userMap = new Map<string, any>();
+    const examMap = new Map<string, any>();
+
+    // Query User model for any candidate that wasn't populated or needs backfill
+    const cIdsToFetch = Array.from(candidateIdSet);
+    if (cIdsToFetch.length > 0) {
+      try {
+        const users = await User.find({ _id: { $in: cIdsToFetch } }).select('name email').lean();
+        users.forEach((u: any) => userMap.set(u._id.toString(), u));
+      } catch (uErr) {
+        console.warn('[AdminController] Error fetching users for live monitoring:', uErr);
+      }
+    }
+
+    // Query Exam model for any exam that wasn't populated or needs backfill
+    const eIdsToFetch = Array.from(examIdSet);
+    if (eIdsToFetch.length > 0) {
+      try {
+        const exams = await Exam.find({ _id: { $in: eIdsToFetch } }).select('title duration totalMarks passPercentage scoringRules').lean();
+        exams.forEach((e: any) => examMap.set(e._id.toString(), e));
+      } catch (eErr) {
+        console.warn('[AdminController] Error fetching exams for live monitoring:', eErr);
+      }
+    }
+
+    // Normalize attempts so doc.candidateId and doc.examId are guaranteed valid objects
+    const normalizedAttempts = attempts.map((doc: any) => {
+      const cId = (doc.candidateId?._id || doc.candidateId)?.toString() || '';
+      let candidate = doc.candidateId;
+      if (!candidate || typeof candidate !== 'object' || !candidate.name) {
+        if (cId && userMap.has(cId)) {
+          candidate = userMap.get(cId);
+        } else {
+          candidate = { _id: cId, name: cId ? `Candidate (${cId.slice(-4)})` : 'Candidate', email: '' };
+        }
+      }
+
+      const eId = (doc.examId?._id || doc.examId)?.toString() || '';
+      let exam = doc.examId;
+      if (!exam || typeof exam !== 'object' || !exam.title) {
+        if (eId && examMap.has(eId)) {
+          exam = examMap.get(eId);
+        } else {
+          exam = { _id: eId, title: 'Assessment', duration: 60, totalMarks: 100 };
+        }
+      }
+
+      return {
+        ...doc,
+        candidateId: candidate,
+        examId: exam
+      };
+    });
+
+    const attemptIds = normalizedAttempts.map((doc: any) => doc._id);
 
     // Batch fetch results in ONE single query with lean projection
     const results = await Result.find({ attemptId: { $in: attemptIds } })
@@ -144,7 +209,7 @@ export const getLiveCandidates = async (req: Request, res: Response, next: NextF
 
     const now = new Date();
 
-    const attemptsData = validAttempts.map((doc: any) => {
+    const attemptsData = normalizedAttempts.map((doc: any) => {
       const candidate = doc.candidateId;
       const exam = doc.examId;
       const attIdStr = doc._id.toString();
@@ -171,17 +236,17 @@ export const getLiveCandidates = async (req: Request, res: Response, next: NextF
       return {
         attemptId: doc._id,
         candidateId: candidate._id,
-        name: candidate.name,
-        email: candidate.email,
+        name: candidate.name || 'Candidate',
+        email: candidate.email || '',
         examId: exam._id,
-        examName: exam.title,
+        examName: exam.title || 'Assessment',
         status: effectiveStatus,
         verificationStatus,
         startedAt: doc.startedAt,
         submittedAt: doc.submittedAt || (result ? result.createdAt : undefined),
         expiresAt: doc.expiresAt,
         score: result ? result.obtainedMarks : doc.score ?? 0,
-        totalMarks: result ? result.totalMarks : 0,
+        totalMarks: result ? result.totalMarks : (exam.totalMarks || 100),
         percentage: result ? result.percentage : doc.percentage ?? 0,
         resultStatus: result ? (result.pass ? 'PASS' : 'FAIL') : doc.resultStatus ?? 'PENDING',
         totalQuestions: result ? result.totalQuestions : 0,
@@ -197,7 +262,72 @@ export const getLiveCandidates = async (req: Request, res: Response, next: NextF
       };
     });
 
-    res.status(200).json({ success: true, candidates: attemptsData });
+    // Also include candidates who are assigned to exams but haven't started an attempt yet
+    const existingPairs = new Set(
+      normalizedAttempts.map((a: any) => {
+        const cId = (a.candidateId?._id || a.candidateId)?.toString() || '';
+        const eId = (a.examId?._id || a.examId)?.toString() || '';
+        return `${cId}_${eId}`;
+      })
+    );
+
+    let assignedCandidatesData: any[] = [];
+    try {
+      const assignments = await Assignment.find()
+        .populate('candidateId', 'name email')
+        .populate('examId', 'title duration totalMarks scoringRules')
+        .sort({ createdAt: -1 })
+        .lean();
+
+      for (const a of assignments) {
+        const cId = (a.candidateId?._id || a.candidateId)?.toString() || '';
+        const eId = (a.examId?._id || a.examId)?.toString() || '';
+        const pairKey = `${cId}_${eId}`;
+
+        if (cId && eId && !existingPairs.has(pairKey)) {
+          existingPairs.add(pairKey);
+          const cand: any = (a.candidateId && typeof a.candidateId === 'object' && !(a.candidateId instanceof mongoose.Types.ObjectId)) 
+            ? a.candidateId 
+            : { _id: cId, name: `Candidate (${cId.slice(-4)})`, email: '' };
+          const ex: any = (a.examId && typeof a.examId === 'object' && !(a.examId instanceof mongoose.Types.ObjectId)) 
+            ? a.examId 
+            : { _id: eId, title: 'Assessment', duration: 60, totalMarks: 100 };
+
+          assignedCandidatesData.push({
+            attemptId: 'assigned_' + a._id.toString(),
+            candidateId: cand._id || cId,
+            name: cand.name || 'Candidate',
+            email: cand.email || '',
+            examId: ex._id || eId,
+            examName: ex.title || 'Assessment',
+            status: 'ASSIGNED',
+            verificationStatus: 'PENDING',
+            startedAt: undefined,
+            submittedAt: undefined,
+            expiresAt: undefined,
+            score: 0,
+            totalMarks: (ex as any).totalMarks || 100,
+            percentage: 0,
+            resultStatus: 'PENDING',
+            totalQuestions: 0,
+            attempted: 0,
+            correct: 0,
+            wrong: 0,
+            unanswered: 0,
+            timeTaken: 0,
+            riskScore: 0,
+            violations: [],
+            camera: 'READY',
+            screen: 'READY'
+          });
+        }
+      }
+    } catch (assignErr) {
+      console.warn('[AdminController] Error fetching assignments for live monitoring:', assignErr);
+    }
+
+    const allCandidates = [...attemptsData, ...assignedCandidatesData];
+    res.status(200).json({ success: true, candidates: allCandidates });
   } catch (err) {
     next(err);
   }
@@ -278,17 +408,17 @@ export const getViolations = async (req: Request, res: Response, next: NextFunct
 
     violations.forEach((v: any) => {
       // 1. Direct candidate
-      const directCandId = v.candidateId?._id?.toString() || (typeof v.candidateId === 'string' ? v.candidateId : null);
+      const directCandId = (v.candidateId?._id || v.candidateId)?.toString();
       if (directCandId && mongoose.Types.ObjectId.isValid(directCandId)) {
         candidateIdSet.add(directCandId);
       }
       // 2. Candidate from attemptId
-      const attemptCandId = v.attemptId?.candidateId?._id?.toString() || (typeof v.attemptId?.candidateId === 'string' ? v.attemptId.candidateId : null);
+      const attemptCandId = (v.attemptId?.candidateId?._id || v.attemptId?.candidateId)?.toString();
       if (attemptCandId && mongoose.Types.ObjectId.isValid(attemptCandId)) {
         candidateIdSet.add(attemptCandId);
       }
       // 3. Attempt ID
-      const attId = v.attemptId?._id?.toString() || (typeof v.attemptId === 'string' ? v.attemptId : null);
+      const attId = (v.attemptId?._id || v.attemptId)?.toString();
       if (attId && mongoose.Types.ObjectId.isValid(attId)) {
         attemptIdSet.add(attId);
       }
@@ -345,21 +475,22 @@ export const getViolations = async (req: Request, res: Response, next: NextFunct
 
     // Normalize violations: ensure candidateId has { _id, name, email } and attemptId has examId
     const normalizedViolations = violations.map((v: any) => {
-      const attId = v.attemptId?._id?.toString() || (typeof v.attemptId === 'string' ? v.attemptId : null);
+      const attId = (v.attemptId?._id || v.attemptId)?.toString() || null;
       const matchedAttempt = attId ? attemptMap.get(attId) : null;
 
       let candidate = v.candidateId;
+      const directCandId = (v.candidateId?._id || v.candidateId)?.toString();
+      const matchedCandId = (matchedAttempt?.candidateId?._id || matchedAttempt?.candidateId)?.toString();
+      const effectiveCandId = directCandId || matchedCandId;
+
       if (!candidate || typeof candidate !== 'object' || !candidate.name) {
         // Try candidate from matched attempt
-        if (matchedAttempt?.candidateId) {
+        if (matchedAttempt?.candidateId && typeof matchedAttempt.candidateId === 'object' && matchedAttempt.candidateId.name) {
           candidate = matchedAttempt.candidateId;
-        } else {
-          // Try userMap
-          const cId = (typeof v.candidateId === 'string' ? v.candidateId : v.candidateId?._id?.toString()) ||
-                      matchedAttempt?.candidateId?.toString();
-          if (cId && userMap.has(cId)) {
-            candidate = userMap.get(cId);
-          }
+        } else if (effectiveCandId && userMap.has(effectiveCandId)) {
+          candidate = userMap.get(effectiveCandId);
+        } else if (effectiveCandId) {
+          candidate = { _id: effectiveCandId, name: `Candidate (${effectiveCandId.slice(-4)})`, email: '' };
         }
       }
 
@@ -367,6 +498,12 @@ export const getViolations = async (req: Request, res: Response, next: NextFunct
       let effectiveAttempt = v.attemptId;
       if ((!effectiveAttempt || typeof effectiveAttempt !== 'object' || !effectiveAttempt.examId) && matchedAttempt) {
         effectiveAttempt = matchedAttempt;
+      }
+      if (!effectiveAttempt || typeof effectiveAttempt !== 'object') {
+        effectiveAttempt = {
+          _id: attId || 'unknown_attempt',
+          examId: { title: 'Assessment', _id: 'assessment' }
+        };
       }
 
       // Heal MongoDB in background if candidate was missing
@@ -376,8 +513,8 @@ export const getViolations = async (req: Request, res: Response, next: NextFunct
 
       return {
         ...v,
-        candidateId: candidate || null,
-        attemptId: effectiveAttempt || null
+        candidateId: candidate || { _id: 'unknown_candidate', name: 'Candidate', email: '' },
+        attemptId: effectiveAttempt
       };
     });
 
