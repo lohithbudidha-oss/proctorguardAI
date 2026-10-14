@@ -49,7 +49,10 @@ export const getAssignedExams = async (req: AuthRequest, res: Response, next: Ne
       const examIdStr = exam._id.toString();
       
       const examAttempts = attemptsByExam.get(examIdStr) || [];
-      const allowedAttempts = a.allowedAttempts || 1;
+      const allowedAttempts = Math.max(1, a.allowedAttempts || 1);
+      const attemptsCount = examAttempts.length;
+      const hasRemainingAttempts = attemptsCount < allowedAttempts;
+      const canRewrite = attemptsCount > 0 && hasRemainingAttempts;
 
       const resObj = resultMap.get(examIdStr);
       const hasResult = Boolean(resObj);
@@ -62,42 +65,46 @@ export const getAssignedExams = async (req: AuthRequest, res: Response, next: Ne
 
       // Check for active in-progress attempt that hasn't expired and hasn't been submitted
       const now = new Date();
-      const activeAttempt = !hasResult && !completedAttempt && examAttempts.find((att: any) => 
+      const activeAttempt = examAttempts.find((att: any) => 
         [AttemptStatus.IN_PROGRESS, AttemptStatus.PAUSED].includes(att.status) &&
         !att.submittedAt &&
         (!att.expiresAt || now < new Date(att.expiresAt))
       );
 
-      const isCompleted = Boolean(
+      // Candidate is ONLY considered completed if they have NO remaining attempts left!
+      const isCompleted = !hasRemainingAttempts && Boolean(
         completedAttempt || 
         hasResult ||
         a.status === AssignmentStatus.COMPLETED || 
-        (examAttempts.length >= allowedAttempts && examAttempts.length > 0)
+        (attemptsCount >= allowedAttempts && attemptsCount > 0)
       );
 
       let status = 'PENDING';
-      let resultStatus = 'NONE';
-      let attemptId = null;
+      let resultStatus = resObj?.status || 'NONE';
+      let attemptId = completedAttempt?._id?.toString() || examAttempts[0]?._id?.toString() || null;
 
-      if (isCompleted) {
+      if (activeAttempt) {
+        status = 'IN_PROGRESS';
+        attemptId = activeAttempt._id.toString();
+        resultStatus = 'NONE';
+      } else if (isCompleted) {
         status = 'COMPLETED';
-        const targetAttempt = completedAttempt || examAttempts[0];
-        attemptId = targetAttempt ? targetAttempt._id.toString() : null;
-        const resObj = resultMap.get(examIdStr);
         resultStatus = resObj?.status || 'PENDING';
 
         // Heal Assignment status in MongoDB if needed
         if (a.status !== AssignmentStatus.COMPLETED) {
           Assignment.updateMany({ examId: exam._id, candidateId }, { $set: { status: AssignmentStatus.COMPLETED } }).exec().catch(() => {});
         }
-      } else if (activeAttempt) {
-        status = 'IN_PROGRESS';
-        attemptId = activeAttempt._id.toString();
-        resultStatus = 'NONE';
       } else {
+        // Can take exam (first time or rewrite!)
         const isPublished = exam.status === 'PUBLISHED';
         const isStarted = !exam.startAt || now >= new Date(exam.startAt);
         status = (isPublished && isStarted) ? 'AVAILABLE' : 'PENDING';
+
+        // If rewrite was granted, ensure Assignment status in DB is PENDING (not stuck in COMPLETED)
+        if (a.status === AssignmentStatus.COMPLETED) {
+          Assignment.updateMany({ examId: exam._id, candidateId }, { $set: { status: AssignmentStatus.PENDING } }).exec().catch(() => {});
+        }
       }
 
       return {
@@ -106,9 +113,10 @@ export const getAssignedExams = async (req: AuthRequest, res: Response, next: Ne
         duration: exam.duration,
         scheduledFor: a.scheduledAt || exam.startAt || exam.createdAt,
         status,
+        canRewrite,
         resultStatus,
         attemptId,
-        attemptsCount: examAttempts.length,
+        attemptsCount,
         allowedAttempts
       };
     }).filter(Boolean);
@@ -144,22 +152,28 @@ export const getExamDetails = async (req: AuthRequest, res: Response, next: Next
 
     // Check attempts for this exam
     const attempts = await Attempt.find({ candidateId, examId }).sort({ createdAt: -1 }).lean();
-    const allowedAttempts = assignment.allowedAttempts || 1;
+    const allowedAttempts = Math.max(1, assignment.allowedAttempts || 1);
+    const attemptsCount = attempts.length;
+    const hasRemainingAttempts = attemptsCount < allowedAttempts;
+    const canRewrite = attemptsCount > 0 && hasRemainingAttempts;
 
     const completedAttempt = attempts.find((att: any) => 
-      ['SUBMITTED', 'AUTO_SUBMITTED', 'FORCE_SUBMITTED', 'COMPLETED', 'TERMINATED', 'INVALIDATED'].includes(att.status)
+      ['SUBMITTED', 'AUTO_SUBMITTED', 'FORCE_SUBMITTED', 'COMPLETED', 'TERMINATED', 'INVALIDATED'].includes(att.status) ||
+      att.submittedAt != null
     );
 
     const now = new Date();
     const activeAttempt = attempts.find((att: any) => 
       [AttemptStatus.IN_PROGRESS, AttemptStatus.PAUSED].includes(att.status) &&
+      !att.submittedAt &&
       (!att.expiresAt || now < new Date(att.expiresAt))
     );
 
-    const isCompleted = Boolean(
+    // It is ONLY completed if the candidate has NO remaining attempts left!
+    const isCompleted = !hasRemainingAttempts && Boolean(
       completedAttempt || 
       assignment.status === AssignmentStatus.COMPLETED || 
-      (attempts.length >= allowedAttempts && attempts.length > 0)
+      attemptsCount >= allowedAttempts
     );
 
     res.status(200).json({
@@ -174,10 +188,11 @@ export const getExamDetails = async (req: AuthRequest, res: Response, next: Next
         endAt: exam.endAt,
         status: isCompleted ? 'COMPLETED' : assignment.status,
         isCompleted,
+        canRewrite,
         completedAttemptId: completedAttempt?._id?.toString() || attempts[0]?._id?.toString() || null,
         hasActiveAttempt: Boolean(activeAttempt),
         activeAttemptId: activeAttempt?._id?.toString() || null,
-        attemptsUsed: attempts.length,
+        attemptsUsed: attemptsCount,
         allowedAttempts
       }
     });

@@ -27,10 +27,6 @@ export const startAttempt = async (req: AuthRequest, res: Response, next: NextFu
       return res.status(403).json({ success: false, message: 'Valid assignment not found' });
     }
     
-    if (assignment.status === AssignmentStatus.COMPLETED || assignment.status === AssignmentStatus.EXPIRED) {
-      return res.status(403).json({ success: false, message: 'Assignment is completed or expired' });
-    }
-
     const exam = await Exam.findById(examId);
     if (!exam || exam.status !== 'PUBLISHED') {
       return res.status(404).json({ success: false, message: 'Exam not found or not published' });
@@ -45,24 +41,19 @@ export const startAttempt = async (req: AuthRequest, res: Response, next: NextFu
     }
 
     // Check attempt limits using a transaction-like strict check
-    const attempts = await Attempt.find({ assignmentId: assignment._id }).sort({ createdAt: -1 });
-    const completedAttempt = attempts.find(att => 
-      ['SUBMITTED', 'AUTO_SUBMITTED', 'FORCE_SUBMITTED', 'COMPLETED', 'TERMINATED', 'INVALIDATED'].includes(att.status)
-    );
+    const attempts = await Attempt.find({
+      $or: [{ assignmentId: assignment._id }, { candidateId, examId }]
+    }).sort({ createdAt: -1 });
+    const allowedAttempts = Math.max(1, assignment.allowedAttempts || 1);
 
-    if (completedAttempt || attempts.length >= assignment.allowedAttempts) {
-      const target = completedAttempt || attempts[0];
-      return res.status(403).json({ 
-        success: false, 
-        message: 'Attempt limit reached. You have already completed this examination.',
-        isCompleted: true,
-        attemptId: target?._id || null
-      });
+    if (attempts.length >= allowedAttempts && (assignment.status === AssignmentStatus.COMPLETED || assignment.status === AssignmentStatus.EXPIRED)) {
+      return res.status(403).json({ success: false, message: 'Assignment is completed or expired' });
     }
-    
+
     // Check for existing active attempt - resume seamlessly instead of erroring
     const activeAttempt = attempts.find(att => 
       [AttemptStatus.IN_PROGRESS, AttemptStatus.PAUSED].includes(att.status as any) &&
+      !att.submittedAt &&
       (!att.expiresAt || now < att.expiresAt)
     );
     if (activeAttempt) {
@@ -71,6 +62,16 @@ export const startAttempt = async (req: AuthRequest, res: Response, next: NextFu
         message: 'Resuming existing active session.', 
         attempt: activeAttempt,
         isResume: true 
+      });
+    }
+
+    if (attempts.length >= allowedAttempts) {
+      const target = attempts[0];
+      return res.status(403).json({ 
+        success: false, 
+        message: 'Attempt limit reached. You have already completed all allowed attempts for this examination.',
+        isCompleted: true,
+        attemptId: target?._id || null
       });
     }
 

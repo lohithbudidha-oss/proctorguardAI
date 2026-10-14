@@ -196,6 +196,7 @@ export const publishExam = async (req: Request, res: Response, next: NextFunctio
 
 import Assignment, { AssignmentStatus } from '../models/Assignment';
 import User, { Role } from '../models/User';
+import Attempt from '../models/Attempt';
 
 export const getExamCandidates = async (req: Request, res: Response, next: NextFunction) => {
   try {
@@ -311,10 +312,11 @@ export const allowRewriteAll = async (req: Request, res: Response, next: NextFun
     const assignments = await Assignment.find({ examId: id });
     
     for (const assignment of assignments) {
-      assignment.allowedAttempts += 1;
-      if (['COMPLETED', 'TERMINATED', 'EXPIRED'].includes(assignment.status)) {
-        assignment.status = AssignmentStatus.PENDING;
-      }
+      const currentAttempts = await Attempt.countDocuments({
+        $or: [{ assignmentId: assignment._id }, { candidateId: assignment.candidateId, examId: assignment.examId }]
+      });
+      assignment.allowedAttempts = Math.max(assignment.allowedAttempts || 1, currentAttempts) + 1;
+      assignment.status = AssignmentStatus.PENDING;
       await assignment.save();
     }
     
@@ -333,10 +335,11 @@ export const allowRewrite = async (req: Request, res: Response, next: NextFuncti
       return res.status(404).json({ success: false, message: 'Assignment not found' });
     }
     
-    assignment.allowedAttempts += 1;
-    if (['COMPLETED', 'TERMINATED', 'EXPIRED'].includes(assignment.status)) {
-      assignment.status = AssignmentStatus.PENDING;
-    }
+    const currentAttempts = await Attempt.countDocuments({
+      $or: [{ assignmentId: assignment._id }, { candidateId: assignment.candidateId, examId: assignment.examId }]
+    });
+    assignment.allowedAttempts = Math.max(assignment.allowedAttempts || 1, currentAttempts) + 1;
+    assignment.status = AssignmentStatus.PENDING;
     await assignment.save();
     
     res.status(200).json({ success: true, message: 'Granted rewrite to candidate' });

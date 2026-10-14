@@ -43,7 +43,7 @@ export default function CandidateDashboard() {
     return null;
   });
 
-  const [exams, setExams] = useState<{ id: string; title: string; duration: number; status: string; scheduledFor: string; resultStatus?: string; attemptId?: string }[]>(() => {
+  const [exams, setExams] = useState<{ id: string; title: string; duration: number; status: string; scheduledFor: string; canRewrite?: boolean; resultStatus?: string; attemptId?: string; attemptsCount?: number; allowedAttempts?: number }[]>(() => {
     if (typeof window !== 'undefined') {
       try {
         const cached = sessionStorage.getItem('pg_cached_candidate_exams');
@@ -55,7 +55,11 @@ export default function CandidateDashboard() {
           const searchParams = new URLSearchParams(window.location.search);
           const justSubmittedExamId = searchParams.get('examId');
           return parsed.map((e: any) => {
-            if (completedList.includes(e.id) || (justSubmittedExamId && e.id === justSubmittedExamId)) {
+            if (e.canRewrite || e.status === 'AVAILABLE') return e;
+            if (justSubmittedExamId && e.id === justSubmittedExamId) {
+              return { ...e, status: 'COMPLETED', resultStatus: e.resultStatus && e.resultStatus !== 'NONE' ? e.resultStatus : 'PENDING' };
+            }
+            if (completedList.includes(e.id) && !e.canRewrite && e.status !== 'AVAILABLE') {
               return { ...e, status: 'COMPLETED', resultStatus: e.resultStatus && e.resultStatus !== 'NONE' ? e.resultStatus : 'PENDING' };
             }
             return e;
@@ -159,10 +163,13 @@ export default function CandidateDashboard() {
   const allNotifications = useMemo(() => {
     return exams.flatMap(exam => {
       const notifs = [];
-      if (exam.status === 'AVAILABLE') {
+      if (exam.canRewrite) {
+        notifs.push({ id: `${exam.id}-rewrite`, title: 'Re-write Granted', message: `Admin authorized you to rewrite "${exam.title}".` });
+      }
+      if (exam.status === 'AVAILABLE' && !exam.canRewrite) {
         notifs.push({ id: `${exam.id}-avail`, title: 'Exam Available', message: `You can now take "${exam.title}".` });
       }
-      if (exam.resultStatus === 'APPROVED') {
+      if (exam.resultStatus === 'APPROVED' && !exam.canRewrite) {
         notifs.push({ id: `${exam.id}-res`, title: 'Result Published', message: `Your result for "${exam.title}" is ready.` });
       }
       return notifs;
@@ -200,6 +207,66 @@ export default function CandidateDashboard() {
     });
   };
 
+  const fetchExams = React.useCallback((isInitial = false) => {
+    if (!isInitial) setIsRefreshing(true);
+    api.get(`/candidate/exams?_t=${Date.now()}`, {
+      headers: {
+        'Cache-Control': 'no-cache, no-store, must-revalidate',
+        'Pragma': 'no-cache',
+        'Expires': '0'
+      }
+    })
+      .then((res: any) => {
+        let fetchedExams = res.data?.exams || [];
+        const completedStr = localStorage.getItem('completed_exams') || '[]';
+        let completedList: string[] = [];
+        try { completedList = JSON.parse(completedStr); } catch (e) {}
+        const searchParams = new URLSearchParams(window.location.search);
+        const justSubmittedExamId = searchParams.get('examId');
+
+        fetchedExams = fetchedExams.map((e: any) => {
+          if (e.canRewrite || e.status === 'AVAILABLE') {
+            completedList = completedList.filter(id => id !== e.id);
+            return e;
+          }
+
+          if (completedList.includes(e.id) || (justSubmittedExamId && e.id === justSubmittedExamId)) {
+            return {
+              ...e,
+              status: 'COMPLETED',
+              resultStatus: e.resultStatus && e.resultStatus !== 'NONE' ? e.resultStatus : 'PENDING'
+            };
+          }
+          return e;
+        });
+
+        try {
+          localStorage.setItem('completed_exams', JSON.stringify(completedList));
+        } catch (e) {}
+
+        setExams(fetchedExams);
+        if (res.data?.candidateProfile) {
+          setCurrentUser(res.data.candidateProfile);
+          try {
+            localStorage.setItem('user', JSON.stringify(res.data.candidateProfile));
+          } catch (e) {}
+        }
+        try {
+          sessionStorage.setItem('pg_cached_candidate_exams', JSON.stringify(fetchedExams));
+        } catch (e) {}
+      })
+      .catch((err: any) => {
+        console.error('Error fetching exams:', err);
+        if (err?.response?.status === 401 || err?.response?.status === 403) {
+          router.replace('/login');
+        }
+      })
+      .finally(() => {
+        setLoading(false);
+        setIsRefreshing(false);
+      });
+  }, [router]);
+
   useEffect(() => {
     // Check auth token
     const token = localStorage.getItem('token');
@@ -226,55 +293,19 @@ export default function CandidateDashboard() {
       }
     } catch (e) {}
 
-    setIsRefreshing(true);
-    api.get(`/candidate/exams?_t=${Date.now()}`, {
-      headers: {
-        'Cache-Control': 'no-cache, no-store, must-revalidate',
-        'Pragma': 'no-cache',
-        'Expires': '0'
-      }
-    })
-      .then((res: any) => {
-        let fetchedExams = res.data?.exams || [];
-        const completedStr = localStorage.getItem('completed_exams') || '[]';
-        let completedList: string[] = [];
-        try { completedList = JSON.parse(completedStr); } catch (e) {}
-        const searchParams = new URLSearchParams(window.location.search);
-        const justSubmittedExamId = searchParams.get('examId');
+    fetchExams(true);
 
-        fetchedExams = fetchedExams.map((e: any) => {
-          if (completedList.includes(e.id) || (justSubmittedExamId && e.id === justSubmittedExamId)) {
-            return {
-              ...e,
-              status: 'COMPLETED',
-              resultStatus: e.resultStatus && e.resultStatus !== 'NONE' ? e.resultStatus : 'PENDING'
-            };
-          }
-          return e;
-        });
+    const handleFocus = () => {
+      fetchExams(false);
+    };
+    window.addEventListener('focus', handleFocus);
+    const interval = setInterval(() => fetchExams(false), 12000);
 
-        setExams(fetchedExams);
-        if (res.data?.candidateProfile) {
-          setCurrentUser(res.data.candidateProfile);
-          try {
-            localStorage.setItem('user', JSON.stringify(res.data.candidateProfile));
-          } catch (e) {}
-        }
-        try {
-          sessionStorage.setItem('pg_cached_candidate_exams', JSON.stringify(fetchedExams));
-        } catch (e) {}
-      })
-      .catch((err: any) => {
-        console.error('Error fetching exams:', err);
-        if (err?.response?.status === 401 || err?.response?.status === 403) {
-          router.replace('/login');
-        }
-      })
-      .finally(() => {
-        setLoading(false);
-        setIsRefreshing(false);
-      });
-  }, [router]);
+    return () => {
+      window.removeEventListener('focus', handleFocus);
+      clearInterval(interval);
+    };
+  }, [router, fetchExams]);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -481,7 +512,11 @@ export default function CandidateDashboard() {
         <div className="mb-8 flex flex-col md:flex-row md:items-end justify-between gap-4">
           <div>
             <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight">Welcome back!</h1>
-            {exams.filter(e => e.status === 'AVAILABLE' || e.status === 'IN_PROGRESS').length === 0 ? (
+            {exams.some(e => e.canRewrite) ? (
+              <p className="text-slate-500 mt-2 text-lg">
+                You have an <span className="font-bold text-indigo-600">authorized examination re-write</span> available. You can re-take the assessment or review your previous result below.
+              </p>
+            ) : exams.filter(e => e.status === 'AVAILABLE' || e.status === 'IN_PROGRESS').length === 0 ? (
               <p className="text-slate-500 mt-2 text-lg">
                 {exams.some(e => e.status === 'COMPLETED')
                   ? 'All assigned examinations are completed. You can review your results below.'
@@ -531,18 +566,21 @@ export default function CandidateDashboard() {
         {/* Assessment Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {filteredExams.map((exam) => {
-            const isCompleted = exam.status === 'COMPLETED';
-            const isPendingVerification = isCompleted && (!exam.resultStatus || exam.resultStatus === 'PENDING' || exam.resultStatus === 'NONE');
-            const isApproved = isCompleted && exam.resultStatus === 'APPROVED';
-            const isRejected = isCompleted && exam.resultStatus === 'REJECTED';
+            const canRewrite = Boolean(exam.canRewrite);
+            const isCompleted = exam.status === 'COMPLETED' && !canRewrite;
+            const isPendingVerification = !canRewrite && isCompleted && (!exam.resultStatus || exam.resultStatus === 'PENDING' || exam.resultStatus === 'NONE');
+            const isApproved = !canRewrite && isCompleted && exam.resultStatus === 'APPROVED';
+            const isRejected = !canRewrite && isCompleted && exam.resultStatus === 'REJECTED';
             const isInProgress = exam.status === 'IN_PROGRESS';
-            const isAvailable = exam.status === 'AVAILABLE';
+            const isAvailable = exam.status === 'AVAILABLE' && !canRewrite;
 
             return (
               <div 
                 key={exam.id} 
                 className={`bg-white rounded-2xl border transition-all duration-300 flex flex-col group ${
-                  isAvailable 
+                  canRewrite
+                    ? 'border-indigo-300 ring-2 ring-indigo-500/20 shadow-[0_8px_30px_rgba(99,102,241,0.12)] hover:-translate-y-1 hover:shadow-[0_15px_40px_rgba(99,102,241,0.18)] bg-gradient-to-b from-indigo-50/20 to-white'
+                    : isAvailable 
                     ? 'border-blue-200 shadow-[0_8px_30px_rgba(37,99,235,0.08)] hover:-translate-y-1 hover:shadow-[0_15px_40px_rgba(37,99,235,0.12)]' 
                     : isInProgress
                     ? 'border-amber-200 shadow-[0_8px_30px_rgba(245,158,11,0.08)] hover:-translate-y-1 hover:shadow-[0_15px_40px_rgba(245,158,11,0.12)]'
@@ -554,7 +592,9 @@ export default function CandidateDashboard() {
                 <div className="p-8 flex-1">
                   <div className="flex justify-between items-start mb-6">
                     <div className={`p-3 rounded-xl ${
-                      isAvailable 
+                      canRewrite
+                        ? 'bg-indigo-600 shadow-lg shadow-indigo-600/25 ring-2 ring-indigo-200'
+                        : isAvailable 
                         ? 'bg-blue-600 shadow-lg shadow-blue-600/20' 
                         : isInProgress 
                         ? 'bg-amber-600 shadow-lg shadow-amber-600/20' 
@@ -564,7 +604,11 @@ export default function CandidateDashboard() {
                     }`}>
                       <FileText className="w-6 h-6 text-white" />
                     </div>
-                    {isAvailable ? (
+                    {canRewrite ? (
+                      <span className="px-3 py-1.5 bg-indigo-50 text-indigo-700 border border-indigo-200 text-xs font-bold uppercase tracking-wider rounded-lg flex items-center shadow-xs">
+                        <Sparkles className="w-3.5 h-3.5 mr-1.5 text-indigo-600 animate-pulse shrink-0" /> Re-write Available
+                      </span>
+                    ) : isAvailable ? (
                       <span className="px-3 py-1.5 bg-emerald-50 text-emerald-700 border border-emerald-200 text-xs font-bold uppercase tracking-wider rounded-lg flex items-center">
                         <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full mr-2 animate-pulse"></span> Available Now
                       </span>
@@ -598,6 +642,12 @@ export default function CandidateDashboard() {
                   <h3 className="text-xl font-extrabold mb-4 leading-tight text-slate-900">{exam.title}</h3>
                   
                   <div className="space-y-3 mt-4">
+                    {canRewrite && (
+                      <div className="flex items-center text-xs font-semibold text-indigo-700 bg-indigo-50/80 px-3 py-2 rounded-lg border border-indigo-200/80">
+                        <Sparkles className="w-3.5 h-3.5 mr-2 text-indigo-600 shrink-0" />
+                        <span>Admin authorized re-write for this assessment</span>
+                      </div>
+                    )}
                     <div className="flex items-center text-sm font-medium text-slate-600 bg-slate-50 px-3 py-2 rounded-lg border border-slate-100">
                       <Clock className={`w-4 h-4 mr-3 ${isCompleted ? 'text-slate-400' : 'text-blue-500'}`} /> {exam.duration} Minutes Duration
                     </div>
@@ -611,7 +661,25 @@ export default function CandidateDashboard() {
                 </div>
 
                 <div className="p-4 border-t border-slate-100 bg-slate-50/50 rounded-b-2xl">
-                  {isPendingVerification ? (
+                  {canRewrite ? (
+                    <div className="space-y-2">
+                      <Link 
+                        href={`/candidate/exams/${exam.id}/system-check`}
+                        className="flex items-center justify-center w-full py-3.5 rounded-xl font-bold bg-indigo-600 hover:bg-indigo-700 text-white shadow-md hover:shadow-lg hover:shadow-indigo-600/25 transition-all text-sm group cursor-pointer"
+                      >
+                        <span>Rewrite Examination</span>
+                        <ArrowRight className="w-4 h-4 ml-2 group-hover:translate-x-1 transition-transform" />
+                      </Link>
+                      {exam.attemptId && (
+                        <Link 
+                          href={`/candidate/exams/${exam.id}/result/${exam.attemptId}`}
+                          className="flex items-center justify-center w-full py-2.5 rounded-xl font-bold bg-white hover:bg-slate-50 text-slate-700 hover:text-indigo-700 border border-slate-200 text-xs transition-colors cursor-pointer shadow-2xs"
+                        >
+                          View Previous Result
+                        </Link>
+                      )}
+                    </div>
+                  ) : isPendingVerification ? (
                     <div className="flex items-center justify-center w-full py-3.5 px-4 rounded-xl font-bold bg-amber-50 text-amber-800 border border-amber-200/80 cursor-default shadow-xs text-sm">
                       <Clock className="w-4 h-4 mr-2 text-amber-600 animate-pulse shrink-0" />
                       <span>Pending Verification</span>
