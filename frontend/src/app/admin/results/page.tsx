@@ -103,6 +103,7 @@ export default function AdminResultsPage() {
   const [statusFilter, setStatusFilter] = useState<'ALL' | 'PASS' | 'FAIL' | 'APPROVED' | 'PENDING' | 'FLAGGED'>('ALL');
   const [selectedResultModal, setSelectedResultModal] = useState<ExamResult | null>(null);
   const [updatingId, setUpdatingId] = useState<string | null>(null);
+  const [rewritingId, setRewritingId] = useState<string | null>(null);
   const [adminProfile, setAdminProfile] = useState<{ name?: string; email?: string } | null>(null);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
 
@@ -171,6 +172,29 @@ export default function AdminResultsPage() {
       alert(err?.response?.data?.message || 'Failed to update result verification status');
     } finally {
       setUpdatingId(null);
+    }
+  };
+
+  const handleAllowRewrite = async (examId?: string, candidateId?: string, candidateName?: string) => {
+    if (!examId || !candidateId) {
+      alert('Unable to authorize rewrite: Missing exam or candidate identification.');
+      return;
+    }
+    const name = candidateName || 'this candidate';
+    if (!window.confirm(`Are you sure you want to authorize ${name} to re-write this examination? Their existing attempt and grade record will remain intact, and they will be permitted to start a new exam attempt immediately.`)) {
+      return;
+    }
+    const opKey = `${examId}-${candidateId}`;
+    setRewritingId(opKey);
+    try {
+      const res = await api.post(`/admin/exams/${examId}/allow-rewrite/${candidateId}`);
+      alert(res.data?.message || `Successfully granted examination re-write to ${name}.`);
+      await fetchResults(true);
+    } catch (err: any) {
+      const msg = err?.response?.data?.message || err?.message || 'Failed to grant re-write';
+      alert(msg);
+    } finally {
+      setRewritingId(null);
     }
   };
 
@@ -625,6 +649,16 @@ export default function AdminResultsPage() {
                             <ShieldAlert className="w-4 h-4" />
                           </Link>
 
+                          <button
+                            onClick={() => handleAllowRewrite(res.examId?._id, res.candidateId?._id, res.candidateId?.name)}
+                            disabled={rewritingId === `${res.examId?._id}-${res.candidateId?._id}`}
+                            className="px-2.5 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-lg text-xs font-bold transition-colors border border-indigo-200 cursor-pointer flex items-center disabled:opacity-50"
+                            title="Authorize candidate to re-write this examination"
+                          >
+                            <RefreshCw className={`w-3.5 h-3.5 mr-1 ${rewritingId === `${res.examId?._id}-${res.candidateId?._id}` ? 'animate-spin' : ''}`} />
+                            Re-write
+                          </button>
+
                           {res.status !== 'APPROVED' && (
                             <button
                               onClick={() => handleVerifyStatus(res._id, 'APPROVED')}
@@ -764,13 +798,23 @@ export default function AdminResultsPage() {
               </div>
 
               {/* Action Buttons */}
-              <div className="flex items-center justify-end space-x-3 pt-3 border-t border-slate-100">
+              <div className="flex items-center justify-end space-x-3 pt-3 border-t border-slate-100 flex-wrap gap-y-2">
                 <Link
                   href={`/admin/violations?candidateId=${selectedResultModal.candidateId?._id || ''}&examId=${selectedResultModal.examId?._id || ''}`}
                   className="px-4 py-2.5 bg-rose-50 text-rose-700 border border-rose-200 rounded-xl text-xs font-bold hover:bg-rose-100 transition flex items-center"
                 >
                   <ShieldAlert className="w-4 h-4 mr-1.5 text-rose-600" /> Inspect Evidence & Violations
                 </Link>
+
+                <button
+                  onClick={() => handleAllowRewrite(selectedResultModal.examId?._id, selectedResultModal.candidateId?._id, selectedResultModal.candidateId?.name)}
+                  disabled={rewritingId === `${selectedResultModal.examId?._id}-${selectedResultModal.candidateId?._id}`}
+                  className="px-4 py-2.5 bg-indigo-50 text-indigo-700 border border-indigo-200 rounded-xl text-xs font-bold hover:bg-indigo-100 transition flex items-center cursor-pointer disabled:opacity-50"
+                  title="Authorize candidate to re-write this examination"
+                >
+                  <RefreshCw className={`w-4 h-4 mr-1.5 ${rewritingId === `${selectedResultModal.examId?._id}-${selectedResultModal.candidateId?._id}` ? 'animate-spin' : ''}`} />
+                  Authorize Re-write
+                </button>
 
                 <button
                   onClick={() => handleVerifyStatus(selectedResultModal._id, 'APPROVED')}

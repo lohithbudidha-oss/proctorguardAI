@@ -33,7 +33,8 @@ import {
   ExternalLink,
   UserCheck,
   ArrowRight,
-  LifeBuoy
+  LifeBuoy,
+  RefreshCw
 } from 'lucide-react';
 import api from '@/lib/api';
 import { getViolationInfo } from '@/lib/violations';
@@ -141,6 +142,7 @@ export default function CandidateExamRecordsPage() {
   const [showCandidateViolationQueueModal, setShowCandidateViolationQueueModal] = useState(false);
   const [candidateQueueSeverityFilter, setCandidateQueueSeverityFilter] = useState<string>('ALL');
   const [candidateQueueSearchQuery, setCandidateQueueSearchQuery] = useState('');
+  const [rewritingCandidateId, setRewritingCandidateId] = useState<string | null>(null);
 
   const filteredCandidateQueueViolations = useMemo(() => {
     if (!selectedCandidate) return [];
@@ -420,6 +422,27 @@ export default function CandidateExamRecordsPage() {
     } catch (err) {
       console.error(err);
       alert('Failed to execute command');
+    }
+  };
+
+  const handleAllowRewrite = async (examId?: string, candidateId?: string, candidateName?: string) => {
+    if (!examId || !candidateId) {
+      alert('Missing examination or candidate identifier to authorize re-write.');
+      return;
+    }
+    const name = candidateName || 'this candidate';
+    if (!window.confirm(`Are you sure you want to authorize ${name} to re-write this examination? Their prior attempt and telemetry logs will be preserved.`)) {
+      return;
+    }
+    setRewritingCandidateId(candidateId);
+    try {
+      const res = await api.post(`/admin/exams/${examId}/allow-rewrite/${candidateId}`);
+      alert(res.data?.message || `Granted re-write successfully to ${name}`);
+      fetchCandidateRecords();
+    } catch (err: any) {
+      alert(err?.response?.data?.message || err?.message || 'Failed to authorize re-write');
+    } finally {
+      setRewritingCandidateId(null);
     }
   };
 
@@ -1229,6 +1252,27 @@ export default function CandidateExamRecordsPage() {
                     <span>Open in Results & Verification Portal</span>
                     <ArrowRight className="w-3.5 h-3.5 ml-1.5" />
                   </Link>
+                </div>
+              )}
+
+              {/* Authorize Re-write Action for Completed / Submitted Sessions */}
+              {isCompletedStatus(selectedCandidate.status) && selectedCandidate.examId && (
+                <div className="bg-indigo-50/70 rounded-2xl p-4 border border-indigo-200/80 shadow-2xs">
+                  <span className="text-xs font-extrabold uppercase tracking-wider text-indigo-950 block mb-1.5 flex items-center">
+                    <Sparkles className="w-3.5 h-3.5 mr-1.5 text-indigo-600 shrink-0" />
+                    Authorize Examination Re-write
+                  </span>
+                  <p className="text-xs text-indigo-900/80 leading-relaxed mb-3 font-medium">
+                    Permit this candidate to re-take this examination. Prior answers, violations, and performance telemetry will remain safely recorded.
+                  </p>
+                  <button
+                    onClick={() => handleAllowRewrite(selectedCandidate.examId, selectedCandidate.id, selectedCandidate.name)}
+                    disabled={rewritingCandidateId === selectedCandidate.id}
+                    className="w-full flex items-center justify-center p-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition shadow-xs cursor-pointer disabled:opacity-50"
+                  >
+                    <RefreshCw className={`w-3.5 h-3.5 mr-1.5 ${rewritingCandidateId === selectedCandidate.id ? 'animate-spin' : ''}`} />
+                    <span>Authorize Examination Re-write</span>
+                  </button>
                 </div>
               )}
 

@@ -51,6 +51,7 @@ router.post('/live/:attemptId/force-submit', forceSubmitAttempt);
 // Results and Violations
 import { 
   getViolations, 
+  getViolationProof,
   getResults, 
   verifyResult, 
   getDriveStatus, 
@@ -66,6 +67,7 @@ import {
 } from '../controllers/supportController';
 
 router.get('/violations', getViolations);
+router.get('/violations/:id/proof', getViolationProof);
 router.get('/results', getResults);
 router.get('/results/:id/answers', getCandidateAnswers);
 router.get('/results/:id/report-html', getCandidateReportHtml);

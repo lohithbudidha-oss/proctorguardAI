@@ -215,14 +215,29 @@ export const assignCandidate = async (req: Request, res: Response, next: NextFun
 
     let assignment = await Assignment.findOne({ examId, candidateId });
     if (assignment) {
-      return res.status(400).json({ success: false, message: 'Candidate already assigned' });
+      // Re-assigning an already assigned candidate: authorize them for a new attempt / rewrite!
+      const currentAttempts = await Attempt.countDocuments({
+        $or: [{ assignmentId: assignment._id }, { candidateId, examId }]
+      });
+      assignment.allowedAttempts = Math.max(assignment.allowedAttempts || 1, currentAttempts) + 1;
+      assignment.status = AssignmentStatus.PENDING;
+      if (scheduledAt) assignment.scheduledAt = scheduledAt;
+      await assignment.save();
+      return res.status(200).json({ 
+        success: true, 
+        message: 'Candidate re-assigned and authorized for new examination session', 
+        assignment 
+      });
     }
+
+    const priorAttempts = await Attempt.countDocuments({ candidateId, examId });
+    const initialAllowed = Math.max(allowedAttempts || 1, priorAttempts + 1);
 
     assignment = new Assignment({
       examId,
       candidateId,
       scheduledAt: scheduledAt || new Date(),
-      allowedAttempts: allowedAttempts || 1,
+      allowedAttempts: initialAllowed,
       status: AssignmentStatus.PENDING
     });
     
@@ -255,36 +270,46 @@ export const assignAllCandidates = async (req: Request, res: Response, next: Nex
     const existingAssignments = await Assignment.find({
       examId,
       candidateId: { $in: targetIds }
-    }).select('candidateId');
+    });
 
     const existingCandidateIds = new Set(
       existingAssignments.map(a => a.candidateId.toString())
     );
 
-    const newCandidateIds = targetIds.filter(id => !existingCandidateIds.has(id));
-
-    if (newCandidateIds.length === 0) {
-      return res.status(200).json({
-        success: true,
-        message: 'All candidates are already assigned to this exam',
-        count: 0
-      });
+    // For any existing assignments that are completed/expired, re-authorize them
+    for (const exAssign of existingAssignments) {
+      if (exAssign.status === AssignmentStatus.COMPLETED || exAssign.status === AssignmentStatus.EXPIRED) {
+        const currentAttempts = await Attempt.countDocuments({
+          $or: [{ assignmentId: exAssign._id }, { candidateId: exAssign.candidateId, examId }]
+        });
+        exAssign.allowedAttempts = Math.max(exAssign.allowedAttempts || 1, currentAttempts) + 1;
+        exAssign.status = AssignmentStatus.PENDING;
+        if (scheduledAt) exAssign.scheduledAt = scheduledAt;
+        await exAssign.save();
+      }
     }
 
-    const assignmentsToInsert = newCandidateIds.map(candidateId => ({
-      examId,
-      candidateId,
-      scheduledAt: scheduledAt || new Date(),
-      allowedAttempts: allowedAttempts || 1,
-      status: AssignmentStatus.PENDING
-    }));
+    const newCandidateIds = targetIds.filter(id => !existingCandidateIds.has(id));
 
-    await Assignment.insertMany(assignmentsToInsert, { ordered: false });
+    if (newCandidateIds.length > 0) {
+      const assignmentsToInsert = [];
+      for (const candidateId of newCandidateIds) {
+        const priorAttempts = await Attempt.countDocuments({ candidateId, examId });
+        assignmentsToInsert.push({
+          examId,
+          candidateId,
+          scheduledAt: scheduledAt || new Date(),
+          allowedAttempts: Math.max(allowedAttempts || 1, priorAttempts + 1),
+          status: AssignmentStatus.PENDING
+        });
+      }
+      await Assignment.insertMany(assignmentsToInsert, { ordered: false });
+    }
 
     res.status(200).json({
       success: true,
-      message: `Successfully assigned ${assignmentsToInsert.length} candidate(s) to this exam`,
-      count: assignmentsToInsert.length
+      message: `Successfully processed ${targetIds.length} candidate(s) for this exam`,
+      count: targetIds.length
     });
   } catch (err) {
     next(err);
@@ -330,9 +355,16 @@ export const allowRewrite = async (req: Request, res: Response, next: NextFuncti
   try {
     const { id, candidateId } = req.params;
     
-    const assignment = await Assignment.findOne({ examId: id, candidateId });
+    let assignment = await Assignment.findOne({ examId: id, candidateId });
     if (!assignment) {
-      return res.status(404).json({ success: false, message: 'Assignment not found' });
+      // Auto-create assignment if it was somehow missing or unassigned
+      assignment = new Assignment({
+        examId: id,
+        candidateId,
+        scheduledAt: new Date(),
+        allowedAttempts: 1,
+        status: AssignmentStatus.PENDING
+      });
     }
     
     const currentAttempts = await Attempt.countDocuments({

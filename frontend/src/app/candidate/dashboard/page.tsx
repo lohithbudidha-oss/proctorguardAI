@@ -55,11 +55,11 @@ export default function CandidateDashboard() {
           const searchParams = new URLSearchParams(window.location.search);
           const justSubmittedExamId = searchParams.get('examId');
           return parsed.map((e: any) => {
-            if (e.canRewrite || e.status === 'AVAILABLE') return e;
+            if (e.canRewrite || e.status === 'AVAILABLE' || e.status === 'PENDING') return e;
             if (justSubmittedExamId && e.id === justSubmittedExamId) {
               return { ...e, status: 'COMPLETED', resultStatus: e.resultStatus && e.resultStatus !== 'NONE' ? e.resultStatus : 'PENDING' };
             }
-            if (completedList.includes(e.id) && !e.canRewrite && e.status !== 'AVAILABLE') {
+            if (completedList.includes(e.id) && !e.canRewrite && e.status !== 'AVAILABLE' && e.status !== 'PENDING') {
               return { ...e, status: 'COMPLETED', resultStatus: e.resultStatus && e.resultStatus !== 'NONE' ? e.resultStatus : 'PENDING' };
             }
             return e;
@@ -225,7 +225,7 @@ export default function CandidateDashboard() {
         const justSubmittedExamId = searchParams.get('examId');
 
         fetchedExams = fetchedExams.map((e: any) => {
-          if (e.canRewrite || e.status === 'AVAILABLE') {
+          if (e.canRewrite || e.status === 'AVAILABLE' || e.status === 'PENDING') {
             completedList = completedList.filter(id => id !== e.id);
             return e;
           }

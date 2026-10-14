@@ -244,6 +244,28 @@ export default function ViolationQueuePage() {
     }
   };
 
+  const [loadingProofId, setLoadingProofId] = useState<string | null>(null);
+
+  const handleOpenProof = async (v: ViolationItem) => {
+    if (v.screenshot) {
+      setSelectedProof(v);
+      return;
+    }
+    // Fetch proof on-demand if screenshot wasn't pre-loaded to keep initial payload tiny
+    setLoadingProofId(v._id);
+    try {
+      const res = await api.get(`/admin/violations/${v._id}/proof`);
+      const fullScreenshot = res.data?.screenshot || '';
+      const updatedV = { ...v, screenshot: fullScreenshot, snapshotImage: fullScreenshot, driveUrl: res.data?.driveUrl || v.driveUrl };
+      setViolations(prev => prev.map(item => item._id === v._id ? updatedV : item));
+      setSelectedProof(updatedV);
+    } catch (err) {
+      setSelectedProof(v);
+    } finally {
+      setLoadingProofId(null);
+    }
+  };
+
   const handleRefreshQueue = async () => {
     if (refreshing) return;
     setRefreshing(true);
@@ -484,9 +506,9 @@ export default function ViolationQueuePage() {
         if (v.severity === 'MEDIUM') group.mediumCount += 1;
         if (v.severity === 'LOW') group.lowCount += 1;
 
-        if (v.screenshot) {
+        if (v.screenshot || (v as any).hasScreenshot) {
           group.proofCount += 1;
-          if (!group.latestScreenshot) {
+          if (!group.latestScreenshot && v.screenshot) {
             group.latestScreenshot = v.screenshot;
           }
         }
@@ -645,9 +667,9 @@ export default function ViolationQueuePage() {
           if (v.severity === 'HIGH') existingEx.highCount += 1;
           if (v.severity === 'MEDIUM') existingEx.mediumCount += 1;
           if (v.severity === 'LOW') existingEx.lowCount += 1;
-          if (v.screenshot) {
+          if (v.screenshot || (v as any).hasScreenshot) {
             existingEx.proofCount += 1;
-            if (!existingEx.latestScreenshot) {
+            if (!existingEx.latestScreenshot && v.screenshot) {
               existingEx.latestScreenshot = v.screenshot;
             }
           }
@@ -1853,7 +1875,7 @@ export default function ViolationQueuePage() {
                         <div className="md:col-span-5">
                           {v.screenshot ? (
                             <div 
-                              onClick={() => setSelectedProof(v)}
+                              onClick={() => handleOpenProof(v)}
                               className="relative group/thumb cursor-pointer w-full h-44 rounded-xl overflow-hidden border border-slate-200 hover:border-rose-500 shadow-sm bg-slate-900 transition-all transform hover:scale-[1.02]"
                               title="Click to enlarge proof snapshot"
                             >
@@ -1870,6 +1892,22 @@ export default function ViolationQueuePage() {
                               <div className="absolute bottom-2 left-2 bg-slate-900/80 backdrop-blur-xs text-white text-[10px] font-mono px-2 py-0.5 rounded">
                                 {new Date(v.detectedAt).toLocaleTimeString()}
                               </div>
+                            </div>
+                          ) : (v as any).hasScreenshot ? (
+                            <div 
+                              onClick={() => handleOpenProof(v)}
+                              className="relative group/thumb cursor-pointer w-full h-44 rounded-xl overflow-hidden border border-indigo-200 hover:border-indigo-500 shadow-sm bg-indigo-50/50 hover:bg-indigo-50 transition-all flex flex-col items-center justify-center p-4 text-center"
+                              title="Click to load captured evidence proof snapshot"
+                            >
+                              <div className="w-10 h-10 rounded-xl bg-indigo-100 text-indigo-700 flex items-center justify-center mb-2 shadow-xs group-hover/thumb:scale-110 transition-transform">
+                                <Camera className="w-5 h-5" />
+                              </div>
+                              <span className="font-extrabold text-indigo-700 text-xs">
+                                {loadingProofId === v._id ? 'Loading Snapshot Evidence...' : 'Snapshot Proof Recorded'}
+                              </span>
+                              <span className="text-[11px] text-slate-500 mt-1 flex items-center">
+                                <Eye className="w-3 h-3 mr-1 text-indigo-600" /> Click to view captured proof
+                              </span>
                             </div>
                           ) : (
                             <div className="w-full h-44 rounded-xl border border-dashed border-slate-200 bg-slate-50 flex flex-col items-center justify-center text-slate-400 text-xs">
@@ -1912,13 +1950,15 @@ export default function ViolationQueuePage() {
                           )}
 
                           {/* Interactive actions for this violation */}
-                          {v.screenshot && (
+                          {(v.screenshot || (v as any).hasScreenshot) && (
                             <div className="pt-1 flex items-center space-x-3">
                               <button
-                                onClick={() => setSelectedProof(v)}
-                                className="text-xs font-bold text-blue-600 hover:text-blue-700 flex items-center hover:underline cursor-pointer"
+                                onClick={() => handleOpenProof(v)}
+                                disabled={loadingProofId === v._id}
+                                className="text-xs font-bold text-blue-600 hover:text-blue-700 flex items-center hover:underline cursor-pointer disabled:opacity-50"
                               >
-                                <Eye className="w-3.5 h-3.5 mr-1" /> Enlarge Snapshot Proof
+                                <Eye className="w-3.5 h-3.5 mr-1" />
+                                {loadingProofId === v._id ? 'Loading Snapshot...' : 'Enlarge Snapshot Proof'}
                               </button>
                             </div>
                           )}

@@ -99,7 +99,7 @@ function SystemCheckContent() {
   useEffect(() => {
     api.get(`/candidate/exams/${examId}`).then((res) => {
       const ex = res.data?.exam;
-      if (ex?.isCompleted) {
+      if (ex?.isCompleted && !ex?.canRewrite) {
         if (ex.completedAttemptId) {
           router.replace(`/candidate/exams/${examId}/result/${ex.completedAttemptId}`);
         } else {

@@ -44,7 +44,14 @@ export const startAttempt = async (req: AuthRequest, res: Response, next: NextFu
     const attempts = await Attempt.find({
       $or: [{ assignmentId: assignment._id }, { candidateId, examId }]
     }).sort({ createdAt: -1 });
-    const allowedAttempts = Math.max(1, assignment.allowedAttempts || 1);
+    let allowedAttempts = Math.max(1, assignment.allowedAttempts || 1);
+
+    // If assignment is PENDING and attempts meet or exceed allowedAttempts, heal allowedAttempts for rewrite
+    if (assignment.status === AssignmentStatus.PENDING && attempts.length >= allowedAttempts) {
+      allowedAttempts = attempts.length + 1;
+      assignment.allowedAttempts = allowedAttempts;
+      await assignment.save();
+    }
 
     if (attempts.length >= allowedAttempts && (assignment.status === AssignmentStatus.COMPLETED || assignment.status === AssignmentStatus.EXPIRED)) {
       return res.status(403).json({ success: false, message: 'Assignment is completed or expired' });

@@ -49,10 +49,17 @@ export const getAssignedExams = async (req: AuthRequest, res: Response, next: Ne
       const examIdStr = exam._id.toString();
       
       const examAttempts = attemptsByExam.get(examIdStr) || [];
-      const allowedAttempts = Math.max(1, a.allowedAttempts || 1);
       const attemptsCount = examAttempts.length;
+      let allowedAttempts = Math.max(1, a.allowedAttempts || 1);
+
+      // If assignment is PENDING and prior attempts exist, admin specifically authorized rewrite
+      if (a.status === AssignmentStatus.PENDING && attemptsCount >= allowedAttempts) {
+        allowedAttempts = attemptsCount + 1;
+        Assignment.updateOne({ _id: a._id }, { $set: { allowedAttempts } }).exec().catch(() => {});
+      }
+
       const hasRemainingAttempts = attemptsCount < allowedAttempts;
-      const canRewrite = attemptsCount > 0 && hasRemainingAttempts;
+      const canRewrite = attemptsCount > 0 && (hasRemainingAttempts || a.status === AssignmentStatus.PENDING);
 
       const resObj = resultMap.get(examIdStr);
       const hasResult = Boolean(resObj);
@@ -71,8 +78,8 @@ export const getAssignedExams = async (req: AuthRequest, res: Response, next: Ne
         (!att.expiresAt || now < new Date(att.expiresAt))
       );
 
-      // Candidate is ONLY considered completed if they have NO remaining attempts left!
-      const isCompleted = !hasRemainingAttempts && Boolean(
+      // Candidate is strictly NOT completed if rewrite was authorized or assignment is PENDING
+      const isCompleted = !canRewrite && !hasRemainingAttempts && a.status !== AssignmentStatus.PENDING && Boolean(
         completedAttempt || 
         hasResult ||
         a.status === AssignmentStatus.COMPLETED || 
@@ -152,10 +159,17 @@ export const getExamDetails = async (req: AuthRequest, res: Response, next: Next
 
     // Check attempts for this exam
     const attempts = await Attempt.find({ candidateId, examId }).sort({ createdAt: -1 }).lean();
-    const allowedAttempts = Math.max(1, assignment.allowedAttempts || 1);
     const attemptsCount = attempts.length;
+    let allowedAttempts = Math.max(1, assignment.allowedAttempts || 1);
+
+    // If assignment is PENDING and prior attempts exist, heal allowedAttempts for rewrite
+    if (assignment.status === AssignmentStatus.PENDING && attemptsCount >= allowedAttempts) {
+      allowedAttempts = attemptsCount + 1;
+      Assignment.updateOne({ _id: assignment._id }, { $set: { allowedAttempts } }).exec().catch(() => {});
+    }
+
     const hasRemainingAttempts = attemptsCount < allowedAttempts;
-    const canRewrite = attemptsCount > 0 && hasRemainingAttempts;
+    const canRewrite = attemptsCount > 0 && (hasRemainingAttempts || assignment.status === AssignmentStatus.PENDING);
 
     const completedAttempt = attempts.find((att: any) => 
       ['SUBMITTED', 'AUTO_SUBMITTED', 'FORCE_SUBMITTED', 'COMPLETED', 'TERMINATED', 'INVALIDATED'].includes(att.status) ||
@@ -169,8 +183,8 @@ export const getExamDetails = async (req: AuthRequest, res: Response, next: Next
       (!att.expiresAt || now < new Date(att.expiresAt))
     );
 
-    // It is ONLY completed if the candidate has NO remaining attempts left!
-    const isCompleted = !hasRemainingAttempts && Boolean(
+    // It is ONLY completed if there are strictly NO remaining attempts, not canRewrite, and assignment is not PENDING
+    const isCompleted = !canRewrite && !hasRemainingAttempts && assignment.status !== AssignmentStatus.PENDING && Boolean(
       completedAttempt || 
       assignment.status === AssignmentStatus.COMPLETED || 
       attemptsCount >= allowedAttempts
