@@ -236,24 +236,53 @@ export const getViolations = async (req: Request, res: Response, next: NextFunct
     const violations = await ViolationEvent.find()
       .select('-snapshotImage')
       .populate('candidateId', 'name email')
-      .populate({ path: 'attemptId', populate: { path: 'examId', select: 'title description duration totalMarks passPercentage' } })
+      .populate({
+        path: 'attemptId',
+        populate: [
+          { path: 'examId', select: 'title description duration totalMarks passPercentage' },
+          { path: 'candidateId', select: 'name email' }
+        ]
+      })
       .sort({ detectedAt: -1 })
-      .limit(100)
+      .limit(300)
       .lean();
 
-    // Fetch all exams/attempts written by the flagged candidates
-    const candidateIds = Array.from(
-      new Set(
-        violations
-          .map((v: any) => v.candidateId?._id?.toString() || v.candidateId?.toString())
-          .filter((id): id is string => Boolean(id) && mongoose.Types.ObjectId.isValid(id))
-      )
-    );
+    // Collect all candidate IDs and attempt IDs from violations
+    const candidateIdSet = new Set<string>();
+    const attemptIdSet = new Set<string>();
 
+    violations.forEach((v: any) => {
+      // 1. Direct candidate
+      const directCandId = v.candidateId?._id?.toString() || (typeof v.candidateId === 'string' ? v.candidateId : null);
+      if (directCandId && mongoose.Types.ObjectId.isValid(directCandId)) {
+        candidateIdSet.add(directCandId);
+      }
+      // 2. Candidate from attemptId
+      const attemptCandId = v.attemptId?.candidateId?._id?.toString() || (typeof v.attemptId?.candidateId === 'string' ? v.attemptId.candidateId : null);
+      if (attemptCandId && mongoose.Types.ObjectId.isValid(attemptCandId)) {
+        candidateIdSet.add(attemptCandId);
+      }
+      // 3. Attempt ID
+      const attId = v.attemptId?._id?.toString() || (typeof v.attemptId === 'string' ? v.attemptId : null);
+      if (attId && mongoose.Types.ObjectId.isValid(attId)) {
+        attemptIdSet.add(attId);
+      }
+    });
+
+    const candidateIds = Array.from(candidateIdSet);
+    const attemptIds = Array.from(attemptIdSet);
+
+    // Fetch all related attempts (by candidateId or by attemptId)
     let candidateAttempts: any[] = [];
-    if (candidateIds.length > 0) {
+    if (candidateIds.length > 0 || attemptIds.length > 0) {
       try {
-        candidateAttempts = await Attempt.find({ candidateId: { $in: candidateIds } })
+        candidateAttempts = await Attempt.find({
+          $or: [
+            ...(candidateIds.length > 0 ? [{ candidateId: { $in: candidateIds } }] : []),
+            ...(attemptIds.length > 0 ? [{ _id: { $in: attemptIds } }] : [])
+          ]
+        })
+          .populate('candidateId', 'name email')
           .populate('examId', 'title description duration totalMarks passPercentage')
           .sort({ createdAt: -1 })
           .lean();
@@ -261,8 +290,98 @@ export const getViolations = async (req: Request, res: Response, next: NextFunct
         console.warn('[AdminController] Error fetching candidate attempts for violations:', attemptErr);
       }
     }
-      
-    res.status(200).json({ success: true, violations, candidateAttempts });
+
+    // Build lookup maps
+    const attemptMap = new Map<string, any>();
+    const userMap = new Map<string, any>();
+
+    candidateAttempts.forEach((att: any) => {
+      const attId = att._id?.toString();
+      if (attId) attemptMap.set(attId, att);
+      if (att.candidateId && typeof att.candidateId === 'object' && att.candidateId._id) {
+        const cId = att.candidateId._id.toString();
+        userMap.set(cId, att.candidateId);
+        candidateIdSet.add(cId);
+      }
+    });
+
+    // If there are candidates without user profile info in userMap, query User model
+    const missingUserIds = Array.from(candidateIdSet).filter(id => !userMap.has(id));
+    if (missingUserIds.length > 0) {
+      try {
+        const users = await User.find({ _id: { $in: missingUserIds } }).select('name email').lean();
+        users.forEach((u: any) => {
+          userMap.set(u._id.toString(), u);
+        });
+      } catch (uErr) {
+        console.warn('[AdminController] Error fetching users for violations:', uErr);
+      }
+    }
+
+    // Normalize violations: ensure candidateId has { _id, name, email } and attemptId has examId
+    const normalizedViolations = violations.map((v: any) => {
+      const attId = v.attemptId?._id?.toString() || (typeof v.attemptId === 'string' ? v.attemptId : null);
+      const matchedAttempt = attId ? attemptMap.get(attId) : null;
+
+      let candidate = v.candidateId;
+      if (!candidate || typeof candidate !== 'object' || !candidate.name) {
+        // Try candidate from matched attempt
+        if (matchedAttempt?.candidateId) {
+          candidate = matchedAttempt.candidateId;
+        } else {
+          // Try userMap
+          const cId = (typeof v.candidateId === 'string' ? v.candidateId : v.candidateId?._id?.toString()) ||
+                      matchedAttempt?.candidateId?.toString();
+          if (cId && userMap.has(cId)) {
+            candidate = userMap.get(cId);
+          }
+        }
+      }
+
+      // Backfill attemptId if it was just an unpopulated string/ID
+      let effectiveAttempt = v.attemptId;
+      if ((!effectiveAttempt || typeof effectiveAttempt !== 'object' || !effectiveAttempt.examId) && matchedAttempt) {
+        effectiveAttempt = matchedAttempt;
+      }
+
+      // Heal MongoDB in background if candidate was missing
+      if (!v.candidateId && candidate && candidate._id) {
+        ViolationEvent.updateOne({ _id: v._id, candidateId: null } as any, { $set: { candidateId: candidate._id } }).exec().catch(() => {});
+      }
+
+      return {
+        ...v,
+        candidateId: candidate || null,
+        attemptId: effectiveAttempt || null
+      };
+    });
+
+    // Also fetch any remaining attempts for any newly discovered candidates
+    const allFinalCandidateIds = Array.from(candidateIdSet);
+    const existingAttemptCandIds = new Set(
+      candidateAttempts.map((a: any) => (a.candidateId?._id || a.candidateId)?.toString()).filter(Boolean)
+    );
+    const newlyDiscoveredCandIds = allFinalCandidateIds.filter(id => !existingAttemptCandIds.has(id));
+    if (newlyDiscoveredCandIds.length > 0) {
+      try {
+        const extraAttempts = await Attempt.find({ candidateId: { $in: newlyDiscoveredCandIds } })
+          .populate('candidateId', 'name email')
+          .populate('examId', 'title description duration totalMarks passPercentage')
+          .sort({ createdAt: -1 })
+          .lean();
+        const existingAttemptIds = new Set(candidateAttempts.map((a: any) => a._id?.toString()));
+        for (const ea of extraAttempts) {
+          if (!existingAttemptIds.has(ea._id?.toString())) {
+            candidateAttempts.push(ea);
+            existingAttemptIds.add(ea._id?.toString());
+          }
+        }
+      } catch (extraErr) {
+        console.warn('[AdminController] Error fetching extra attempts:', extraErr);
+      }
+    }
+
+    res.status(200).json({ success: true, violations: normalizedViolations, candidateAttempts });
   } catch (err) {
     next(err);
   }

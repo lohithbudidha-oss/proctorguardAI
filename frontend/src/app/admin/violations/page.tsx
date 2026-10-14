@@ -379,25 +379,75 @@ export default function ViolationQueuePage() {
   const candidateGroups = useMemo<CandidateViolationGroup[]>(() => {
     const map = new Map<string, CandidateViolationGroup>();
 
-    violations.forEach((v) => {
-      const candidateKey =
-        v.candidateId?._id ||
-        (v.candidateId?.email ? v.candidateId.email.toLowerCase().trim() : '') ||
-        v.attemptId?._id ||
-        v._id;
+    // 0. Build attempt lookup for easy reference from candidateAttempts
+    const attemptLookup = new Map<string, any>();
+    candidateAttempts.forEach((att: any) => {
+      const aId = att._id?.toString();
+      if (aId) attemptLookup.set(aId, att);
+    });
 
-      const cName = v.candidateId?.name || 'Unknown Candidate';
-      const cEmail = v.candidateId?.email || 'N/A';
-      const examTitle = v.attemptId?.examId?.title || 'Examination';
+    violations.forEach((v) => {
+      // 1. Resolve attempt ID
+      const vAttId = (
+        typeof v.attemptId === 'object' && v.attemptId !== null
+          ? (v.attemptId._id || (v.attemptId as any).id)?.toString()
+          : (v.attemptId ? String(v.attemptId) : '')
+      ) || '';
+
+      const matchedAttempt = vAttId ? attemptLookup.get(vAttId) : null;
+
+      // 2. Resolve candidate details
+      let candObj: any = null;
+      if (v.candidateId && typeof v.candidateId === 'object' && (v.candidateId.name || v.candidateId.email || v.candidateId._id)) {
+        candObj = v.candidateId;
+      } else if (v.attemptId && typeof v.attemptId === 'object' && v.attemptId.candidateId && typeof v.attemptId.candidateId === 'object') {
+        candObj = v.attemptId.candidateId;
+      } else if (matchedAttempt?.candidateId && typeof matchedAttempt.candidateId === 'object') {
+        candObj = matchedAttempt.candidateId;
+      }
+
+      const rawCandId = (
+        candObj?._id?.toString() ||
+        candObj?.id?.toString() ||
+        (typeof v.candidateId === 'string' ? v.candidateId : '') ||
+        (matchedAttempt?.candidateId?._id?.toString() || matchedAttempt?.candidateId?.toString() || '')
+      );
+
+      // If we don't have full candidate object but have an ID, search candidateAttempts
+      if ((!candObj || !candObj.name) && rawCandId) {
+        const foundAtt = candidateAttempts.find((ca: any) => {
+          const cId = typeof ca.candidateId === 'object' ? ca.candidateId?._id?.toString() : ca.candidateId?.toString();
+          return cId === rawCandId;
+        });
+        if (foundAtt?.candidateId && typeof foundAtt.candidateId === 'object') {
+          candObj = foundAtt.candidateId;
+        }
+      }
+
+      const cEmail = (candObj?.email || matchedAttempt?.candidateId?.email || '').trim();
+      const cName = candObj?.name || matchedAttempt?.candidateId?.name || (cEmail && cEmail.includes('@') ? cEmail.split('@')[0] : 'Candidate');
+      const examTitle = v.attemptId?.examId?.title || matchedAttempt?.examId?.title || 'Examination';
+
+      // 3. Compute grouping candidateKey (NEVER fall back to v._id)
+      let candidateKey = '';
+      if (rawCandId) {
+        candidateKey = rawCandId;
+      } else if (cEmail && cEmail.includes('@') && cEmail.toLowerCase() !== 'n/a') {
+        candidateKey = `email_${cEmail.toLowerCase()}`;
+      } else if (vAttId) {
+        candidateKey = `attempt_${vAttId}`;
+      } else {
+        candidateKey = 'unassigned_candidate';
+      }
 
       if (!map.has(candidateKey)) {
         map.set(candidateKey, {
           key: candidateKey,
-          candidateId: v.candidateId,
+          candidateId: candObj || v.candidateId || matchedAttempt?.candidateId,
           candidateName: cName,
-          candidateEmail: cEmail,
+          candidateEmail: cEmail || 'N/A',
           examTitle,
-          attemptId: v.attemptId?._id,
+          attemptId: vAttId,
           violations: [v],
           totalViolations: 1,
           criticalCount: v.severity === 'CRITICAL' ? 1 : 0,
@@ -415,6 +465,16 @@ export default function ViolationQueuePage() {
         });
       } else {
         const group = map.get(candidateKey)!;
+        // If the group had placeholder candidate info and this violation or matchedAttempt has better info, upgrade it
+        if ((!group.candidateName || group.candidateName === 'Unknown Candidate' || group.candidateName === 'Candidate') && cName && cName !== 'Unknown Candidate' && cName !== 'Candidate') {
+          group.candidateName = cName;
+        }
+        if ((!group.candidateEmail || group.candidateEmail === 'N/A') && cEmail && cEmail !== 'N/A') {
+          group.candidateEmail = cEmail;
+        }
+        if (!group.candidateId && (candObj || v.candidateId)) {
+          group.candidateId = candObj || v.candidateId;
+        }
         group.violations.push(v);
         group.totalViolations += 1;
         if (v.severity === 'CRITICAL') group.criticalCount += 1;
@@ -458,8 +518,19 @@ export default function ViolationQueuePage() {
         typeof group.candidateId === 'object' && group.candidateId !== null
           ? ((group.candidateId as any)._id || (group.candidateId as any).id)?.toString()
           : (group.candidateId ? String(group.candidateId) : '')
-      ) || (typeof group.key === 'string' ? group.key : '');
-      const candEmailStr = group.candidateEmail?.toLowerCase().trim();
+      ) || (typeof group.key === 'string' && !group.key.startsWith('attempt_') && !group.key.startsWith('email_') ? group.key : '');
+      const candEmailStr = group.candidateEmail && group.candidateEmail !== 'N/A' ? group.candidateEmail.toLowerCase().trim() : '';
+
+      // Collect all attempt IDs in this candidate's violations
+      const groupAttemptIds = new Set<string>();
+      group.violations.forEach((v) => {
+        const attId = (
+          typeof v.attemptId === 'object' && v.attemptId !== null
+            ? (v.attemptId._id || (v.attemptId as any).id)?.toString()
+            : (v.attemptId ? String(v.attemptId) : '')
+        ) || '';
+        if (attId) groupAttemptIds.add(attId);
+      });
 
       // 1. Process all attempts belonging to this candidate
       candidateAttempts.forEach((att: any) => {
@@ -469,14 +540,14 @@ export default function ViolationQueuePage() {
             : (att.candidateId ? att.candidateId.toString() : '')
         );
         const attCandEmail = att.candidateId?.email?.toLowerCase().trim();
-        const directAttemptMatch = group.violations.some((v) => {
-          const vAttId = (v.attemptId?._id || (typeof v.attemptId === 'string' ? v.attemptId : ''))?.toString();
-          return vAttId && vAttId === att._id?.toString();
-        });
-        const matches = (candIdStr && attCandId && candIdStr === attCandId) || (candEmailStr && attCandEmail && candEmailStr === attCandEmail) || directAttemptMatch;
+        const attIdStr = att._id?.toString() || '';
 
-        if (matches) {
-          const attemptId = att._id?.toString() || '';
+        const directAttemptMatch = attIdStr && groupAttemptIds.has(attIdStr);
+        const idMatches = Boolean(candIdStr && attCandId && candIdStr === attCandId);
+        const emailMatches = Boolean(candEmailStr && attCandEmail && candEmailStr === attCandEmail);
+
+        if (idMatches || emailMatches || directAttemptMatch) {
+          const attemptId = attIdStr;
           const examId = (att.examId?._id || att.examId)?.toString() || attemptId;
           const examKey = attemptId || examId;
           const exTitle = att.examId?.title || 'Examination Assessment';
@@ -504,10 +575,18 @@ export default function ViolationQueuePage() {
 
       // 2. Associate violations to exams, and insert any exams from violations that were missing
       group.violations.forEach((v) => {
-        const vAttemptId = (v.attemptId?._id?.toString() || (typeof v.attemptId === 'string' ? v.attemptId : '') || '').trim();
-        const vExamId = (v.attemptId?.examId?._id?.toString() || (typeof v.attemptId?.examId === 'string' ? v.attemptId.examId : '') || '').trim();
+        const vAttemptId = (
+          typeof v.attemptId === 'object' && v.attemptId !== null
+            ? (v.attemptId._id || (v.attemptId as any).id)?.toString()
+            : (v.attemptId ? String(v.attemptId) : '')
+        ) || '';
+        const vExamId = (
+          typeof v.attemptId?.examId === 'object' && v.attemptId.examId !== null
+            ? (v.attemptId.examId._id || (v.attemptId.examId as any).id)?.toString()
+            : (v.attemptId?.examId ? String(v.attemptId.examId) : '')
+        ) || '';
         const vExamTitle = v.attemptId?.examId?.title || 'Examination Assessment';
-        const vStatus = (v.attemptId as any)?.status || (v.actionTaken === 'TERMINATE' ? 'TERMINATED' : 'NOT SUBMITTED');
+        const vStatus = (v.attemptId as any)?.status || (v.actionTaken === 'TERMINATE' ? 'TERMINATED' : 'IN_PROGRESS');
 
         let existingEx: CandidateExamSummary | undefined = undefined;
         if (vAttemptId && examMap.has(vAttemptId)) {
@@ -516,7 +595,7 @@ export default function ViolationQueuePage() {
             existingEx.attemptStatus = vStatus;
           }
         } else if (vAttemptId) {
-          // If the attemptId was not pre-fetched in attempts (e.g. in-progress/not-submitted attempt), create a dedicated entry
+          // If the attemptId was not pre-fetched in attempts, create a dedicated entry
           existingEx = {
             examId: vExamId || vAttemptId,
             attemptId: vAttemptId,
@@ -535,7 +614,7 @@ export default function ViolationQueuePage() {
         } else if (vExamId && examMap.has(vExamId)) {
           existingEx = examMap.get(vExamId);
         } else {
-          const targetKey = vExamId ? `exam_${vExamId}` : `session_${group.key}_${v._id}`;
+          const targetKey = vExamId ? `exam_${vExamId}` : `session_${group.key}`;
           if (examMap.has(targetKey)) {
             existingEx = examMap.get(targetKey);
           } else {

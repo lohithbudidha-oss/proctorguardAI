@@ -475,12 +475,16 @@ export const recordViolation = async (req: AuthRequest, res: Response, next: Nex
   try {
     const { attemptId } = req.params;
     const { type, severity, source, description, screenshot } = req.body;
-    const candidateId = req.user?.userId;
+    const candidateId = req.user?.userId || (req.user as any)?.id || req.body?.candidateId;
 
-    const attempt = await Attempt.findOne({ _id: attemptId, candidateId });
+    let attempt = candidateId ? await Attempt.findOne({ _id: attemptId, candidateId }) : null;
+    if (!attempt) {
+      attempt = await Attempt.findById(attemptId);
+    }
     if (!attempt) {
       return res.status(404).json({ success: false, message: 'Attempt not found' });
     }
+    const finalCandidateId = candidateId || attempt.candidateId;
 
     // Do not record violations once the exam is submitted, completed, or terminated
     if (['SUBMITTED', 'AUTO_SUBMITTED', 'FORCE_SUBMITTED', 'COMPLETED', 'TERMINATED', 'INVALIDATED'].includes(attempt.status)) {
@@ -503,7 +507,7 @@ export const recordViolation = async (req: AuthRequest, res: Response, next: Nex
     // 1. Save violation immediately to MongoDB
     const violation = new ViolationEvent({
       attemptId,
-      candidateId,
+      candidateId: finalCandidateId,
       type: type || 'VIOLATION',
       severity: severity || 'CRITICAL',
       source: source || 'BROWSER',

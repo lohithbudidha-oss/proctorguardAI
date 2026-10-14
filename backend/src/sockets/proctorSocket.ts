@@ -103,10 +103,12 @@ export const setupSockets = (io: Server) => {
           return;
         }
 
+        const effectiveCandidateId = userId || data.candidateId || attempt.candidateId;
+
         // 1. Immediately create and save violation in database
         const violation = new ViolationEvent({
           attemptId: data.attemptId,
-          candidateId: userId,
+          candidateId: effectiveCandidateId,
           type: data.type || 'VIOLATION',
           severity: data.severity || 'CRITICAL',
           source: data.source || 'BROWSER',
@@ -217,10 +219,11 @@ export const setupSockets = (io: Server) => {
               violation: populatedViolation || recentViolation
             });
           } else {
+            const fallbackCandId = userId || data.candidateId || attempt.candidateId;
             // If no violation was logged yet, create one now with this snapshot proof
             const fallbackViolation = new ViolationEvent({
               attemptId: data.attemptId,
-              candidateId: userId,
+              candidateId: fallbackCandId,
               type: data.type || 'VIOLATION',
               severity: data.severity || 'CRITICAL',
               source: data.source || 'AI',
@@ -367,7 +370,7 @@ export const setupSockets = (io: Server) => {
                 const driveFolderUrl = `https://drive.google.com/drive/folders/1P_3yKzFloiMrF8Pe1XFl9Lh-nqvPTit1?usp=sharing`;
                 const violation = new ViolationEvent({
                   attemptId: activeAttempt._id,
-                  candidateId: userId,
+                  candidateId: activeAttempt.candidateId || userId,
                   type: 'WINDOW_CLOSED',
                   severity: 'CRITICAL',
                   source: 'SYSTEM',
