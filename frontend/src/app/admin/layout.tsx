@@ -42,6 +42,11 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           setIsAuthorized(true);
           return;
         }
+        if (u.role === 'CANDIDATE') {
+          setIsAuthorized(false);
+          router.replace('/candidate/dashboard');
+          return;
+        }
       }
     } catch (e) {}
 

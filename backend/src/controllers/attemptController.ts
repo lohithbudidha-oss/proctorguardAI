@@ -45,15 +45,33 @@ export const startAttempt = async (req: AuthRequest, res: Response, next: NextFu
     }
 
     // Check attempt limits using a transaction-like strict check
-    const attemptCount = await Attempt.countDocuments({ assignmentId: assignment._id });
-    if (attemptCount >= assignment.allowedAttempts) {
-      return res.status(403).json({ success: false, message: 'Attempt limit reached' });
+    const attempts = await Attempt.find({ assignmentId: assignment._id }).sort({ createdAt: -1 });
+    const completedAttempt = attempts.find(att => 
+      ['SUBMITTED', 'AUTO_SUBMITTED', 'FORCE_SUBMITTED', 'COMPLETED', 'TERMINATED', 'INVALIDATED'].includes(att.status)
+    );
+
+    if (completedAttempt || attempts.length >= assignment.allowedAttempts) {
+      const target = completedAttempt || attempts[0];
+      return res.status(403).json({ 
+        success: false, 
+        message: 'Attempt limit reached. You have already completed this examination.',
+        isCompleted: true,
+        attemptId: target?._id || null
+      });
     }
     
-    // Prevent concurrent active attempts
-    const activeAttempt = await Attempt.findOne({ assignmentId: assignment._id, status: { $in: [AttemptStatus.IN_PROGRESS, AttemptStatus.PAUSED] } });
+    // Check for existing active attempt - resume seamlessly instead of erroring
+    const activeAttempt = attempts.find(att => 
+      [AttemptStatus.IN_PROGRESS, AttemptStatus.PAUSED].includes(att.status as any) &&
+      (!att.expiresAt || now < att.expiresAt)
+    );
     if (activeAttempt) {
-      return res.status(409).json({ success: false, message: 'You already have an active attempt for this exam.' });
+      return res.status(200).json({ 
+        success: true, 
+        message: 'Resuming existing active session.', 
+        attempt: activeAttempt,
+        isResume: true 
+      });
     }
 
     const attempt = new Attempt({

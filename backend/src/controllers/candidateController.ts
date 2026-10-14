@@ -1,14 +1,26 @@
 import { Response, NextFunction } from 'express';
+import mongoose from 'mongoose';
 import { AuthRequest } from '../middleware/authMiddleware';
-import Assignment from '../models/Assignment';
+import Assignment, { AssignmentStatus } from '../models/Assignment';
 import Exam from '../models/Exam';
+import User from '../models/User';
+import Result from '../models/Result';
+import Question from '../models/Question';
+import Answer from '../models/Answer';
+import Attempt, { AttemptStatus } from '../models/Attempt';
+import { evaluateAttempt } from './attemptController';
 
 export const getAssignedExams = async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     const candidateId = req.user?.userId;
+    if (!candidateId) {
+      return res.status(401).json({ success: false, message: 'Unauthorized' });
+    }
+
+    const candidateUser = await User.findById(candidateId).select('name email role status').lean();
     const assignments = await Assignment.find({ candidateId }).populate('examId').lean();
 
-    // Batch query: 1 query for all results of this candidate
+    // 1. Fetch all results of this candidate
     const results = await Result.find({ candidateId }).sort({ createdAt: -1 }).lean();
     const resultMap = new Map<string, any>();
     for (const r of results) {
@@ -17,33 +29,91 @@ export const getAssignedExams = async (req: AuthRequest, res: Response, next: Ne
         resultMap.set(examIdStr, r);
       }
     }
+
+    // 2. Fetch all attempts of this candidate to accurately detect completed and in-progress exams
+    const attempts = await Attempt.find({ candidateId }).sort({ createdAt: -1 }).lean();
+    const attemptsByExam = new Map<string, any[]>();
+    for (const att of attempts) {
+      const eId = att.examId ? att.examId.toString() : '';
+      if (!attemptsByExam.has(eId)) {
+        attemptsByExam.set(eId, []);
+      }
+      attemptsByExam.get(eId)!.push(att);
+    }
     
     const formattedExams = assignments.map((a: any) => {
       const exam = a.examId as any;
       if (!exam) return null;
+      const examIdStr = exam._id.toString();
       
+      const examAttempts = attemptsByExam.get(examIdStr) || [];
+      const allowedAttempts = a.allowedAttempts || 1;
+
+      // Check for finalized attempt
+      const completedAttempt = examAttempts.find((att: any) => 
+        ['SUBMITTED', 'AUTO_SUBMITTED', 'FORCE_SUBMITTED', 'COMPLETED', 'TERMINATED', 'INVALIDATED'].includes(att.status)
+      );
+
+      // Check for active in-progress attempt that hasn't expired
+      const now = new Date();
+      const activeAttempt = examAttempts.find((att: any) => 
+        [AttemptStatus.IN_PROGRESS, AttemptStatus.PAUSED].includes(att.status) &&
+        (!att.expiresAt || now < new Date(att.expiresAt))
+      );
+
+      const isCompleted = Boolean(
+        completedAttempt || 
+        a.status === AssignmentStatus.COMPLETED || 
+        (examAttempts.length >= allowedAttempts && examAttempts.length > 0)
+      );
+
+      let status = 'PENDING';
       let resultStatus = 'NONE';
       let attemptId = null;
-      if (a.status === 'COMPLETED') {
-        const result = resultMap.get(exam._id.toString());
-        if (result) {
-          resultStatus = result.status;
-          attemptId = result.attemptId;
+
+      if (isCompleted) {
+        status = 'COMPLETED';
+        const targetAttempt = completedAttempt || examAttempts[0];
+        attemptId = targetAttempt ? targetAttempt._id.toString() : null;
+        const resObj = resultMap.get(examIdStr);
+        resultStatus = resObj?.status || (targetAttempt?.percentage !== undefined || targetAttempt?.score !== undefined ? 'APPROVED' : 'APPROVED');
+
+        // Heal Assignment status in MongoDB if needed
+        if (a.status !== AssignmentStatus.COMPLETED) {
+          Assignment.updateOne({ _id: a._id }, { status: AssignmentStatus.COMPLETED }).exec().catch(() => {});
         }
+      } else if (activeAttempt) {
+        status = 'IN_PROGRESS';
+        attemptId = activeAttempt._id.toString();
+        resultStatus = 'NONE';
+      } else {
+        const isPublished = exam.status === 'PUBLISHED';
+        const isStarted = !exam.startAt || now >= new Date(exam.startAt);
+        status = (isPublished && isStarted) ? 'AVAILABLE' : 'PENDING';
       }
 
       return {
         id: exam._id,
         title: exam.title,
         duration: exam.duration,
-        scheduledFor: a.scheduledAt,
-        status: a.status === 'COMPLETED' ? 'COMPLETED' : exam.status === 'PUBLISHED' ? 'AVAILABLE' : 'PENDING',
+        scheduledFor: a.scheduledAt || exam.startAt || exam.createdAt,
+        status,
         resultStatus,
-        attemptId
+        attemptId,
+        attemptsCount: examAttempts.length,
+        allowedAttempts
       };
     }).filter(Boolean);
 
-    res.status(200).json({ success: true, exams: formattedExams });
+    res.status(200).json({ 
+      success: true, 
+      exams: formattedExams,
+      candidateProfile: {
+        name: candidateUser?.name || 'Candidate',
+        email: candidateUser?.email || '',
+        role: candidateUser?.role || 'CANDIDATE'
+      }
+    });
   } catch (err) {
     next(err);
   }
@@ -64,6 +134,26 @@ export const getExamDetails = async (req: AuthRequest, res: Response, next: Next
       return res.status(404).json({ success: false, message: 'Exam not found' });
     }
 
+    // Check attempts for this exam
+    const attempts = await Attempt.find({ candidateId, examId }).sort({ createdAt: -1 }).lean();
+    const allowedAttempts = assignment.allowedAttempts || 1;
+
+    const completedAttempt = attempts.find((att: any) => 
+      ['SUBMITTED', 'AUTO_SUBMITTED', 'FORCE_SUBMITTED', 'COMPLETED', 'TERMINATED', 'INVALIDATED'].includes(att.status)
+    );
+
+    const now = new Date();
+    const activeAttempt = attempts.find((att: any) => 
+      [AttemptStatus.IN_PROGRESS, AttemptStatus.PAUSED].includes(att.status) &&
+      (!att.expiresAt || now < new Date(att.expiresAt))
+    );
+
+    const isCompleted = Boolean(
+      completedAttempt || 
+      assignment.status === AssignmentStatus.COMPLETED || 
+      (attempts.length >= allowedAttempts && attempts.length > 0)
+    );
+
     res.status(200).json({
       success: true,
       exam: {
@@ -72,20 +162,21 @@ export const getExamDetails = async (req: AuthRequest, res: Response, next: Next
         description: exam.description,
         instructions: exam.instructions,
         duration: exam.duration,
-        status: assignment.status
+        startAt: exam.startAt,
+        endAt: exam.endAt,
+        status: isCompleted ? 'COMPLETED' : assignment.status,
+        isCompleted,
+        completedAttemptId: completedAttempt?._id?.toString() || attempts[0]?._id?.toString() || null,
+        hasActiveAttempt: Boolean(activeAttempt),
+        activeAttemptId: activeAttempt?._id?.toString() || null,
+        attemptsUsed: attempts.length,
+        allowedAttempts
       }
     });
   } catch (err) {
     next(err);
   }
 };
-
-import mongoose from 'mongoose';
-import Result from '../models/Result';
-import Question from '../models/Question';
-import Answer from '../models/Answer';
-import Attempt from '../models/Attempt';
-import { evaluateAttempt } from './attemptController';
 
 export const getAttemptResult = async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {

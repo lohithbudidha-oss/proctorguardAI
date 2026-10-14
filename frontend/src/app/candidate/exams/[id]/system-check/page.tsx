@@ -95,6 +95,22 @@ function SystemCheckContent() {
     }
   };
 
+  // Verify exam status before running system check to prevent duplicate attempts
+  useEffect(() => {
+    api.get(`/candidate/exams/${examId}`).then((res) => {
+      const ex = res.data?.exam;
+      if (ex?.isCompleted) {
+        if (ex.completedAttemptId) {
+          router.replace(`/candidate/exams/${examId}/result/${ex.completedAttemptId}`);
+        } else {
+          router.replace('/candidate/dashboard');
+        }
+      } else if (ex?.hasActiveAttempt && ex?.activeAttemptId) {
+        router.replace(`/candidate/exams/${examId}/attempt/${ex.activeAttemptId}`);
+      }
+    }).catch(() => {});
+  }, [examId, router]);
+
   useEffect(() => {
     const t = setTimeout(() => runAllChecks(), 0);
     return () => clearTimeout(t);

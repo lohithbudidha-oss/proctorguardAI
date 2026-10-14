@@ -27,11 +27,16 @@ import { sanitizeSearchInput } from '@/lib/sanitize';
 
 export default function CandidateDashboard() {
   const router = useRouter();
-  const [currentUser, setCurrentUser] = useState<{ name?: string; email?: string } | null>(() => {
+  const [currentUser, setCurrentUser] = useState<{ name?: string; email?: string; role?: string } | null>(() => {
     if (typeof window !== 'undefined') {
       try {
         const u = localStorage.getItem('user');
-        if (u) return JSON.parse(u);
+        if (u) {
+          const parsed = JSON.parse(u);
+          if (parsed.role !== 'ADMIN' && parsed.role !== 'PROCTOR') {
+            return parsed;
+          }
+        }
       } catch (e) {}
     }
     return null;
@@ -196,20 +201,38 @@ export default function CandidateDashboard() {
     setCurrentTime(new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' }));
 
     try {
-      const u = localStorage.getItem('user');
-      if (u) setCurrentUser(JSON.parse(u));
+      const uStr = localStorage.getItem('user');
+      if (uStr) {
+        const u = JSON.parse(uStr);
+        if (u.role === 'ADMIN' || u.role === 'PROCTOR') {
+          router.replace('/admin/monitoring');
+          return;
+        }
+        setCurrentUser(u);
+      }
     } catch (e) {}
 
     setIsRefreshing(true);
     api.get('/candidate/exams')
-      .then((res: { data: { exams?: { id: string; title: string; duration: number; status: string; scheduledFor: string; resultStatus?: string; attemptId?: string }[] } }) => {
+      .then((res: any) => {
         const fetchedExams = res.data?.exams || [];
         setExams(fetchedExams);
+        if (res.data?.candidateProfile) {
+          setCurrentUser(res.data.candidateProfile);
+          try {
+            localStorage.setItem('user', JSON.stringify(res.data.candidateProfile));
+          } catch (e) {}
+        }
         try {
           sessionStorage.setItem('pg_cached_candidate_exams', JSON.stringify(fetchedExams));
         } catch (e) {}
       })
-      .catch(err => console.error('Error fetching exams:', err))
+      .catch((err: any) => {
+        console.error('Error fetching exams:', err);
+        if (err?.response?.status === 401 || err?.response?.status === 403) {
+          router.replace('/login');
+        }
+      })
       .finally(() => {
         setLoading(false);
         setIsRefreshing(false);
@@ -412,7 +435,17 @@ export default function CandidateDashboard() {
         <div className="mb-8 flex flex-col md:flex-row md:items-end justify-between gap-4">
           <div>
             <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight">Welcome back!</h1>
-            <p className="text-slate-500 mt-2 text-lg">You have <span className="font-bold text-blue-600">{exams.filter(e => e.status === 'AVAILABLE').length}</span> assessment ready to take.</p>
+            {exams.filter(e => e.status === 'AVAILABLE' || e.status === 'IN_PROGRESS').length === 0 ? (
+              <p className="text-slate-500 mt-2 text-lg">
+                {exams.some(e => e.status === 'COMPLETED')
+                  ? 'All assigned examinations are completed. You can review your results below.'
+                  : 'You have no active examinations assigned right now.'}
+              </p>
+            ) : (
+              <p className="text-slate-500 mt-2 text-lg">
+                You have <span className="font-bold text-blue-600">{exams.filter(e => e.status === 'AVAILABLE' || e.status === 'IN_PROGRESS').length}</span> {exams.filter(e => e.status === 'AVAILABLE' || e.status === 'IN_PROGRESS').length === 1 ? 'assessment' : 'assessments'} ready to take.
+              </p>
+            )}
           </div>
           <div className="flex flex-col sm:flex-row items-center gap-3">
             <div className="relative w-full sm:w-72">
@@ -449,21 +482,27 @@ export default function CandidateDashboard() {
               className={`bg-white rounded-2xl border transition-all duration-300 flex flex-col group ${
                 exam.status === 'AVAILABLE' 
                   ? 'border-blue-200 shadow-[0_8px_30px_rgba(37,99,235,0.08)] hover:-translate-y-1 hover:shadow-[0_15px_40px_rgba(37,99,235,0.12)]' 
-                  : 'border-slate-200 shadow-sm hover:shadow-md opacity-80 hover:opacity-100'
+                  : exam.status === 'IN_PROGRESS'
+                  ? 'border-amber-200 shadow-[0_8px_30px_rgba(245,158,11,0.08)] hover:-translate-y-1 hover:shadow-[0_15px_40px_rgba(245,158,11,0.12)]'
+                  : 'border-slate-200 shadow-sm hover:shadow-md opacity-90 hover:opacity-100'
               }`}
             >
               <div className="p-8 flex-1">
                 <div className="flex justify-between items-start mb-6">
-                  <div className={`p-3 rounded-xl ${exam.status === 'AVAILABLE' ? 'bg-blue-600 shadow-lg shadow-blue-600/20' : exam.status === 'COMPLETED' ? 'bg-slate-800' : 'bg-slate-100 border border-slate-200'}`}>
-                    <FileText className={`w-6 h-6 ${exam.status === 'AVAILABLE' || exam.status === 'COMPLETED' ? 'text-white' : 'text-slate-500'}`} />
+                  <div className={`p-3 rounded-xl ${exam.status === 'AVAILABLE' ? 'bg-blue-600 shadow-lg shadow-blue-600/20' : exam.status === 'IN_PROGRESS' ? 'bg-amber-600 shadow-lg shadow-amber-600/20' : 'bg-emerald-600 shadow-lg shadow-emerald-600/20'}`}>
+                    <FileText className="w-6 h-6 text-white" />
                   </div>
                   {exam.status === 'AVAILABLE' ? (
                     <span className="px-3 py-1.5 bg-emerald-50 text-emerald-700 border border-emerald-200 text-xs font-bold uppercase tracking-wider rounded-lg flex items-center">
                       <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full mr-2 animate-pulse"></span> Available Now
                     </span>
+                  ) : exam.status === 'IN_PROGRESS' ? (
+                    <span className="px-3 py-1.5 bg-amber-50 text-amber-700 border border-amber-200 text-xs font-bold uppercase tracking-wider rounded-lg flex items-center">
+                      <span className="w-1.5 h-1.5 bg-amber-500 rounded-full mr-2 animate-pulse"></span> In Progress
+                    </span>
                   ) : exam.status === 'COMPLETED' ? (
-                    <span className="px-3 py-1.5 bg-slate-800 text-slate-300 border border-slate-700 text-xs font-bold uppercase tracking-wider rounded-lg flex items-center shadow-inner">
-                      <CheckCircle2 className="w-3 h-3 mr-1" /> Completed
+                    <span className="px-3 py-1.5 bg-emerald-50 text-emerald-700 border border-emerald-200 text-xs font-bold uppercase tracking-wider rounded-lg flex items-center">
+                      <CheckCircle2 className="w-3.5 h-3.5 mr-1.5 text-emerald-600" /> Completed
                     </span>
                   ) : (
                     <span className="px-3 py-1.5 bg-slate-100 text-slate-600 border border-slate-200 text-xs font-bold uppercase tracking-wider rounded-lg">
@@ -472,14 +511,14 @@ export default function CandidateDashboard() {
                   )}
                 </div>
 
-                <h3 className={`text-xl font-extrabold mb-4 leading-tight ${exam.status === 'COMPLETED' ? 'text-slate-600 line-through decoration-slate-300' : 'text-slate-900'}`}>{exam.title}</h3>
+                <h3 className="text-xl font-extrabold mb-4 leading-tight text-slate-900">{exam.title}</h3>
                 
                 <div className="space-y-3 mt-4">
                   <div className="flex items-center text-sm font-medium text-slate-600 bg-slate-50 px-3 py-2 rounded-lg border border-slate-100">
                     <Clock className={`w-4 h-4 mr-3 ${exam.status === 'COMPLETED' ? 'text-slate-400' : 'text-blue-500'}`} /> {exam.duration} Minutes Duration
                   </div>
                   <div className="flex items-center text-sm font-medium text-slate-600 bg-slate-50 px-3 py-2 rounded-lg border border-slate-100">
-                    <CheckCircle2 className={`w-4 h-4 mr-3 ${exam.status === 'COMPLETED' ? 'text-slate-400' : 'text-emerald-500'}`} /> AI-Proctored Session
+                    <CheckCircle2 className={`w-4 h-4 mr-3 ${exam.status === 'COMPLETED' ? 'text-emerald-500' : 'text-blue-500'}`} /> AI-Proctored Session
                   </div>
                   <div className="flex items-center text-sm font-medium text-slate-600 bg-slate-50 px-3 py-2 rounded-lg border border-slate-100">
                     <Calendar className={`w-4 h-4 mr-3 ${exam.status === 'COMPLETED' ? 'text-slate-400' : 'text-indigo-500'}`} /> {new Date(exam.scheduledFor).toLocaleDateString()}
@@ -489,22 +528,25 @@ export default function CandidateDashboard() {
 
               <div className="p-4 border-t border-slate-100 bg-slate-50/50 rounded-b-2xl">
                 {exam.status === 'COMPLETED' ? (
-                  exam.resultStatus === 'APPROVED' ? (
+                  exam.attemptId ? (
                     <Link 
                       href={`/candidate/exams/${exam.id}/result/${exam.attemptId}`}
-                      className="flex items-center justify-center w-full py-3.5 rounded-xl font-bold bg-emerald-600 text-white hover:bg-emerald-700 shadow-md transition-all"
+                      className="flex items-center justify-center w-full py-3.5 rounded-xl font-bold bg-blue-600 hover:bg-blue-700 text-white shadow-md hover:shadow-lg transition-all"
                     >
                       View Results
                     </Link>
-                  ) : exam.resultStatus === 'REJECTED' ? (
-                    <div className="flex items-center justify-center w-full py-3.5 rounded-xl font-bold bg-rose-100 text-rose-700 cursor-not-allowed shadow-inner border border-rose-200">
-                      Results Rejected
-                    </div>
                   ) : (
-                    <div className="flex items-center justify-center w-full py-3.5 rounded-xl font-bold bg-amber-100 text-amber-700 cursor-not-allowed shadow-inner border border-amber-200">
-                      Pending Verification
+                    <div className="flex items-center justify-center w-full py-3.5 rounded-xl font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 cursor-default">
+                      Assessment Completed
                     </div>
                   )
+                ) : exam.status === 'IN_PROGRESS' ? (
+                  <Link 
+                    href={`/candidate/exams/${exam.id}/attempt/${exam.attemptId}`}
+                    className="flex items-center justify-center w-full py-3.5 rounded-xl font-bold bg-amber-600 hover:bg-amber-700 text-white shadow-md hover:shadow-lg transition-all"
+                  >
+                    Resume Exam <ArrowRight className="w-4 h-4 ml-2 group-hover:translate-x-1 transition-transform" />
+                  </Link>
                 ) : (
                   <Link 
                     href={`/candidate/exams/${exam.id}/system-check`}

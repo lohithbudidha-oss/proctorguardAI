@@ -39,7 +39,20 @@ function WaitingRoomContent() {
   // Fetch exam details to know start time
   useEffect(() => {
     api.get(`/candidate/exams/${examId}`).then(res => {
-      setExam(res.data.exam);
+      const ex = res.data?.exam;
+      if (ex?.isCompleted) {
+        if (ex.completedAttemptId) {
+          router.replace(`/candidate/exams/${examId}/result/${ex.completedAttemptId}`);
+        } else {
+          router.replace('/candidate/dashboard');
+        }
+        return;
+      }
+      if (ex?.hasActiveAttempt && ex?.activeAttemptId) {
+        router.replace(`/candidate/exams/${examId}/attempt/${ex.activeAttemptId}`);
+        return;
+      }
+      setExam(ex);
     }).catch(err => {
       console.error(err);
       // Fallback for demo mode if not assigned
@@ -50,7 +63,7 @@ function WaitingRoomContent() {
         questionCount: 10
       });
     });
-  }, [examId]);
+  }, [examId, router]);
 
   // Pre-warm MediaPipe Vision AI WASM runtime and models in browser cache while candidate is in waiting room
   useEffect(() => {
@@ -192,9 +205,14 @@ function WaitingRoomContent() {
       const attemptId = res.data.attempt._id || res.data.attempt.id;
       
       router.push(`/candidate/exams/${examId}/attempt/${attemptId}`);
-    } catch (err: unknown) {
+    } catch (err: any) {
       console.error('Failed to start exam', err);
-      alert((err as { response?: { data?: { message?: string } } })?.response?.data?.message || 'Could not start examination. Please contact support.');
+      const data = err?.response?.data;
+      if (data?.isCompleted && data?.attemptId) {
+        router.replace(`/candidate/exams/${examId}/result/${data.attemptId}`);
+        return;
+      }
+      alert(data?.message || 'Could not start examination. Please contact support.');
     }
   };
 

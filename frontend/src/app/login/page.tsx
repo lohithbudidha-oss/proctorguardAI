@@ -24,6 +24,21 @@ function LoginContent() {
   const [emailError, setEmailError] = useState('');
   const [loading, setLoading] = useState(false);
 
+  React.useEffect(() => {
+    const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+    const userStr = typeof window !== 'undefined' ? localStorage.getItem('user') : null;
+    if (token && userStr) {
+      try {
+        const u = JSON.parse(userStr);
+        if (isAdminLogin && (u.role === 'ADMIN' || u.role === 'PROCTOR')) {
+          router.replace('/admin/monitoring');
+        } else if (!isAdminLogin && u.role === 'CANDIDATE') {
+          router.replace('/candidate/dashboard');
+        }
+      } catch (e) {}
+    }
+  }, [isAdminLogin, router]);
+
   const handleEmailChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const rawVal = e.target.value;
     if (EMOJI_REGEX.test(rawVal)) {
