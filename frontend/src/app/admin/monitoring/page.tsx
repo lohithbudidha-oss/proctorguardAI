@@ -302,7 +302,7 @@ export default function CandidateExamRecordsPage() {
     const interval = setInterval(() => {
       fetchCandidateRecords();
       fetchPendingApprovalsCount();
-    }, 5000);
+    }, 10000);
 
     const wsUrl = process.env.NEXT_PUBLIC_WS_URL || (process.env.NEXT_PUBLIC_API_URL ? process.env.NEXT_PUBLIC_API_URL.replace(/\/api\/?$/, '') : 'https://proctorguardai.onrender.com');
     const initSocket = io(wsUrl, {

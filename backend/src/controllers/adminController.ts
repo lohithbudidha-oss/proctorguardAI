@@ -99,22 +99,27 @@ export const getLiveCandidates = async (req: Request, res: Response, next: NextF
     res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
 
     const attempts = await Attempt.find()
+      .select('candidateId examId status startedAt submittedAt expiresAt score percentage resultStatus updatedAt createdAt')
       .populate('candidateId', 'name email')
       .populate('examId', 'title duration scoringRules')
       .sort({ updatedAt: -1, createdAt: -1 })
+      .limit(100)
       .lean();
 
     const validAttempts = attempts.filter((doc: any) => doc.candidateId && doc.examId);
     const attemptIds = validAttempts.map((doc: any) => doc._id);
 
-    // Batch fetch results in ONE single query
-    const results = await Result.find({ attemptId: { $in: attemptIds } }).lean();
+    // Batch fetch results in ONE single query with lean projection
+    const results = await Result.find({ attemptId: { $in: attemptIds } })
+      .select('attemptId obtainedMarks totalMarks percentage pass status totalQuestions attempted correct wrong unanswered timeTaken riskScore createdAt')
+      .lean();
     const resultMap = new Map<string, any>(results.map((r: any) => [r.attemptId.toString(), r]));
 
-    // Batch fetch violations in ONE single query
+    // Batch fetch violations without heavy snapshotImage to prevent memory saturation
     const violations = await ViolationEvent.find({ attemptId: { $in: attemptIds } })
-      .select('attemptId type severity detectedAt description actionTaken screenshot snapshotImage')
+      .select('attemptId type severity detectedAt description actionTaken screenshot')
       .sort({ detectedAt: -1 })
+      .limit(300)
       .lean();
 
     const violationMap = new Map<string, any[]>();
@@ -123,16 +128,18 @@ export const getLiveCandidates = async (req: Request, res: Response, next: NextF
       if (!violationMap.has(attIdStr)) {
         violationMap.set(attIdStr, []);
       }
-        const shot = v.screenshot || v.snapshotImage || '';
-        violationMap.get(attIdStr)!.push({
+      const list = violationMap.get(attIdStr)!;
+      if (list.length < 15) {
+        list.push({
           id: v._id,
           type: v.type,
           severity: v.severity,
           detectedAt: v.detectedAt,
           description: v.description || '',
-          screenshot: shot,
+          screenshot: v.screenshot || '',
           actionTaken: v.actionTaken
         });
+      }
     }
 
     const now = new Date();

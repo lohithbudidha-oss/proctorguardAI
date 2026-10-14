@@ -9,6 +9,9 @@ dotenv.config();
 
 const app: Application = express();
 
+// Trust reverse proxy (e.g. Render, Vercel, Cloudflare) for accurate client IP in rate limiters
+app.set('trust proxy', 1);
+
 // Performance Middleware: Enable Gzip Compression for all API payloads
 app.use(compression());
 

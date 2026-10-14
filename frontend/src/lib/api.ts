@@ -3,23 +3,22 @@ import axios from 'axios';
 // Resolve appropriate API URL with high-speed local development & seamless cloud fallback
 export const getBaseURL = (): string => {
   const envUrl = process.env.NEXT_PUBLIC_API_URL;
+  if (envUrl && envUrl.trim()) {
+    return envUrl.trim().replace(/\/+$/, '');
+  }
   if (typeof window !== 'undefined') {
     const hostname = window.location.hostname;
     const isLocal = hostname === 'localhost' || hostname === '127.0.0.1';
-    // If running in local browser and NEXT_PUBLIC_API_URL isn't explicitly pointing to a custom domain
     if (isLocal) {
-      if (envUrl && (envUrl.includes('localhost') || envUrl.includes('127.0.0.1'))) {
-        return envUrl;
-      }
       return 'http://localhost:5000/api';
     }
   }
-  return envUrl || 'https://proctorguardai.onrender.com/api';
+  return 'https://proctorguardai.onrender.com/api';
 };
 
 const api = axios.create({
   baseURL: getBaseURL(),
-  timeout: 25000,
+  timeout: 45000,
   headers: {
     'Accept': 'application/json',
   }

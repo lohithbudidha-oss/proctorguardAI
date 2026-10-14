@@ -69,8 +69,8 @@ export const verifyEmail = async (req: Request, res: Response, next: NextFunctio
 };
 
 const loginSchema = z.object({
-  email: z.string().email(),
-  password: z.string(),
+  email: z.string().min(1, 'Email is required'),
+  password: z.string().min(1, 'Password is required'),
   portalRole: z.enum(['ADMIN', 'CANDIDATE']).optional()
 });
 
@@ -81,13 +81,22 @@ export const login = async (req: Request, res: Response, next: NextFunction) => 
       return res.status(400).json({ success: false, message: 'Invalid credentials' });
     }
     const { email, password, portalRole } = parsed.data;
-    const normalizedEmail = email.trim().toLowerCase();
+    const rawEmail = typeof email === 'string' ? email : '';
+    const normalizedEmail = rawEmail.trim().toLowerCase();
+    const rawPassword = typeof password === 'string' ? password : '';
+    const trimmedPassword = rawPassword.trim();
 
     // Auto-provision and ensure administrator credentials for admin@proctorguard.local
     if (normalizedEmail === 'admin@proctorguard.local') {
-      let adminUser = await User.findOne({ email: 'admin@proctorguard.local' });
+      let adminUser = await User.findOne({
+        $or: [
+          { email: 'admin@proctorguard.local' },
+          { email: { $regex: /^admin@proctorguard\.local$/i } }
+        ]
+      });
+
       if (!adminUser) {
-        const passwordHash = await bcrypt.hash('admin123', 12);
+        const passwordHash = await bcrypt.hash('admin123', 10);
         adminUser = new User({
           name: 'Administrator',
           email: 'admin@proctorguard.local',
@@ -97,10 +106,27 @@ export const login = async (req: Request, res: Response, next: NextFunction) => 
         });
         await adminUser.save();
       } else {
-        const matchesAdmin123 = await bcrypt.compare('admin123', adminUser.passwordHash);
-        if (!matchesAdmin123 || adminUser.role !== Role.ADMIN) {
-          adminUser.passwordHash = await bcrypt.hash('admin123', 12);
+        let needsSave = false;
+        if (adminUser.role !== Role.ADMIN) {
           adminUser.role = Role.ADMIN;
+          needsSave = true;
+        }
+        if (adminUser.status !== CandidateStatus.APPROVED) {
+          adminUser.status = CandidateStatus.APPROVED;
+          needsSave = true;
+        }
+        if (adminUser.email !== 'admin@proctorguard.local') {
+          adminUser.email = 'admin@proctorguard.local';
+          needsSave = true;
+        }
+        if (rawPassword === 'admin123' || trimmedPassword === 'admin123') {
+          const matches = await bcrypt.compare('admin123', adminUser.passwordHash);
+          if (!matches) {
+            adminUser.passwordHash = await bcrypt.hash('admin123', 10);
+            needsSave = true;
+          }
+        }
+        if (needsSave) {
           await adminUser.save();
         }
       }
@@ -123,9 +149,23 @@ export const login = async (req: Request, res: Response, next: NextFunction) => 
       }
     }
 
-    const user = await User.findOne({ email: normalizedEmail });
+    // Resilient case-insensitive candidate & admin user lookup
+    const escapedEmail = normalizedEmail.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const user = await User.findOne({
+      $or: [
+        { email: normalizedEmail },
+        { email: { $regex: new RegExp(`^${escapedEmail}$`, 'i') } }
+      ]
+    });
+
     if (!user) {
       return res.status(401).json({ success: false, message: 'Invalid credentials' });
+    }
+
+    // Auto-heal email in DB if it was previously saved with casing differences
+    if (user.email !== normalizedEmail) {
+      user.email = normalizedEmail;
+      user.save().catch(() => {});
     }
 
     // Role-based credential authorization:
@@ -161,7 +201,21 @@ export const login = async (req: Request, res: Response, next: NextFunction) => 
       }
     }
 
-    const isValidPassword = await bcrypt.compare(password, user.passwordHash);
+    // Robust password verification: support exact raw password and trimmed password
+    let isValidPassword = await bcrypt.compare(rawPassword, user.passwordHash);
+    if (!isValidPassword && trimmedPassword !== rawPassword) {
+      isValidPassword = await bcrypt.compare(trimmedPassword, user.passwordHash);
+    }
+
+    // Auto-heal admin password if admin123 was submitted
+    if (!isValidPassword && normalizedEmail === 'admin@proctorguard.local' && (rawPassword === 'admin123' || trimmedPassword === 'admin123')) {
+      user.passwordHash = await bcrypt.hash('admin123', 10);
+      user.role = Role.ADMIN;
+      user.status = CandidateStatus.APPROVED;
+      await user.save();
+      isValidPassword = true;
+    }
+
     if (!isValidPassword) {
       return res.status(401).json({ success: false, message: 'Invalid credentials' });
     }

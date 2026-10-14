@@ -6,8 +6,9 @@ const router = Router();
 
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 50, // Limit each IP to 50 auth requests per windowMs
-  message: { success: false, message: 'Too many requests, please try again later.' }
+  max: 300, // Limit failed attempts per IP
+  skipSuccessfulRequests: true, // Successful logins never count against rate limit
+  message: { success: false, message: 'Too many failed login attempts, please try again in a few minutes.' }
 });
 
 import { googleDriveService } from '../services/googleDriveService';

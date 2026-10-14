@@ -84,7 +84,7 @@ function LoginContent() {
     try {
       const res = await api.post('/auth/login', { 
         email: normalized, 
-        password,
+        password: password.trim(),
         portalRole: isAdminLogin ? 'ADMIN' : 'CANDIDATE'
       });
       const { token, user } = res.data;
@@ -98,7 +98,17 @@ function LoginContent() {
         router.push('/admin/monitoring');
       }
     } catch (err: unknown) {
-      setError((err as { response?: { data?: { message?: string } } })?.response?.data?.message || 'Invalid credentials');
+      const axiosErr = err as { code?: string; message?: string; response?: { status?: number; data?: { message?: string } } };
+      const serverMsg = axiosErr.response?.data?.message;
+      if (serverMsg) {
+        setError(serverMsg);
+      } else if (axiosErr.code === 'ECONNABORTED' || axiosErr.message?.includes('timeout')) {
+        setError('Connection timed out. The server is warming up, please click Sign In again.');
+      } else if (!axiosErr.response) {
+        setError('Authentication service is unreachable. Please verify your network connection and try again.');
+      } else {
+        setError('Invalid credentials. Please verify your email and password.');
+      }
     } finally {
       setLoading(false);
     }
