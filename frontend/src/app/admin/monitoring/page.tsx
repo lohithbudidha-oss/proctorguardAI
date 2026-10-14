@@ -234,7 +234,13 @@ export default function CandidateExamRecordsPage() {
       }
     }
 
-    api.get('/admin/live').then(res => {
+    api.get('/admin/live', {
+      params: { _t: Date.now() },
+      headers: {
+        'Cache-Control': 'no-cache, no-store, must-revalidate',
+        'Pragma': 'no-cache'
+      }
+    }).then(res => {
       const records: CandidateExamRecord[] = (res.data.candidates || []).map((cand: any) => ({
         id: cand.candidateId || cand.id,
         attemptId: cand.attemptId,
@@ -294,6 +300,36 @@ export default function CandidateExamRecordsPage() {
     const initSocket = io(wsUrl, {
       auth: { token: typeof window !== 'undefined' ? localStorage.getItem('token') : '' }
     });
+
+    // Real-time status update when candidate submits, auto-submits, or terminates
+    const handleStatusUpdate = (data: any) => {
+      if (!data) return;
+      const targetAttemptId = data.attemptId?._id || data.attemptId || data.id;
+      const newStatus = data.status || 'SUBMITTED';
+
+      setCandidates(prev => prev.map(c => {
+        const matchAttempt = targetAttemptId && String(c.attemptId) === String(targetAttemptId);
+        const matchCand = data.candidateId && String(c.id) === String(data.candidateId);
+        if (matchAttempt || matchCand) {
+          return {
+            ...c,
+            status: newStatus,
+            submittedAt: data.submittedAt || c.submittedAt || new Date().toISOString()
+          };
+        }
+        return c;
+      }));
+
+      // Proactively refresh candidate records to fetch full score calculation and violations
+      setTimeout(() => {
+        fetchCandidateRecords();
+      }, 600);
+    };
+
+    initSocket.on('attempt:status_change', handleStatusUpdate);
+    initSocket.on('attempt:submitted', handleStatusUpdate);
+    initSocket.on('attempt:completed', handleStatusUpdate);
+    initSocket.on('attempt:terminated', handleStatusUpdate);
 
     initSocket.on('violation:alert', (data) => {
       if (data?.candidateId && data?.violation) {
@@ -363,7 +399,18 @@ export default function CandidateExamRecordsPage() {
       }
     });
 
+    const handleWindowFocus = () => {
+      fetchCandidateRecords();
+    };
+    window.addEventListener('focus', handleWindowFocus);
+
+    const pollingInterval = setInterval(() => {
+      fetchCandidateRecords();
+    }, 12000);
+
     return () => {
+      window.removeEventListener('focus', handleWindowFocus);
+      clearInterval(pollingInterval);
       initSocket.disconnect();
     };
   }, []);
@@ -399,7 +446,7 @@ export default function CandidateExamRecordsPage() {
   };
 
   const isCompletedStatus = (status: string) => {
-    return ['SUBMITTED', 'COMPLETED', 'AUTO_SUBMITTED', 'FORCE_SUBMITTED'].includes(status);
+    return ['SUBMITTED', 'COMPLETED', 'AUTO_SUBMITTED', 'FORCE_SUBMITTED', 'TERMINATED', 'INVALIDATED'].includes(status);
   };
 
   const filteredCandidates = useMemo(() => {

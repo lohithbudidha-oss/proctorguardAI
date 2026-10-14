@@ -144,6 +144,28 @@ export const getLiveCandidates = async (req: Request, res: Response, next: NextF
         0
       );
 
+      let resolvedStatus = doc.status;
+      const isExpired = doc.expiresAt && new Date() > new Date(doc.expiresAt);
+
+      if (result || doc.submittedAt) {
+        resolvedStatus = ['TERMINATED', 'FORCE_SUBMITTED', 'AUTO_SUBMITTED'].includes(doc.status)
+          ? doc.status
+          : 'SUBMITTED';
+
+        if (doc.status === AttemptStatus.IN_PROGRESS || doc.status === AttemptStatus.PAUSED || doc.status === 'LOCKED') {
+          Attempt.updateOne(
+            { _id: doc._id },
+            { status: AttemptStatus.SUBMITTED, submittedAt: doc.submittedAt || new Date() }
+          ).exec().catch(() => {});
+        }
+      } else if (isExpired && doc.status === AttemptStatus.IN_PROGRESS) {
+        resolvedStatus = 'AUTO_SUBMITTED';
+        Attempt.updateOne(
+          { _id: doc._id },
+          { status: AttemptStatus.AUTO_SUBMITTED, submittedAt: doc.expiresAt }
+        ).exec().catch(() => {});
+      }
+
       return {
         attemptId: doc._id,
         candidateId: candidate._id,
@@ -151,9 +173,9 @@ export const getLiveCandidates = async (req: Request, res: Response, next: NextF
         email: candidate.email,
         examId: exam._id,
         examName: exam.title,
-        status: doc.status,
+        status: resolvedStatus,
         startedAt: doc.startedAt,
-        submittedAt: doc.submittedAt,
+        submittedAt: doc.submittedAt || (result ? result.createdAt : undefined),
         expiresAt: doc.expiresAt,
         score: result ? result.obtainedMarks : doc.score ?? 0,
         totalMarks: result ? result.totalMarks : 0,

@@ -200,12 +200,8 @@ export const submitAttempt = async (req: AuthRequest, res: Response, next: NextF
     const { isTermination, status: requestedStatus, reason } = req.body || {};
 
     // If already submitted, auto-submitted, or terminated, return success idempotently
-    if (attempt.status === AttemptStatus.SUBMITTED || attempt.status === AttemptStatus.AUTO_SUBMITTED || attempt.status === AttemptStatus.TERMINATED) {
+    if (['SUBMITTED', 'AUTO_SUBMITTED', 'FORCE_SUBMITTED', 'COMPLETED', 'TERMINATED', 'INVALIDATED'].includes(attempt.status)) {
       return res.status(200).json({ success: true, message: 'Exam already finalized and submitted' });
-    }
-
-    if (![AttemptStatus.IN_PROGRESS, AttemptStatus.PAUSED].includes(attempt.status)) {
-       return res.status(403).json({ success: false, message: 'Attempt already finalized' });
     }
 
     const now = new Date();
@@ -219,15 +215,19 @@ export const submitAttempt = async (req: AuthRequest, res: Response, next: NextF
     attempt.submittedAt = now;
     await attempt.save();
 
-    const assignment = await Assignment.findById(attempt.assignmentId);
-    if (assignment) {
-      assignment.status = AssignmentStatus.COMPLETED;
-      await assignment.save();
+    // Mark assignments as COMPLETED
+    if (attempt.assignmentId) {
+      await Assignment.findByIdAndUpdate(attempt.assignmentId, { status: AssignmentStatus.COMPLETED });
     }
+    await Assignment.updateMany(
+      { candidateId, examId: attempt.examId },
+      { status: AssignmentStatus.COMPLETED }
+    );
 
-    await evaluateAttempt(attemptId as string, candidateId as string);
+    // Evaluate answers & compute score immediately
+    const result = await evaluateAttempt(attemptId as string, candidateId as string);
 
-    // Notify proctors via socket if terminated
+    // Notify proctors and admin monitoring in real time via socket
     try {
       const io = getIO();
       if (io) {
@@ -235,7 +235,17 @@ export const submitAttempt = async (req: AuthRequest, res: Response, next: NextF
           attemptId,
           candidateId,
           status: attempt.status,
+          submittedAt: attempt.submittedAt,
+          score: attempt.score ?? result?.obtainedMarks,
+          percentage: attempt.percentage ?? result?.percentage,
+          resultStatus: attempt.resultStatus ?? (result?.pass ? 'PASS' : 'FAIL'),
           reason: reason || (isTermination ? 'Terminated due to prohibited device infractions' : 'Exam finalized')
+        });
+        io.emit('attempt:submitted', {
+          attemptId,
+          candidateId,
+          status: attempt.status,
+          submittedAt: attempt.submittedAt
         });
       }
     } catch (sErr) {}
@@ -455,36 +465,53 @@ export const evaluateAttempt = async (attemptId: string, candidateId: string) =>
     
     await result.save();
 
-    // Update Attempt document with score and resultStatus
+    // Update Attempt document with score, resultStatus, and ensure status is finalized
     attempt.score = obtainedMarks;
     attempt.percentage = roundedPercentage;
     attempt.resultStatus = pass ? 'PASS' : 'FAIL';
+    if (!['SUBMITTED', 'AUTO_SUBMITTED', 'FORCE_SUBMITTED', 'TERMINATED', 'COMPLETED', 'INVALIDATED'].includes(attempt.status)) {
+      attempt.status = AttemptStatus.SUBMITTED;
+    }
+    if (!attempt.submittedAt) {
+      attempt.submittedAt = new Date();
+    }
     await attempt.save();
 
-    // Sync Examination Submission and Answers Report to Google Drive Folder: 1P_3yKzFloiMrF8Pe1XFl9Lh-nqvPTit1
-    try {
-      const candidate = await User.findById(candidateId);
-      const exam = await Exam.findById(attempt.examId);
-      const driveUpload = await googleDriveService.uploadExamSubmission(
-        { id: candidateId, name: candidate?.name || 'Candidate', email: candidate?.email },
-        { id: attempt.examId.toString(), title: exam?.title || 'Exam', duration: exam?.duration, totalMarks },
-        questions,
-        answers,
-        result,
-        violations
-      );
+    // Sync Examination Submission and Answers Report to Google Drive asynchronously
+    (async () => {
+      try {
+        const candidate = await User.findById(candidateId);
+        const exam = await Exam.findById(attempt.examId);
+        const driveUpload = await googleDriveService.uploadExamSubmission(
+          { id: candidateId, name: candidate?.name || 'Candidate', email: candidate?.email },
+          { id: attempt.examId.toString(), title: exam?.title || 'Exam', duration: exam?.duration, totalMarks },
+          questions,
+          answers,
+          result,
+          violations
+        );
 
-      result.driveReportUrl = driveUpload.htmlResult.webViewLink;
-      result.driveJsonUrl = driveUpload.jsonResult.webViewLink;
-      result.driveFolderUrl = `https://drive.google.com/drive/folders/1P_3yKzFloiMrF8Pe1XFl9Lh-nqvPTit1?usp=sharing`;
-      await result.save();
-
-      attempt.driveReportUrl = driveUpload.htmlResult.webViewLink;
-      attempt.driveFolderUrl = result.driveFolderUrl;
-      await attempt.save();
-    } catch (driveErr) {
-      console.warn('[GoogleDrive] Syncing exam answers report error:', driveErr);
-    }
+        if (driveUpload?.htmlResult?.webViewLink) {
+          await Result.updateOne(
+            { _id: result._id },
+            {
+              driveReportUrl: driveUpload.htmlResult.webViewLink,
+              driveJsonUrl: driveUpload.jsonResult?.webViewLink || null,
+              driveFolderUrl: 'https://drive.google.com/drive/folders/1P_3yKzFloiMrF8Pe1XFl9Lh-nqvPTit1?usp=sharing'
+            }
+          );
+          await Attempt.updateOne(
+            { _id: attempt._id },
+            {
+              driveReportUrl: driveUpload.htmlResult.webViewLink,
+              driveFolderUrl: 'https://drive.google.com/drive/folders/1P_3yKzFloiMrF8Pe1XFl9Lh-nqvPTit1?usp=sharing'
+            }
+          );
+        }
+      } catch (driveErr) {
+        console.warn('[GoogleDrive] Async sync exam answers report error:', driveErr);
+      }
+    })();
 
     return result;
 };

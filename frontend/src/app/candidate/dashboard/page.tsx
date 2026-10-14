@@ -47,7 +47,17 @@ export default function CandidateDashboard() {
     if (typeof window !== 'undefined') {
       try {
         const cached = sessionStorage.getItem('pg_cached_candidate_exams');
-        if (cached) return JSON.parse(cached);
+        if (cached) {
+          const list = JSON.parse(cached);
+          const completedStr = localStorage.getItem('completed_exams') || '[]';
+          const completedList: string[] = JSON.parse(completedStr);
+          return list.map((e: any) => {
+            if (completedList.includes(e.id)) {
+              return { ...e, status: 'COMPLETED' };
+            }
+            return e;
+          });
+        }
       } catch (e) {}
     }
     return [];
@@ -213,31 +223,65 @@ export default function CandidateDashboard() {
       }
     } catch (e) {}
 
-    setIsRefreshing(true);
-    api.get('/candidate/exams')
-      .then((res: any) => {
-        const fetchedExams = res.data?.exams || [];
-        setExams(fetchedExams);
-        if (res.data?.candidateProfile) {
-          setCurrentUser(res.data.candidateProfile);
+    const fetchCandidateExams = () => {
+      setIsRefreshing(true);
+      api.get('/candidate/exams', {
+        params: { _t: Date.now() },
+        headers: {
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          'Pragma': 'no-cache'
+        }
+      })
+        .then((res: any) => {
+          let fetchedExams = res.data?.exams || [];
           try {
-            localStorage.setItem('user', JSON.stringify(res.data.candidateProfile));
+            const completedStr = localStorage.getItem('completed_exams') || '[]';
+            const completedList: string[] = JSON.parse(completedStr);
+            const searchParamsObj = new URLSearchParams(window.location.search);
+            const submittedExamId = searchParamsObj.get('examId');
+
+            fetchedExams = fetchedExams.map((ex: any) => {
+              if (completedList.includes(ex.id) || (submittedExamId && ex.id === submittedExamId)) {
+                return {
+                  ...ex,
+                  status: 'COMPLETED',
+                  attemptId: ex.attemptId || (submittedExamId && ex.id === submittedExamId ? searchParamsObj.get('attemptId') || ex.attemptId : ex.attemptId)
+                };
+              }
+              return ex;
+            });
           } catch (e) {}
-        }
-        try {
-          sessionStorage.setItem('pg_cached_candidate_exams', JSON.stringify(fetchedExams));
-        } catch (e) {}
-      })
-      .catch((err: any) => {
-        console.error('Error fetching exams:', err);
-        if (err?.response?.status === 401 || err?.response?.status === 403) {
-          router.replace('/login');
-        }
-      })
-      .finally(() => {
-        setLoading(false);
-        setIsRefreshing(false);
-      });
+
+          setExams(fetchedExams);
+          if (res.data?.candidateProfile) {
+            setCurrentUser(res.data.candidateProfile);
+            try {
+              localStorage.setItem('user', JSON.stringify(res.data.candidateProfile));
+            } catch (e) {}
+          }
+          try {
+            sessionStorage.setItem('pg_cached_candidate_exams', JSON.stringify(fetchedExams));
+          } catch (e) {}
+        })
+        .catch((err: any) => {
+          console.error('Error fetching exams:', err);
+          if (err?.response?.status === 401 || err?.response?.status === 403) {
+            router.replace('/login');
+          }
+        })
+        .finally(() => {
+          setLoading(false);
+          setIsRefreshing(false);
+        });
+    };
+
+    fetchCandidateExams();
+
+    const handleFocus = () => {
+      fetchCandidateExams();
+    };
+    window.addEventListener('focus', handleFocus);
+    return () => window.removeEventListener('focus', handleFocus);
   }, [router]);
 
   useEffect(() => {
