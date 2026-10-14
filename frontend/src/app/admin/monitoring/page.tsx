@@ -143,6 +143,8 @@ export default function CandidateExamRecordsPage() {
   const [candidateQueueSeverityFilter, setCandidateQueueSeverityFilter] = useState<string>('ALL');
   const [candidateQueueSearchQuery, setCandidateQueueSearchQuery] = useState('');
   const [rewritingCandidateId, setRewritingCandidateId] = useState<string | null>(null);
+  const [loadingProofId, setLoadingProofId] = useState<string | null>(null);
+  const isFetchingRef = React.useRef(false);
 
   const filteredCandidateQueueViolations = useMemo(() => {
     if (!selectedCandidate) return [];
@@ -227,7 +229,71 @@ export default function CandidateExamRecordsPage() {
     window.location.href = '/login?role=admin';
   };
 
-  const fetchCandidateRecords = () => {
+  const handleOpenViolationProof = async (v: any) => {
+    const existingImg = v.screenshot || v.snapshotImage;
+    if (existingImg) {
+      setSelectedProofModal({
+        image: existingImg,
+        type: v.type,
+        time: new Date(v.detectedAt || v.timestamp || new Date().toISOString()).toLocaleString(),
+        desc: v.description,
+        candidateName: selectedCandidate?.name,
+        candidateEmail: selectedCandidate?.email,
+        examName: selectedCandidate?.examName,
+        severity: v.severity
+      });
+      return;
+    }
+
+    const vId = v.id || v._id;
+    if (!vId) {
+      alert('Proof identifier missing for this event.');
+      return;
+    }
+
+    setLoadingProofId(vId);
+    try {
+      const res = await api.get(`/admin/violations/${vId}/proof`);
+      const img = res.data?.proof?.screenshot || res.data?.proof?.snapshotImage || '';
+      if (!img) {
+        alert('No screenshot proof image recorded for this incident.');
+        return;
+      }
+      v.screenshot = img;
+      v.snapshotImage = img;
+      v.hasScreenshot = true;
+
+      setSelectedCandidate(prev => {
+        if (!prev) return null;
+        return {
+          ...prev,
+          violations: (prev.violations || []).map(item => 
+            (item.id === vId || item._id === vId) ? { ...item, screenshot: img, snapshotImage: img, hasScreenshot: true } : item
+          )
+        };
+      });
+
+      setSelectedProofModal({
+        image: img,
+        type: v.type,
+        time: new Date(v.detectedAt || v.timestamp || new Date().toISOString()).toLocaleString(),
+        desc: v.description,
+        candidateName: selectedCandidate?.name,
+        candidateEmail: selectedCandidate?.email,
+        examName: selectedCandidate?.examName,
+        severity: v.severity
+      });
+    } catch (err: any) {
+      alert(err?.response?.data?.message || 'Failed to load proof image');
+    } finally {
+      setLoadingProofId(null);
+    }
+  };
+
+  const fetchCandidateRecords = async () => {
+    if (isFetchingRef.current) return;
+    isFetchingRef.current = true;
+
     let cachedEvidence: any[] = [];
     if (typeof window !== 'undefined') {
       try {
@@ -237,14 +303,15 @@ export default function CandidateExamRecordsPage() {
       }
     }
 
-    api.get('/admin/live', {
-      params: { _t: Date.now() },
-      headers: {
-        'Cache-Control': 'no-cache, no-store, must-revalidate',
-        'Pragma': 'no-cache',
-        'Expires': '0'
-      }
-    }).then(res => {
+    try {
+      const res = await api.get('/admin/live', {
+        params: { _t: Date.now() },
+        headers: {
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          'Pragma': 'no-cache',
+          'Expires': '0'
+        }
+      });
       const records: CandidateExamRecord[] = (res.data.candidates || []).map((cand: any) => ({
         id: cand.candidateId || cand.id,
         attemptId: cand.attemptId,
@@ -276,24 +343,25 @@ export default function CandidateExamRecordsPage() {
           }
           return {
             ...v,
-            screenshot: img,
-            snapshotImage: img
+            screenshot: img || '',
+            snapshotImage: img || '',
+            hasScreenshot: Boolean(img || v.hasScreenshot || v.driveUrl)
           };
         })
       }));
       setCandidates(records);
-      setLoading(false);
       try {
-        // Cache for instantaneous reload on tab switches
         sessionStorage.setItem('pg_cached_admin_candidates', JSON.stringify(records.slice(0, 40)));
       } catch (e) {}
-    }).catch(err => {
+    } catch (err: any) {
       console.error('Failed fetching candidate records', err);
-      setLoading(false);
       if (err.response && (err.response.status === 401 || err.response.status === 403)) {
         router.replace('/login?role=admin');
       }
-    });
+    } finally {
+      setLoading(false);
+      isFetchingRef.current = false;
+    }
   };
 
   useEffect(() => {
@@ -304,7 +372,7 @@ export default function CandidateExamRecordsPage() {
     const interval = setInterval(() => {
       fetchCandidateRecords();
       fetchPendingApprovalsCount();
-    }, 10000);
+    }, 25000);
 
     const wsUrl = process.env.NEXT_PUBLIC_WS_URL || (process.env.NEXT_PUBLIC_API_URL ? process.env.NEXT_PUBLIC_API_URL.replace(/\/api\/?$/, '') : 'https://proctorguardai.onrender.com');
     const initSocket = io(wsUrl, {
@@ -1173,8 +1241,8 @@ export default function CandidateExamRecordsPage() {
                             )}
                           </div>
 
-                          {/* Screenshot Proof Preview */}
-                          {proofImg && (
+                          {/* Screenshot Proof Preview / On-demand loader */}
+                          {proofImg ? (
                             <div className="mt-1">
                               <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1 flex items-center">
                                 <Camera className="w-3 h-3 mr-1 text-blue-600" /> Screenshot Proof Evidence:
@@ -1200,7 +1268,24 @@ export default function CandidateExamRecordsPage() {
                                 </div>
                               </div>
                             </div>
-                          )}
+                          ) : (v.hasScreenshot !== false) ? (
+                            <div className="mt-1">
+                              <button
+                                type="button"
+                                onClick={() => handleOpenViolationProof(v)}
+                                disabled={loadingProofId === (v.id || v._id)}
+                                className="w-full py-2 px-3 bg-blue-50 hover:bg-blue-100 text-blue-700 font-bold text-xs rounded-lg border border-blue-200 transition flex items-center justify-center space-x-1.5 cursor-pointer disabled:opacity-50"
+                              >
+                                <Camera className="w-3.5 h-3.5 text-blue-600" />
+                                <span>View Screenshot Proof Evidence</span>
+                                {loadingProofId === (v.id || v._id) ? (
+                                  <div className="w-3 h-3 border-2 border-blue-600/30 border-t-blue-600 rounded-full animate-spin ml-1" />
+                                ) : (
+                                  <Eye className="w-3.5 h-3.5 ml-1 text-blue-500" />
+                                )}
+                              </button>
+                            </div>
+                          ) : null}
                         </div>
                       );
                     })}
@@ -1617,8 +1702,8 @@ export default function CandidateExamRecordsPage() {
                         </div>
                       </div>
 
-                      {/* Proof Thumbnail */}
-                      {proofImg && (
+                      {/* Proof Thumbnail / On-demand loader */}
+                      {proofImg ? (
                         <div className="sm:w-48 shrink-0 flex flex-col">
                           <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1 flex items-center">
                             <Camera className="w-3 h-3 mr-1 text-blue-600" /> Evidence Proof:
@@ -1646,7 +1731,24 @@ export default function CandidateExamRecordsPage() {
                             </div>
                           </div>
                         </div>
-                      )}
+                      ) : (v.hasScreenshot !== false) ? (
+                        <div className="sm:w-48 shrink-0 flex flex-col justify-center">
+                          <button
+                            type="button"
+                            onClick={() => handleOpenViolationProof(v)}
+                            disabled={loadingProofId === (v.id || v._id)}
+                            className="w-full py-2.5 px-3 bg-blue-50 hover:bg-blue-100 text-blue-700 font-bold text-xs rounded-xl border border-blue-200 transition flex items-center justify-center space-x-1.5 cursor-pointer disabled:opacity-50"
+                          >
+                            <Camera className="w-3.5 h-3.5 text-blue-600" />
+                            <span>View Proof</span>
+                            {loadingProofId === (v.id || v._id) ? (
+                              <div className="w-3 h-3 border-2 border-blue-600/30 border-t-blue-600 rounded-full animate-spin ml-1" />
+                            ) : (
+                              <Eye className="w-3.5 h-3.5 ml-1 text-blue-500" />
+                            )}
+                          </button>
+                        </div>
+                      ) : null}
                     </div>
                   );
                 })

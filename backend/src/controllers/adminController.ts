@@ -59,7 +59,7 @@ export const approveCandidate = async (req: Request, res: Response, next: NextFu
   }
 };
 
-import Assignment from '../models/Assignment';
+import Assignment, { AssignmentStatus } from '../models/Assignment';
 
 export const deleteCandidate = async (req: Request, res: Response, next: NextFunction) => {
   try {
@@ -98,126 +98,131 @@ export const getLiveCandidates = async (req: Request, res: Response, next: NextF
   try {
     res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
 
+    // 1. Fetch most recent 60 attempts using indexed primary key sort {_id: -1} (sub-millisecond scan)
     const attempts = await Attempt.find()
       .select('candidateId examId status startedAt submittedAt expiresAt score percentage resultStatus updatedAt createdAt')
-      .populate('candidateId', 'name email')
-      .populate('examId', 'title duration totalMarks passPercentage scoringRules')
-      .sort({ updatedAt: -1, createdAt: -1 })
-      .limit(100)
+      .sort({ _id: -1 })
+      .limit(60)
       .lean();
 
-    // Gather all candidate and exam IDs to backfill any unpopulated references
+    // 2. Fetch pending or active assignments (scheduled candidates who haven't attempted yet)
+    let assignments: any[] = [];
+    try {
+      assignments = await Assignment.find({ status: { $in: [AssignmentStatus.PENDING, AssignmentStatus.ACTIVE] } })
+        .select('candidateId examId status scheduledAt createdAt')
+        .sort({ _id: -1 })
+        .limit(30)
+        .lean();
+    } catch (assignErr) {
+      console.warn('[AdminController] Error fetching assignments:', assignErr);
+    }
+
+    // Collect all candidate, exam, and attempt IDs
     const candidateIdSet = new Set<string>();
     const examIdSet = new Set<string>();
+    const attemptIdList: mongoose.Types.ObjectId[] = [];
 
-    attempts.forEach((doc: any) => {
-      const cId = (doc.candidateId?._id || doc.candidateId)?.toString();
+    attempts.forEach((a: any) => {
+      attemptIdList.push(a._id);
+      const cId = a.candidateId?.toString();
       if (cId && mongoose.Types.ObjectId.isValid(cId)) candidateIdSet.add(cId);
-
-      const eId = (doc.examId?._id || doc.examId)?.toString();
+      const eId = a.examId?.toString();
       if (eId && mongoose.Types.ObjectId.isValid(eId)) examIdSet.add(eId);
     });
 
-    const userMap = new Map<string, any>();
-    const examMap = new Map<string, any>();
-
-    // Query User model for any candidate that wasn't populated or needs backfill
-    const cIdsToFetch = Array.from(candidateIdSet);
-    if (cIdsToFetch.length > 0) {
-      try {
-        const users = await User.find({ _id: { $in: cIdsToFetch } }).select('name email').lean();
-        users.forEach((u: any) => userMap.set(u._id.toString(), u));
-      } catch (uErr) {
-        console.warn('[AdminController] Error fetching users for live monitoring:', uErr);
-      }
-    }
-
-    // Query Exam model for any exam that wasn't populated or needs backfill
-    const eIdsToFetch = Array.from(examIdSet);
-    if (eIdsToFetch.length > 0) {
-      try {
-        const exams = await Exam.find({ _id: { $in: eIdsToFetch } }).select('title duration totalMarks passPercentage scoringRules').lean();
-        exams.forEach((e: any) => examMap.set(e._id.toString(), e));
-      } catch (eErr) {
-        console.warn('[AdminController] Error fetching exams for live monitoring:', eErr);
-      }
-    }
-
-    // Normalize attempts so doc.candidateId and doc.examId are guaranteed valid objects
-    const normalizedAttempts = attempts.map((doc: any) => {
-      const cId = (doc.candidateId?._id || doc.candidateId)?.toString() || '';
-      let candidate = doc.candidateId;
-      if (!candidate || typeof candidate !== 'object' || !candidate.name) {
-        if (cId && userMap.has(cId)) {
-          candidate = userMap.get(cId);
-        } else {
-          candidate = { _id: cId, name: cId ? `Candidate (${cId.slice(-4)})` : 'Candidate', email: '' };
-        }
-      }
-
-      const eId = (doc.examId?._id || doc.examId)?.toString() || '';
-      let exam = doc.examId;
-      if (!exam || typeof exam !== 'object' || !exam.title) {
-        if (eId && examMap.has(eId)) {
-          exam = examMap.get(eId);
-        } else {
-          exam = { _id: eId, title: 'Assessment', duration: 60, totalMarks: 100 };
-        }
-      }
-
-      return {
-        ...doc,
-        candidateId: candidate,
-        examId: exam
-      };
+    assignments.forEach((a: any) => {
+      const cId = a.candidateId?.toString();
+      if (cId && mongoose.Types.ObjectId.isValid(cId)) candidateIdSet.add(cId);
+      const eId = a.examId?.toString();
+      if (eId && mongoose.Types.ObjectId.isValid(eId)) examIdSet.add(eId);
     });
 
-    const attemptIds = normalizedAttempts.map((doc: any) => doc._id);
+    const cIdsToFetch = Array.from(candidateIdSet);
+    const eIdsToFetch = Array.from(examIdSet);
 
-    // Batch fetch results in ONE single query with lean projection
-    const results = await Result.find({ attemptId: { $in: attemptIds } })
-      .select('attemptId obtainedMarks totalMarks percentage pass status totalQuestions attempted correct wrong unanswered timeTaken riskScore createdAt')
-      .lean();
+    // 3. Parallel fetch of Users, Exams, Results, and Violations with lean projections
+    const [users, exams, results, violations] = await Promise.all([
+      User.find({ _id: { $in: cIdsToFetch } }).select('name email').lean(),
+      Exam.find({ _id: { $in: eIdsToFetch } }).select('title duration totalMarks passPercentage scoringRules').lean(),
+      Result.find({ attemptId: { $in: attemptIdList } })
+        .select('attemptId obtainedMarks totalMarks percentage pass status totalQuestions attempted correct wrong unanswered timeTaken riskScore createdAt')
+        .lean(),
+      ViolationEvent.find({
+        $or: [
+          { attemptId: { $in: attemptIdList } },
+          { candidateId: { $in: cIdsToFetch } }
+        ]
+      })
+        .select('attemptId candidateId type severity detectedAt description actionTaken snapshotImage screenshot driveUrl driveFolderUrl')
+        .sort({ _id: -1 })
+        .limit(200)
+        .lean()
+    ]);
+
+    const userMap = new Map<string, any>(users.map((u: any) => [u._id.toString(), u]));
+    const examMap = new Map<string, any>(exams.map((e: any) => [e._id.toString(), e]));
     const resultMap = new Map<string, any>(results.map((r: any) => [r.attemptId.toString(), r]));
 
-    // Batch fetch violations with lean projection; keep top screenshot only per attempt to eliminate RAM spikes
-    const violations = await ViolationEvent.find({ attemptId: { $in: attemptIds } })
-      .select('attemptId type severity detectedAt description actionTaken screenshot')
-      .sort({ detectedAt: -1 })
-      .limit(200)
-      .lean();
+    // Track which candidates already have a preloaded screenshot to keep response < 200KB
+    const candidateHasProofScreenshot = new Set<string>();
 
-    const violationMap = new Map<string, any[]>();
+    const violationMapByAttempt = new Map<string, any[]>();
+    const violationMapByCandidate = new Map<string, any[]>();
+
     for (const v of violations) {
-      const attIdStr = v.attemptId.toString();
-      if (!violationMap.has(attIdStr)) {
-        violationMap.set(attIdStr, []);
+      const candIdStr = v.candidateId ? v.candidateId.toString() : '';
+      const rawScreenshot = v.screenshot || v.snapshotImage || '';
+      const hasImage = Boolean(rawScreenshot);
+
+      let retainedScreenshot = '';
+      if (hasImage && candIdStr && !candidateHasProofScreenshot.has(candIdStr)) {
+        retainedScreenshot = rawScreenshot;
+        candidateHasProofScreenshot.add(candIdStr);
       }
-      const list = violationMap.get(attIdStr)!;
-      if (list.length < 10) {
-        // Only retain screenshot for the latest 1 incident per attempt to keep response fast and under 200KB
-        const retainScreenshot = list.length === 0 ? (v.screenshot || '') : '';
-        list.push({
-          id: v._id,
-          type: v.type,
-          severity: v.severity,
-          detectedAt: v.detectedAt,
-          description: v.description || '',
-          screenshot: retainScreenshot,
-          hasScreenshot: Boolean(v.screenshot || (v as any).snapshotImage),
-          actionTaken: v.actionTaken
-        });
+
+      const vObj = {
+        id: v._id,
+        _id: v._id,
+        type: v.type,
+        severity: v.severity,
+        detectedAt: v.detectedAt,
+        description: v.description || '',
+        screenshot: retainedScreenshot,
+        hasScreenshot: hasImage || Boolean(v.driveUrl),
+        driveUrl: (v as any).driveUrl || '',
+        actionTaken: v.actionTaken
+      };
+
+      if (v.attemptId) {
+        const attStr = v.attemptId.toString();
+        if (!violationMapByAttempt.has(attStr)) violationMapByAttempt.set(attStr, []);
+        const aList = violationMapByAttempt.get(attStr)!;
+        if (aList.length < 25) aList.push(vObj);
+      }
+
+      if (candIdStr) {
+        if (!violationMapByCandidate.has(candIdStr)) violationMapByCandidate.set(candIdStr, []);
+        const cList = violationMapByCandidate.get(candIdStr)!;
+        if (cList.length < 25) cList.push(vObj);
       }
     }
 
     const now = new Date();
 
-    const attemptsData = normalizedAttempts.map((doc: any) => {
-      const candidate = doc.candidateId;
-      const exam = doc.examId;
+    const attemptsData = attempts.map((doc: any) => {
+      const cId = doc.candidateId?.toString() || '';
+      const eId = doc.examId?.toString() || '';
+      const candidate = userMap.get(cId) || { _id: cId, name: cId ? `Candidate (${cId.slice(-4)})` : 'Candidate', email: '' };
+      const exam = examMap.get(eId) || { _id: eId, title: 'Assessment', duration: 60, totalMarks: 100 };
       const attIdStr = doc._id.toString();
       const result = resultMap.get(attIdStr);
-      const attemptViolations = violationMap.get(attIdStr) || [];
+
+      // Match violations by attemptId first, fallback to candidateId so past violations always show
+      let attemptViolations = violationMapByAttempt.get(attIdStr);
+      if (!attemptViolations || attemptViolations.length === 0) {
+        attemptViolations = violationMapByCandidate.get(cId) || [];
+      }
+
       const riskScore = attemptViolations.reduce(
         (acc: number, v: any) => acc + (v.severity === 'CRITICAL' ? 40 : v.severity === 'HIGH' ? 20 : 5),
         0
@@ -265,68 +270,50 @@ export const getLiveCandidates = async (req: Request, res: Response, next: NextF
       };
     });
 
-    // Also include candidates who are assigned to exams but haven't started an attempt yet
     const existingPairs = new Set(
-      normalizedAttempts.map((a: any) => {
-        const cId = (a.candidateId?._id || a.candidateId)?.toString() || '';
-        const eId = (a.examId?._id || a.examId)?.toString() || '';
-        return `${cId}_${eId}`;
-      })
+      attempts.map((a: any) => `${a.candidateId?.toString() || ''}_${a.examId?.toString() || ''}`)
     );
 
-    let assignedCandidatesData: any[] = [];
-    try {
-      const assignments = await Assignment.find()
-        .populate('candidateId', 'name email')
-        .populate('examId', 'title duration totalMarks scoringRules')
-        .sort({ createdAt: -1 })
-        .lean();
+    const assignedCandidatesData: any[] = [];
+    for (const a of assignments) {
+      const cId = a.candidateId?.toString() || '';
+      const eId = a.examId?.toString() || '';
+      const pairKey = `${cId}_${eId}`;
 
-      for (const a of assignments) {
-        const cId = (a.candidateId?._id || a.candidateId)?.toString() || '';
-        const eId = (a.examId?._id || a.examId)?.toString() || '';
-        const pairKey = `${cId}_${eId}`;
+      if (cId && eId && !existingPairs.has(pairKey)) {
+        existingPairs.add(pairKey);
+        const cand = userMap.get(cId) || { _id: cId, name: `Candidate (${cId.slice(-4)})`, email: '' };
+        const ex = examMap.get(eId) || { _id: eId, title: 'Assessment', duration: 60, totalMarks: 100 };
+        const candidateViolations = violationMapByCandidate.get(cId) || [];
 
-        if (cId && eId && !existingPairs.has(pairKey)) {
-          existingPairs.add(pairKey);
-          const cand: any = (a.candidateId && typeof a.candidateId === 'object' && !(a.candidateId instanceof mongoose.Types.ObjectId)) 
-            ? a.candidateId 
-            : { _id: cId, name: `Candidate (${cId.slice(-4)})`, email: '' };
-          const ex: any = (a.examId && typeof a.examId === 'object' && !(a.examId instanceof mongoose.Types.ObjectId)) 
-            ? a.examId 
-            : { _id: eId, title: 'Assessment', duration: 60, totalMarks: 100 };
-
-          assignedCandidatesData.push({
-            attemptId: 'assigned_' + a._id.toString(),
-            candidateId: cand._id || cId,
-            name: cand.name || 'Candidate',
-            email: cand.email || '',
-            examId: ex._id || eId,
-            examName: ex.title || 'Assessment',
-            status: 'ASSIGNED',
-            verificationStatus: 'PENDING',
-            startedAt: undefined,
-            submittedAt: undefined,
-            expiresAt: undefined,
-            score: 0,
-            totalMarks: (ex as any).totalMarks || 100,
-            percentage: 0,
-            resultStatus: 'PENDING',
-            totalQuestions: 0,
-            attempted: 0,
-            correct: 0,
-            wrong: 0,
-            unanswered: 0,
-            timeTaken: 0,
-            riskScore: 0,
-            violations: [],
-            camera: 'READY',
-            screen: 'READY'
-          });
-        }
+        assignedCandidatesData.push({
+          attemptId: 'assigned_' + a._id.toString(),
+          candidateId: cand._id || cId,
+          name: cand.name || 'Candidate',
+          email: cand.email || '',
+          examId: ex._id || eId,
+          examName: ex.title || 'Assessment',
+          status: 'ASSIGNED',
+          verificationStatus: 'PENDING',
+          startedAt: undefined,
+          submittedAt: undefined,
+          expiresAt: undefined,
+          score: 0,
+          totalMarks: ex.totalMarks || 100,
+          percentage: 0,
+          resultStatus: 'PENDING',
+          totalQuestions: 0,
+          attempted: 0,
+          correct: 0,
+          wrong: 0,
+          unanswered: 0,
+          timeTaken: 0,
+          riskScore: 0,
+          violations: candidateViolations,
+          camera: 'READY',
+          screen: 'READY'
+        });
       }
-    } catch (assignErr) {
-      console.warn('[AdminController] Error fetching assignments for live monitoring:', assignErr);
     }
 
     const allCandidates = [...attemptsData, ...assignedCandidatesData];
