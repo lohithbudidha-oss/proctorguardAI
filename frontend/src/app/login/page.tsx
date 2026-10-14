@@ -50,7 +50,7 @@ function LoginContent() {
 
     if (isAdminLogin) {
       if (normalized !== 'admin@proctorguard.local') {
-        setError('Admin Portal accepts administrator credentials only (Email: admin@proctorguard.local). Candidate credentials cannot be used here.');
+        setError('Admin Portal accepts authorized administrator credentials only. Candidate credentials cannot be used here.');
         return;
       }
     } else {
@@ -261,7 +261,7 @@ function LoginContent() {
             </div>
           )}
 
-          <form onSubmit={handleLogin} className="space-y-6">
+          <form onSubmit={handleLogin} className="space-y-6" autoComplete="off">
             {error && (
               <div className="bg-red-50 border-l-4 border-red-500 text-red-700 px-4 py-3 rounded-md text-sm font-medium animate-in fade-in slide-in-from-top-2">
                 {error}
@@ -281,12 +281,13 @@ function LoginContent() {
                   required
                   value={email}
                   onChange={handleEmailChange}
+                  autoComplete="off"
                   className={`block w-full pl-10 pr-3 py-3 border rounded-xl focus:ring-2 transition-all font-medium placeholder:font-normal ${
                     emailError
                       ? 'border-rose-400 bg-rose-50/20 text-rose-900 focus:border-rose-500 focus:ring-rose-500/20'
                       : 'border-slate-200 bg-slate-50 hover:bg-slate-100 focus:bg-white text-slate-900 focus:ring-blue-500/20 focus:border-blue-500'
                   }`}
-                  placeholder={isAdminLogin ? "admin@proctorguard.local" : "candidate@gmail.com"}
+                  placeholder={isAdminLogin ? "" : "candidate@gmail.com"}
                   suppressHydrationWarning
                 />
               </div>
@@ -316,8 +317,9 @@ function LoginContent() {
                   required
                   value={password}
                   onChange={e => setPassword(e.target.value)}
+                  autoComplete="new-password"
                   className="block w-full pl-10 pr-10 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all bg-slate-50 hover:bg-slate-100 focus:bg-white text-slate-900 font-medium placeholder:font-normal"
-                  placeholder="••••••••"
+                  placeholder=""
                   suppressHydrationWarning
                 />
                 <button
