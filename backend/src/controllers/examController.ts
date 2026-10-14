@@ -1,6 +1,9 @@
 import { Request, Response, NextFunction } from 'express';
 import mongoose from 'mongoose';
 import Exam, { ExamStatus } from '../models/Exam';
+import Assignment, { AssignmentStatus } from '../models/Assignment';
+import User, { Role } from '../models/User';
+import Attempt from '../models/Attempt';
 
 const EMOJI_REGEX = /(?:\p{Extended_Pictographic}|\p{Emoji_Presentation}|\uD83C[\uDF00-\uDFFF]|\uD83D[\uDC00-\uDE4F]|\uD83D[\uDE80-\uDEFF]|[\u2600-\u26FF\u2700-\u27BF])/u;
 
@@ -194,9 +197,6 @@ export const publishExam = async (req: Request, res: Response, next: NextFunctio
   }
 };
 
-import Assignment, { AssignmentStatus } from '../models/Assignment';
-import User, { Role } from '../models/User';
-import Attempt from '../models/Attempt';
 
 export const getExamStats = async (req: Request, res: Response, next: NextFunction) => {
   try {
