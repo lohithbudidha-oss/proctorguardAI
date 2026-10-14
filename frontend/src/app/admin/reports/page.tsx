@@ -28,7 +28,8 @@ import {
   Download,
   Shield,
   FileCheck,
-  LogOut
+  LogOut,
+  Users
 } from 'lucide-react';
 import api from '@/lib/api';
 import { sanitizeSearchInput } from '@/lib/sanitize';
@@ -168,38 +169,63 @@ export default function ResultsVerificationPage() {
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col py-10 px-8">
       <div className="max-w-7xl mx-auto w-full">
-        <div className="flex items-center justify-between mb-6">
-          <div className="flex items-center space-x-4">
-            <Link href="/admin/monitoring" className="text-blue-600 font-semibold flex items-center hover:underline w-max text-sm">
-              <ArrowLeft className="w-4 h-4 mr-2" /> Candidates
-            </Link>
-            <Link href="/admin/results" className="text-blue-600 font-semibold flex items-center hover:underline w-max text-sm">
-              <BarChart3 className="w-4 h-4 mr-1.5" /> Results
-            </Link>
-            <Link href="/admin/violations" className="text-blue-600 font-semibold flex items-center hover:underline w-max text-sm">
-              <ShieldAlert className="w-4 h-4 mr-1.5 text-rose-500" /> Violations
-            </Link>
+        {/* Top Header & Navigation */}
+        <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-4 mb-8">
+          <div className="min-w-0 flex-1 pr-0 xl:pr-4">
+            <div className="flex items-center gap-3 mb-1.5">
+              <Link 
+                href="/admin/monitoring" 
+                className="p-2 bg-white rounded-xl border border-slate-200 hover:bg-slate-100 transition shadow-2xs shrink-0" 
+                title="Back to Admin Dashboard"
+              >
+                <ArrowLeft className="w-5 h-5 text-slate-600" />
+              </Link>
+              <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight flex items-center">
+                <FileText className="w-7 h-7 mr-2.5 text-blue-600 shrink-0" /> Results & Verification
+              </h1>
+            </div>
+            <p className="text-slate-500 text-sm">
+              Verify candidate exam results, submitted answers, and assessment integrity records
+            </p>
           </div>
-        </div>
-        
-        <div className="mb-8 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-          <div>
-            <h1 className="text-3xl font-extrabold text-slate-800 flex items-center">
-              <FileText className="w-8 h-8 mr-3 text-blue-500" />
-              Results & Verification
-            </h1>
-            <p className="text-slate-500 mt-2 text-lg">Verify candidate exam results, submitted answers, and violations linked to Google Drive</p>
+
+          {/* Top Navigation Pill Buttons */}
+          <div className="flex items-center gap-2 shrink-0 flex-nowrap overflow-x-auto max-w-full pb-1 xl:pb-0">
+            <Link 
+              href="/admin/monitoring" 
+              className="px-3 py-1.5 bg-white text-slate-700 border border-slate-200 font-semibold rounded-lg hover:bg-slate-50 transition shadow-2xs text-xs flex items-center h-8.5 shrink-0 whitespace-nowrap"
+            >
+              <Users className="w-3.5 h-3.5 mr-1.5 text-blue-600" /> Admin Dashboard
+            </Link>
+            <Link 
+              href="/admin/exams" 
+              className="px-3 py-1.5 bg-white text-slate-700 border border-slate-200 font-semibold rounded-lg hover:bg-slate-50 transition shadow-2xs text-xs flex items-center h-8.5 shrink-0 whitespace-nowrap"
+            >
+              <FileText className="w-3.5 h-3.5 mr-1.5 text-slate-400" /> Exam Management
+            </Link>
+            <Link 
+              href="/admin/results" 
+              className="px-3 py-1.5 bg-blue-50 text-blue-700 border border-blue-200 font-semibold rounded-lg hover:bg-blue-100 transition shadow-2xs text-xs flex items-center h-8.5 shrink-0 whitespace-nowrap"
+            >
+              <BarChart3 className="w-3.5 h-3.5 mr-1.5" /> Results
+            </Link>
+            <Link 
+              href="/admin/violations" 
+              className="px-3 py-1.5 bg-rose-50 text-rose-700 border border-rose-200 font-semibold rounded-lg hover:bg-rose-100 transition shadow-2xs text-xs flex items-center h-8.5 shrink-0 whitespace-nowrap"
+            >
+              <ShieldAlert className="w-3.5 h-3.5 mr-1.5 text-rose-600" /> Violations
+            </Link>
+            <button 
+              type="button"
+              onClick={fetchResults}
+              disabled={loading}
+              className="px-3.5 py-1.5 bg-white hover:bg-slate-50 text-slate-700 rounded-lg text-xs font-bold border border-slate-200 transition shadow-2xs cursor-pointer flex items-center h-8.5 shrink-0 whitespace-nowrap active:scale-95 disabled:opacity-60"
+              title="Refresh latest verification records"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 mr-1.5 ${loading ? 'animate-spin text-blue-600' : 'text-slate-500'}`} />
+              Refresh
+            </button>
           </div>
-          
-          <button 
-            onClick={handleOpenDriveFolder}
-            className="bg-blue-50 hover:bg-blue-100 border border-blue-200 rounded-lg px-4 py-2.5 text-xs text-blue-800 flex items-center transition cursor-pointer"
-            title="Click to view all stored Drive files"
-          >
-            <HardDrive className="w-4 h-4 mr-2 text-blue-600 flex-shrink-0" />
-            <span>Drive Folder ID: <strong className="font-mono">1P_3yKzFloiMrF8Pe1XFl9Lh-nqvPTit1</strong></span>
-            <ExternalLink className="w-3 h-3 ml-2 text-blue-600 opacity-60" />
-          </button>
         </div>
 
         {/* Search and Filters Bar */}
@@ -514,13 +540,25 @@ export default function ResultsVerificationPage() {
                           {hasOptions ? (
                             <div className="space-y-1.5 mt-3">
                               {q.options.map((opt: any, optIdx: number) => {
-                                const optVal = typeof opt === 'object' ? opt.text || opt.value || optIdx : opt;
-                                const isSelected = JSON.stringify(q.candidateSelectedAnswer) === JSON.stringify(optVal) ||
-                                                   String(q.candidateSelectedAnswer) === String(optVal) ||
-                                                   String(q.candidateSelectedAnswer) === String(optIdx);
-                                const isCorrectChoice = JSON.stringify(q.correctAnswer) === JSON.stringify(optVal) ||
-                                                        String(q.correctAnswer) === String(optVal) ||
-                                                        String(q.correctAnswer) === String(optIdx);
+                                const optVal = typeof opt === 'object' ? opt.text ?? opt.value ?? opt.id ?? '' : opt;
+                                const optId = typeof opt === 'object' && opt?.id ? String(opt.id).trim().toLowerCase() : '';
+                                const optLetter = String.fromCharCode(65 + optIdx).toLowerCase();
+                                const clean = (val: any) => String(val ?? '').trim().toLowerCase().replace(/^["']|["']$/g, '');
+
+                                const checkMatch = (target: any) => {
+                                  if (target === null || target === undefined || target === '') return false;
+                                  const t = clean(target);
+                                  const v = clean(optVal);
+                                  return t === v || (optId && t === optId) || t === optLetter || t.startsWith(`${optLetter})`) || t.startsWith(`(${optLetter})`);
+                                };
+
+                                const isSelected = Array.isArray(q.candidateSelectedAnswer)
+                                  ? q.candidateSelectedAnswer.some(checkMatch)
+                                  : checkMatch(q.candidateSelectedAnswer);
+
+                                const isCorrectChoice = Array.isArray(q.correctAnswer)
+                                  ? q.correctAnswer.some(checkMatch)
+                                  : checkMatch(q.correctAnswer);
 
                                 return (
                                   <div

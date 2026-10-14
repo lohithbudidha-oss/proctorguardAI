@@ -27,14 +27,42 @@ import { sanitizeSearchInput } from '@/lib/sanitize';
 
 export default function CandidateDashboard() {
   const router = useRouter();
-  const [loading, setLoading] = useState(true);
+  const [currentUser, setCurrentUser] = useState<{ name?: string; email?: string } | null>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const u = localStorage.getItem('user');
+        if (u) return JSON.parse(u);
+      } catch (e) {}
+    }
+    return null;
+  });
+
+  const [exams, setExams] = useState<{ id: string; title: string; duration: number; status: string; scheduledFor: string; resultStatus?: string; attemptId?: string }[]>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const cached = sessionStorage.getItem('pg_cached_candidate_exams');
+        if (cached) return JSON.parse(cached);
+      } catch (e) {}
+    }
+    return [];
+  });
+
+  const [loading, setLoading] = useState(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const cached = sessionStorage.getItem('pg_cached_candidate_exams');
+        if (cached && JSON.parse(cached).length > 0) return false;
+      } catch (e) {}
+    }
+    return true;
+  });
+
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [currentTime, setCurrentTime] = useState('');
   const [showNotifications, setShowNotifications] = useState(false);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const notificationRef = useRef<HTMLDivElement>(null);
-  const [currentUser, setCurrentUser] = useState<{ name?: string; email?: string } | null>(null);
-  const [exams, setExams] = useState<{ id: string; title: string; duration: number; status: string; scheduledFor: string; resultStatus?: string; attemptId?: string }[]>([]);
   const [submissionSuccessModal, setSubmissionSuccessModal] = useState<{
     isOpen: boolean;
     examTitle: string;
@@ -172,14 +200,19 @@ export default function CandidateDashboard() {
       if (u) setCurrentUser(JSON.parse(u));
     } catch (e) {}
 
+    setIsRefreshing(true);
     api.get('/candidate/exams')
       .then((res: { data: { exams?: { id: string; title: string; duration: number; status: string; scheduledFor: string; resultStatus?: string; attemptId?: string }[] } }) => {
         const fetchedExams = res.data?.exams || [];
         setExams(fetchedExams);
+        try {
+          sessionStorage.setItem('pg_cached_candidate_exams', JSON.stringify(fetchedExams));
+        } catch (e) {}
       })
       .catch(err => console.error('Error fetching exams:', err))
       .finally(() => {
         setLoading(false);
+        setIsRefreshing(false);
       });
   }, [router]);
 
@@ -212,9 +245,24 @@ export default function CandidateDashboard() {
     router.push('/');
   };
 
-  if (loading) return (
-    <div className="min-h-screen bg-slate-50 flex items-center justify-center">
-      <div className="w-8 h-8 border-4 border-blue-600/30 border-t-blue-600 rounded-full animate-spin"></div>
+  if (loading && exams.length === 0) return (
+    <div className="min-h-screen bg-[#F8FAFC] flex flex-col font-sans">
+      <header className="bg-white/80 backdrop-blur-xl border-b border-slate-200 sticky top-0 z-50">
+        <div className="max-w-7xl mx-auto px-6 h-20 flex justify-between items-center">
+          <BrandLogo size="md" variant="dark" />
+          <div className="w-24 h-8 bg-slate-200 rounded-lg animate-pulse" />
+        </div>
+      </header>
+      <main className="max-w-7xl mx-auto px-6 py-10 w-full flex-1">
+        <div className="h-10 w-64 bg-slate-200 rounded-xl mb-4 animate-pulse" />
+        <div className="h-5 w-48 bg-slate-100 rounded-lg mb-8 animate-pulse" />
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+          <div className="h-32 bg-white rounded-2xl border border-slate-200 p-6 animate-pulse" />
+          <div className="h-32 bg-white rounded-2xl border border-slate-200 p-6 animate-pulse" />
+          <div className="h-32 bg-white rounded-2xl border border-slate-200 p-6 animate-pulse" />
+        </div>
+        <div className="h-64 bg-white rounded-2xl border border-slate-200 p-8 animate-pulse" />
+      </main>
     </div>
   );
 

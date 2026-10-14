@@ -52,6 +52,17 @@ function WaitingRoomContent() {
     });
   }, [examId]);
 
+  // Pre-warm MediaPipe Vision AI WASM runtime and models in browser cache while candidate is in waiting room
+  useEffect(() => {
+    try {
+      import('@mediapipe/tasks-vision').then(async ({ FilesetResolver }) => {
+        await FilesetResolver.forVisionTasks("https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.3/wasm");
+      }).catch(() => {});
+      fetch("https://storage.googleapis.com/mediapipe-models/face_detector/blaze_face_short_range/float16/1/blaze_face_short_range.tflite", { mode: 'cors' }).catch(() => {});
+      fetch("https://storage.googleapis.com/mediapipe-models/object_detector/efficientdet_lite0/float16/1/efficientdet_lite0.tflite", { mode: 'cors' }).catch(() => {});
+    } catch (e) {}
+  }, []);
+
   useEffect(() => {
     if (!exam) return;
 

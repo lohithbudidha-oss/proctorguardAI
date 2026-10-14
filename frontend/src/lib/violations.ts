@@ -49,6 +49,20 @@ export const VIOLATION_DETAILS: Record<string, ViolationExplanation> = {
     defaultSeverity: 'CRITICAL',
     category: 'BROWSER_SECURITY'
   },
+  WINDOW_CLOSED: {
+    title: 'Exam Window Closed / Terminated',
+    actionDone: 'Candidate closed the examination browser window or tab prematurely while the exam was in progress without formally submitting.',
+    ruleBreached: 'Continuous Active Session Rule: The exam window must remain active and focused until formal submission.',
+    defaultSeverity: 'CRITICAL',
+    category: 'BROWSER_SECURITY'
+  },
+  EXAM_ABANDONED: {
+    title: 'Exam Session Abandoned',
+    actionDone: 'Candidate disconnected or navigated away from the exam session without completing the examination.',
+    ruleBreached: 'Continuous Session Rule: Candidate must complete and submit the exam within the active session.',
+    defaultSeverity: 'CRITICAL',
+    category: 'BROWSER_SECURITY'
+  },
   SCREEN_SHARE_STOPPED: {
     title: 'Screen Share Stopped',
     actionDone: 'Candidate halted or revoked the required live screen sharing broadcast prior to completing and submitting the examination.',

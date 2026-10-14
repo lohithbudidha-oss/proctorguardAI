@@ -50,8 +50,24 @@ interface SupportTicketItem {
 }
 
 export default function AdminHelpDeskPage() {
-  const [tickets, setTickets] = useState<SupportTicketItem[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [tickets, setTickets] = useState<SupportTicketItem[]>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const cached = sessionStorage.getItem('pg_cached_admin_tickets');
+        if (cached) return JSON.parse(cached);
+      } catch (e) {}
+    }
+    return [];
+  });
+  const [loading, setLoading] = useState(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const cached = sessionStorage.getItem('pg_cached_admin_tickets');
+        if (cached && JSON.parse(cached).length > 0) return false;
+      } catch (e) {}
+    }
+    return true;
+  });
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
   const [categoryFilter, setCategoryFilter] = useState<string>('ALL');
@@ -62,11 +78,14 @@ export default function AdminHelpDeskPage() {
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   const fetchTickets = async () => {
-    setLoading(true);
     try {
       const res = await api.get('/admin/helpdesk');
       if (res.data?.tickets) {
-        setTickets(res.data.tickets);
+        const list = res.data.tickets;
+        setTickets(list);
+        try {
+          sessionStorage.setItem('pg_cached_admin_tickets', JSON.stringify(list.slice(0, 50)));
+        } catch (e) {}
       }
     } catch (err: any) {
       console.error('Failed to fetch help desk tickets', err);

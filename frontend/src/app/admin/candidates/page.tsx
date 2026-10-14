@@ -40,8 +40,24 @@ function CandidatesContent() {
   const filterParam = searchParams.get('filter')?.toUpperCase() || searchParams.get('status')?.toUpperCase();
   const isInitialPending = filterParam === 'PENDING' || searchParams.get('tab') === 'approvals';
 
-  const [candidates, setCandidates] = useState<CandidateUser[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [candidates, setCandidates] = useState<CandidateUser[]>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const cached = sessionStorage.getItem('pg_cached_admin_all_candidates');
+        if (cached) return JSON.parse(cached);
+      } catch (e) {}
+    }
+    return [];
+  });
+  const [loading, setLoading] = useState(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const cached = sessionStorage.getItem('pg_cached_admin_all_candidates');
+        if (cached && JSON.parse(cached).length > 0) return false;
+      } catch (e) {}
+    }
+    return true;
+  });
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<'ALL' | 'APPROVED' | 'PENDING'>(
     isInitialPending ? 'PENDING' : 'ALL'
@@ -69,10 +85,13 @@ function CandidatesContent() {
   }, [filterParam, searchParams]);
 
   const fetchCandidates = () => {
-    setLoading(true);
     api.get('/admin/candidates')
       .then(res => {
-        setCandidates(res.data.candidates || []);
+        const list = res.data.candidates || [];
+        setCandidates(list);
+        try {
+          sessionStorage.setItem('pg_cached_admin_all_candidates', JSON.stringify(list.slice(0, 100)));
+        } catch (e) {}
         setLoading(false);
       })
       .catch(err => {

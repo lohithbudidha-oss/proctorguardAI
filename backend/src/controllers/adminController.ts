@@ -5,7 +5,22 @@ import Attempt, { AttemptStatus } from '../models/Attempt';
 
 export const getCandidates = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const candidates = await User.find({ role: Role.CANDIDATE })
+    const { status, countOnly } = req.query;
+    const query: any = { role: Role.CANDIDATE };
+    if (status && status !== 'ALL') {
+      if (status === 'PENDING') {
+        query.status = { $in: [CandidateStatus.PENDING_VERIFICATION, 'PENDING'] };
+      } else {
+        query.status = status;
+      }
+    }
+
+    if (countOnly === 'true') {
+      const count = await User.countDocuments(query);
+      return res.json({ success: true, count });
+    }
+
+    const candidates = await User.find(query)
       .select('-passwordHash -password')
       .sort({ createdAt: -1 })
       .lean();
@@ -106,16 +121,16 @@ export const getLiveCandidates = async (req: Request, res: Response, next: NextF
       if (!violationMap.has(attIdStr)) {
         violationMap.set(attIdStr, []);
       }
-      violationMap.get(attIdStr)!.push({
-        id: v._id,
-        type: v.type,
-        severity: v.severity,
-        detectedAt: v.detectedAt,
-        description: v.description || '',
-        screenshot: v.screenshot || v.snapshotImage || '',
-        snapshotImage: v.snapshotImage || v.screenshot || '',
-        actionTaken: v.actionTaken
-      });
+        const shot = v.screenshot || v.snapshotImage || '';
+        violationMap.get(attIdStr)!.push({
+          id: v._id,
+          type: v.type,
+          severity: v.severity,
+          detectedAt: v.detectedAt,
+          description: v.description || '',
+          screenshot: shot,
+          actionTaken: v.actionTaken
+        });
     }
 
     const attemptsData = validAttempts.map((doc: any) => {
@@ -219,10 +234,11 @@ export const getViolations = async (req: Request, res: Response, next: NextFunct
     res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
 
     const violations = await ViolationEvent.find()
+      .select('-snapshotImage')
       .populate('candidateId', 'name email')
       .populate({ path: 'attemptId', populate: { path: 'examId', select: 'title description duration totalMarks passPercentage' } })
       .sort({ detectedAt: -1 })
-      .limit(200)
+      .limit(100)
       .lean();
 
     // Fetch all exams/attempts written by the flagged candidates

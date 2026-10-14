@@ -19,7 +19,6 @@ import {
   BookOpen, 
   ExternalLink,
   ShieldCheck,
-  HardDrive,
   Calendar,
   ChevronRight,
   Users,
@@ -109,9 +108,33 @@ interface CandidateViolationGroup {
 }
 
 export default function ViolationQueuePage() {
-  const [violations, setViolations] = useState<ViolationItem[]>([]);
-  const [candidateAttempts, setCandidateAttempts] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [violations, setViolations] = useState<ViolationItem[]>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const cached = sessionStorage.getItem('pg_cached_violations');
+        if (cached) return JSON.parse(cached);
+      } catch (e) {}
+    }
+    return [];
+  });
+  const [candidateAttempts, setCandidateAttempts] = useState<any[]>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const cached = sessionStorage.getItem('pg_cached_candidate_attempts');
+        if (cached) return JSON.parse(cached);
+      } catch (e) {}
+    }
+    return [];
+  });
+  const [loading, setLoading] = useState(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const cached = sessionStorage.getItem('pg_cached_violations');
+        if (cached && JSON.parse(cached).length > 0) return false;
+      } catch (e) {}
+    }
+    return true;
+  });
   const [searchQuery, setSearchQuery] = useState('');
   const [severityFilter, setSeverityFilter] = useState<string>('ALL');
   const [selectedCandidateKey, setSelectedCandidateKey] = useState<string | null>(null);
@@ -307,6 +330,10 @@ export default function ViolationQueuePage() {
       } catch (e) {}
 
       setViolations(items);
+      try {
+        sessionStorage.setItem('pg_cached_violations', JSON.stringify(items.slice(0, 50)));
+        sessionStorage.setItem('pg_cached_candidate_attempts', JSON.stringify(rawAttempts));
+      } catch (e) {}
       return items.length;
     } catch (error) {
       console.error('Failed to fetch violations', error);
@@ -841,49 +868,63 @@ export default function ViolationQueuePage() {
       )}
 
       {/* Top Bar Header */}
-      <header className="bg-white/80 border-b border-slate-200/80 backdrop-blur-md px-8 py-5 flex items-center justify-between sticky top-0 z-30">
-        <div className="flex items-center space-x-3">
-          <Link 
-            href="/admin/monitoring" 
-            className="flex items-center text-sm font-bold text-slate-600 hover:text-blue-600 px-3 py-1.5 rounded-lg hover:bg-slate-100 transition-colors"
-          >
-            <ArrowLeft className="w-4 h-4 mr-2" /> Candidates
-          </Link>
-          <Link 
-            href="/admin/results" 
-            className="flex items-center text-sm font-bold text-slate-600 hover:text-blue-600 px-3 py-1.5 rounded-lg hover:bg-slate-100 transition-colors"
-          >
-            <BarChart3 className="w-4 h-4 mr-1.5 text-slate-400" /> Results
-          </Link>
-          <div className="h-5 w-[1px] bg-slate-200" />
-          <div className="flex items-center space-x-2.5">
-            <div className="p-1.5 bg-rose-50 text-rose-600 rounded-lg border border-rose-100">
+      <header className="bg-white/85 border-b border-slate-200/80 backdrop-blur-md z-30 sticky top-0 shadow-2xs">
+        <div className="max-w-7xl mx-auto w-full px-6 py-5 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+          {/* Left: Back Link & Page Title */}
+          <div className="flex items-center space-x-3.5">
+            <Link 
+              href="/admin/monitoring" 
+              className="p-2 bg-white hover:bg-slate-100 text-slate-600 hover:text-slate-900 rounded-xl border border-slate-200 shadow-2xs transition-colors shrink-0"
+              title="Back to Candidate Monitoring Dashboard"
+            >
+              <ArrowLeft className="w-4 h-4" />
+            </Link>
+            <div className="p-2 bg-rose-50 text-rose-600 rounded-xl border border-rose-100 shadow-2xs shrink-0">
               <ShieldAlert className="w-5 h-5" />
             </div>
             <div>
-              <h1 className="text-xl font-extrabold text-slate-900 tracking-tight">Violation Review Queue</h1>
-              <p className="text-xs text-slate-500 font-medium">Candidate Infraction Logs & Evidence</p>
+              <h1 className="text-xl sm:text-2xl font-extrabold text-slate-900 tracking-tight">Violation Review Queue</h1>
+              <p className="text-xs text-slate-500 font-medium mt-0.5">Candidate Infraction Logs & Evidence</p>
             </div>
           </div>
-        </div>
 
-        <div className="flex items-center space-x-2.5">
-          <button 
-            type="button"
-            onClick={handleRefreshQueue}
-            disabled={refreshing}
-            className={`px-3.5 py-1.5 rounded-lg text-xs font-bold border transition shadow-2xs flex items-center cursor-pointer disabled:opacity-60 active:scale-95 ${
-              refreshSuccess 
-                ? 'bg-emerald-50 text-emerald-700 border-emerald-300' 
-                : refreshError
-                ? 'bg-rose-50 text-rose-700 border-rose-300'
-                : 'bg-white hover:bg-slate-50 text-slate-700 border-slate-200'
-            }`}
-            title="Refresh latest violation queue records from the server"
-          >
-            <RefreshCw className={`w-3.5 h-3.5 mr-1.5 ${refreshing ? 'animate-spin text-blue-600' : refreshSuccess ? 'text-emerald-600' : 'text-slate-500'}`} />
-            {refreshing ? 'Refreshing...' : refreshSuccess ? refreshSuccess : refreshError ? refreshError : 'Refresh Queue'}
-          </button>
+          {/* Right: Navigation Links & Action */}
+          <div className="flex items-center gap-2 shrink-0 flex-wrap sm:flex-nowrap">
+            <Link 
+              href="/admin/monitoring" 
+              className="px-3 py-1.5 bg-white text-slate-700 border border-slate-200 font-semibold rounded-lg hover:bg-slate-50 transition shadow-2xs text-xs flex items-center h-8.5 shrink-0 whitespace-nowrap"
+            >
+              <Users className="w-3.5 h-3.5 mr-1.5 text-blue-600" /> Candidates
+            </Link>
+            <Link 
+              href="/admin/exams" 
+              className="px-3 py-1.5 bg-white text-slate-700 border border-slate-200 font-semibold rounded-lg hover:bg-slate-50 transition shadow-2xs text-xs flex items-center h-8.5 shrink-0 whitespace-nowrap"
+            >
+              <FileText className="w-3.5 h-3.5 mr-1.5 text-slate-400" /> Exams
+            </Link>
+            <Link 
+              href="/admin/results" 
+              className="px-3 py-1.5 bg-blue-50 text-blue-700 border border-blue-200 font-semibold rounded-lg hover:bg-blue-100 transition shadow-2xs text-xs flex items-center h-8.5 shrink-0 whitespace-nowrap"
+            >
+              <BarChart3 className="w-3.5 h-3.5 mr-1.5 text-blue-600" /> Results
+            </Link>
+            <button 
+              type="button"
+              onClick={handleRefreshQueue}
+              disabled={refreshing}
+              className={`px-3.5 py-1.5 rounded-lg text-xs font-bold border transition shadow-2xs flex items-center cursor-pointer disabled:opacity-60 active:scale-95 h-8.5 shrink-0 whitespace-nowrap ${
+                refreshSuccess 
+                  ? 'bg-emerald-50 text-emerald-700 border-emerald-300' 
+                  : refreshError
+                  ? 'bg-rose-50 text-rose-700 border-rose-300'
+                  : 'bg-white hover:bg-slate-50 text-slate-700 border-slate-200'
+              }`}
+              title="Refresh latest violation queue records from the server"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 mr-1.5 ${refreshing ? 'animate-spin text-blue-600' : refreshSuccess ? 'text-emerald-600' : 'text-slate-500'}`} />
+              {refreshing ? 'Refreshing...' : refreshSuccess ? refreshSuccess : refreshError ? refreshError : 'Refresh Queue'}
+            </button>
+          </div>
         </div>
       </header>
 
@@ -1772,38 +1813,16 @@ export default function ViolationQueuePage() {
                           )}
 
                           {/* Interactive actions for this violation */}
-                          <div className="pt-1 flex items-center space-x-3">
-                            {v.screenshot && (
+                          {v.screenshot && (
+                            <div className="pt-1 flex items-center space-x-3">
                               <button
                                 onClick={() => setSelectedProof(v)}
-                                className="text-xs font-bold text-blue-600 hover:text-blue-700 flex items-center hover:underline"
+                                className="text-xs font-bold text-blue-600 hover:text-blue-700 flex items-center hover:underline cursor-pointer"
                               >
                                 <Eye className="w-3.5 h-3.5 mr-1" /> Enlarge Snapshot Proof
                               </button>
-                            )}
-                            {v.driveUrl && !v.driveUrl.includes('folders/') ? (
-                              <a
-                                href={v.driveUrl}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="px-2.5 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded-lg text-xs font-bold inline-flex items-center transition border border-emerald-200"
-                                title="Directly view this snapshot proof on Google Drive"
-                              >
-                                <CheckCircle className="w-3.5 h-3.5 mr-1 text-emerald-600" />
-                                View on Drive
-                                <ExternalLink className="w-3 h-3 ml-1 opacity-70" />
-                              </a>
-                            ) : (
-                              <a
-                                href={v.driveUrl || v.driveFolderUrl || 'https://drive.google.com/drive/folders/1P_3yKzFloiMrF8Pe1XFl9Lh-nqvPTit1?usp=sharing'}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="text-xs font-bold text-slate-600 hover:text-slate-800 flex items-center hover:underline"
-                              >
-                                <HardDrive className="w-3.5 h-3.5 mr-1" /> Open Drive File
-                              </a>
-                            )}
-                          </div>
+                            </div>
+                          )}
                         </div>
                       </div>
                     </div>

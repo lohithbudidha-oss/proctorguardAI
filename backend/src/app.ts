@@ -3,10 +3,14 @@ import cors from 'cors';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
 import dotenv from 'dotenv';
+import compression from 'compression';
 
 dotenv.config();
 
 const app: Application = express();
+
+// Performance Middleware: Enable Gzip Compression for all API payloads
+app.use(compression());
 
 // Security Middleware
 app.use(helmet());
@@ -22,10 +26,12 @@ app.use('/api/', limiter);
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
-// Health Check
-app.get('/health', (req: Request, res: Response) => {
+// Health Check (both /health and /api/health for frontend keepalive & status checks)
+const healthHandler = (req: Request, res: Response) => {
   res.status(200).json({ status: 'ok', timestamp: new Date().toISOString() });
-});
+};
+app.get('/health', healthHandler);
+app.get('/api/health', healthHandler);
 
 import authRoutes from './routes/authRoutes';
 import adminRoutes from './routes/adminRoutes';

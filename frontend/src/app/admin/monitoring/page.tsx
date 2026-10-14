@@ -78,7 +78,15 @@ interface CandidateExamRecord {
 
 export default function CandidateExamRecordsPage() {
   const router = useRouter();
-  const [candidates, setCandidates] = useState<CandidateExamRecord[]>([]);
+  const [candidates, setCandidates] = useState<CandidateExamRecord[]>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const cached = sessionStorage.getItem('pg_cached_admin_candidates');
+        if (cached) return JSON.parse(cached);
+      } catch (e) {}
+    }
+    return [];
+  });
   const [selectedCandidate, setSelectedCandidate] = useState<CandidateExamRecord | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<'ALL' | 'COMPLETED' | 'IN_PROGRESS'>('ALL');
@@ -92,11 +100,43 @@ export default function CandidateExamRecordsPage() {
     examName?: string;
     severity?: string;
   } | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [adminProfile, setAdminProfile] = useState<{ name?: string; email?: string; role?: string } | null>(null);
+  const [loading, setLoading] = useState(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const cached = sessionStorage.getItem('pg_cached_admin_candidates');
+        if (cached && JSON.parse(cached).length > 0) return false;
+      } catch (e) {}
+    }
+    return true;
+  });
+  const [adminProfile, setAdminProfile] = useState<{ name?: string; email?: string; role?: string } | null>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const u = localStorage.getItem('user');
+        if (u) return JSON.parse(u);
+      } catch (e) {}
+    }
+    return null;
+  });
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
-  const [pendingApprovalsCount, setPendingApprovalsCount] = useState<number>(0);
-  const [openTicketsCount, setOpenTicketsCount] = useState<number>(0);
+  const [pendingApprovalsCount, setPendingApprovalsCount] = useState<number>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const c = sessionStorage.getItem('pg_cached_pending_count');
+        if (c) return parseInt(c, 10) || 0;
+      } catch (e) {}
+    }
+    return 0;
+  });
+  const [openTicketsCount, setOpenTicketsCount] = useState<number>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const c = sessionStorage.getItem('pg_cached_tickets_count');
+        if (c) return parseInt(c, 10) || 0;
+      } catch (e) {}
+    }
+    return 0;
+  });
   const [showCandidateViolationQueueModal, setShowCandidateViolationQueueModal] = useState(false);
   const [candidateQueueSeverityFilter, setCandidateQueueSeverityFilter] = useState<string>('ALL');
   const [candidateQueueSearchQuery, setCandidateQueueSearchQuery] = useState('');
@@ -146,20 +186,27 @@ export default function CandidateExamRecordsPage() {
   }, [selectedCandidate]);
 
   const fetchPendingApprovalsCount = () => {
-    api.get('/admin/candidates').then(res => {
-      const list = res.data.candidates || [];
-      const pending = list.filter((c: any) => {
-        const s = (c.status || '').toUpperCase();
-        return s === 'PENDING_VERIFICATION' || s === 'PENDING';
-      }).length;
-      setPendingApprovalsCount(pending);
+    api.get('/admin/candidates?status=PENDING&countOnly=true').then(res => {
+      if (res.data?.count !== undefined) {
+        setPendingApprovalsCount(res.data.count);
+        try { sessionStorage.setItem('pg_cached_pending_count', String(res.data.count)); } catch (e) {}
+      } else {
+        const list = res.data.candidates || [];
+        const pending = list.filter((c: any) => {
+          const s = (c.status || '').toUpperCase();
+          return s === 'PENDING_VERIFICATION' || s === 'PENDING';
+        }).length;
+        setPendingApprovalsCount(pending);
+        try { sessionStorage.setItem('pg_cached_pending_count', String(pending)); } catch (e) {}
+      }
     }).catch(() => {});
   };
 
   const fetchOpenTicketsCount = () => {
-    api.get('/admin/helpdesk').then(res => {
+    api.get('/admin/helpdesk?statsOnly=true').then(res => {
       if (res.data?.stats?.open !== undefined) {
         setOpenTicketsCount(res.data.stats.open);
+        try { sessionStorage.setItem('pg_cached_tickets_count', String(res.data.stats.open)); } catch (e) {}
       }
     }).catch(() => {});
   };
@@ -225,6 +272,10 @@ export default function CandidateExamRecordsPage() {
       }));
       setCandidates(records);
       setLoading(false);
+      try {
+        // Cache for instantaneous reload on tab switches
+        sessionStorage.setItem('pg_cached_admin_candidates', JSON.stringify(records.slice(0, 40)));
+      } catch (e) {}
     }).catch(err => {
       console.error('Failed fetching candidate records', err);
       setLoading(false);

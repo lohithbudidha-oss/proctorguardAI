@@ -75,8 +75,24 @@ interface ExamResult {
 
 export default function AdminResultsPage() {
   const router = useRouter();
-  const [results, setResults] = useState<ExamResult[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [results, setResults] = useState<ExamResult[]>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const cached = sessionStorage.getItem('pg_cached_admin_results');
+        if (cached) return JSON.parse(cached);
+      } catch (e) {}
+    }
+    return [];
+  });
+  const [loading, setLoading] = useState(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const cached = sessionStorage.getItem('pg_cached_admin_results');
+        if (cached && JSON.parse(cached).length > 0) return false;
+      } catch (e) {}
+    }
+    return true;
+  });
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedExamFilter, setSelectedExamFilter] = useState<string>('ALL');
   const [statusFilter, setStatusFilter] = useState<'ALL' | 'PASS' | 'FAIL' | 'APPROVED' | 'PENDING' | 'FLAGGED'>('ALL');
@@ -94,10 +110,13 @@ export default function AdminResultsPage() {
   }, []);
 
   const fetchResults = async () => {
-    setLoading(true);
     try {
       const res = await api.get('/admin/results');
-      setResults(res.data.results || []);
+      const list = res.data.results || [];
+      setResults(list);
+      try {
+        sessionStorage.setItem('pg_cached_admin_results', JSON.stringify(list.slice(0, 50)));
+      } catch (e) {}
     } catch (err) {
       console.error('Failed to fetch exam results', err);
     } finally {
@@ -215,47 +234,61 @@ export default function AdminResultsPage() {
   return (
     <div className="min-h-screen bg-slate-50 text-slate-800 flex flex-col font-sans selection:bg-blue-500/20">
       {/* Top Bar Header */}
-      <header className="bg-white/80 border-b border-slate-200/80 backdrop-blur-md px-8 py-5 flex items-center justify-between sticky top-0 z-30">
-        <div className="flex items-center space-x-3">
-          <Link 
-            href="/admin/monitoring" 
-            className="flex items-center text-sm font-bold text-slate-600 hover:text-blue-600 px-3 py-1.5 rounded-lg hover:bg-slate-100 transition-colors"
-          >
-            <ArrowLeft className="w-4 h-4 mr-2" /> Candidates
-          </Link>
-          <Link 
-            href="/admin/exams" 
-            className="flex items-center text-sm font-bold text-slate-600 hover:text-blue-600 px-3 py-1.5 rounded-lg hover:bg-slate-100 transition-colors"
-          >
-            <FileText className="w-4 h-4 mr-1.5 text-slate-400" /> Exams
-          </Link>
-          <Link 
-            href="/admin/violations" 
-            className="flex items-center text-sm font-bold text-slate-600 hover:text-blue-600 px-3 py-1.5 rounded-lg hover:bg-slate-100 transition-colors"
-          >
-            <ShieldAlert className="w-4 h-4 mr-1.5 text-rose-500" /> Violations
-          </Link>
-          <div className="h-5 w-[1px] bg-slate-200" />
-          <div className="flex items-center space-x-2.5">
-            <div className="p-1.5 bg-blue-50 text-blue-600 rounded-lg border border-blue-100">
+      <header className="bg-white/85 border-b border-slate-200/80 backdrop-blur-md z-30 sticky top-0 shadow-2xs">
+        <div className="max-w-7xl mx-auto w-full px-6 py-5 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+          {/* Left: Back Link & Page Title */}
+          <div className="flex items-center space-x-3.5">
+            <Link 
+              href="/admin/monitoring" 
+              className="p-2 bg-white hover:bg-slate-100 text-slate-600 hover:text-slate-900 rounded-xl border border-slate-200 shadow-2xs transition-colors shrink-0"
+              title="Back to Candidate Monitoring Dashboard"
+            >
+              <ArrowLeft className="w-4 h-4" />
+            </Link>
+            <div className="p-2 bg-blue-50 text-blue-600 rounded-xl border border-blue-100 shadow-2xs shrink-0">
               <BarChart3 className="w-5 h-5" />
             </div>
             <div>
-              <h1 className="text-xl font-extrabold text-slate-900 tracking-tight">Candidate Results & Scores</h1>
-              <p className="text-xs text-slate-500 font-medium">Exam-wise performance, grade verification & violation links</p>
+              <h1 className="text-xl sm:text-2xl font-extrabold text-slate-900 tracking-tight">
+                Candidate Results & Scores
+              </h1>
+              <p className="text-xs text-slate-500 font-medium mt-0.5">
+                Exam-wise performance, grade verification & violation links
+              </p>
             </div>
           </div>
-        </div>
 
-        {/* Header Actions */}
-        <div className="flex items-center space-x-3">
-          <button 
-            onClick={fetchResults}
-            disabled={loading}
-            className="px-3.5 py-1.5 bg-white hover:bg-slate-50 text-slate-700 rounded-lg text-xs font-bold border border-slate-200 transition shadow-2xs cursor-pointer flex items-center h-8"
-          >
-            Refresh Results
-          </button>
+          {/* Right: Navigation Links & Action */}
+          <div className="flex items-center gap-2 shrink-0 flex-wrap sm:flex-nowrap">
+            <Link 
+              href="/admin/monitoring" 
+              className="px-3 py-1.5 bg-white text-slate-700 border border-slate-200 font-semibold rounded-lg hover:bg-slate-50 transition shadow-2xs text-xs flex items-center h-8.5 shrink-0 whitespace-nowrap"
+            >
+              <Users className="w-3.5 h-3.5 mr-1.5 text-blue-600" /> Candidates
+            </Link>
+            <Link 
+              href="/admin/exams" 
+              className="px-3 py-1.5 bg-white text-slate-700 border border-slate-200 font-semibold rounded-lg hover:bg-slate-50 transition shadow-2xs text-xs flex items-center h-8.5 shrink-0 whitespace-nowrap"
+            >
+              <FileText className="w-3.5 h-3.5 mr-1.5 text-slate-400" /> Exams
+            </Link>
+            <Link 
+              href="/admin/violations" 
+              className="px-3 py-1.5 bg-rose-50 text-rose-700 border border-rose-200 font-semibold rounded-lg hover:bg-rose-100 transition shadow-2xs text-xs flex items-center h-8.5 shrink-0 whitespace-nowrap"
+            >
+              <ShieldAlert className="w-3.5 h-3.5 mr-1.5 text-rose-600" /> Violations
+            </Link>
+            <button 
+              type="button"
+              onClick={fetchResults}
+              disabled={loading}
+              className="px-3.5 py-1.5 bg-white hover:bg-slate-50 text-slate-700 rounded-lg text-xs font-bold border border-slate-200 transition shadow-2xs cursor-pointer flex items-center h-8.5 shrink-0 whitespace-nowrap active:scale-95 disabled:opacity-60"
+              title="Refresh latest results"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 mr-1.5 ${loading ? 'animate-spin text-blue-600' : 'text-slate-500'}`} />
+              {loading ? 'Refreshing...' : 'Refresh Results'}
+            </button>
+          </div>
         </div>
       </header>
 

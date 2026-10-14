@@ -21,6 +21,8 @@ export const authenticate = async (req: AuthRequest, res: Response, next: NextFu
     token = authHeader.split(' ')[1];
   } else if (typeof req.query.token === 'string') {
     token = req.query.token;
+  } else if (typeof req.body?.token === 'string') {
+    token = req.body.token;
   }
 
   if (!token) {

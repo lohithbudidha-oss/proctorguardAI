@@ -95,8 +95,24 @@ const handleSanitizedChange = (
 
 export default function AdminExamsPage() {
   const router = useRouter();
-  const [exams, setExams] = useState<Exam[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [exams, setExams] = useState<Exam[]>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const cached = sessionStorage.getItem('pg_cached_admin_exams');
+        if (cached) return JSON.parse(cached);
+      } catch (e) {}
+    }
+    return [];
+  });
+  const [loading, setLoading] = useState(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const cached = sessionStorage.getItem('pg_cached_admin_exams');
+        if (cached && JSON.parse(cached).length > 0) return false;
+      } catch (e) {}
+    }
+    return true;
+  });
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<'ALL' | 'PUBLISHED' | 'DRAFT'>('ALL');
   
@@ -123,13 +139,25 @@ export default function AdminExamsPage() {
   const [editInstructions, setEditInstructions] = useState('');
   const [editErrors, setEditErrors] = useState<{ title?: string; description?: string; instructions?: string }>({});
   const [isSavingEdit, setIsSavingEdit] = useState(false);
-  const [pendingApprovalsCount, setPendingApprovalsCount] = useState<number>(0);
+  const [pendingApprovalsCount, setPendingApprovalsCount] = useState<number>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const c = sessionStorage.getItem('pg_cached_pending_count');
+        if (c) return parseInt(c, 10) || 0;
+      } catch (e) {}
+    }
+    return 0;
+  });
   const [adminProfile, setAdminProfile] = useState<{ name?: string; email?: string } | null>(null);
 
   const fetchExams = () => {
     api.get('/admin/exams')
       .then(res => {
-        setExams(res.data.exams);
+        const list = res.data.exams || [];
+        setExams(list);
+        try {
+          sessionStorage.setItem('pg_cached_admin_exams', JSON.stringify(list));
+        } catch (e) {}
         setLoading(false);
       })
       .catch(err => {
@@ -137,14 +165,18 @@ export default function AdminExamsPage() {
         setLoading(false);
       });
 
-    api.get('/admin/candidates')
+    api.get('/admin/candidates?status=PENDING&countOnly=true')
       .then(res => {
-        const cands = res.data.candidates || [];
-        const pending = cands.filter((c: any) => {
-          const s = (c.status || '').toUpperCase();
-          return s === 'PENDING_VERIFICATION' || s === 'PENDING';
-        }).length;
-        setPendingApprovalsCount(pending);
+        if (res.data?.count !== undefined) {
+          setPendingApprovalsCount(res.data.count);
+        } else {
+          const cands = res.data.candidates || [];
+          const pending = cands.filter((c: any) => {
+            const s = (c.status || '').toUpperCase();
+            return s === 'PENDING_VERIFICATION' || s === 'PENDING';
+          }).length;
+          setPendingApprovalsCount(pending);
+        }
       })
       .catch(() => {});
   };

@@ -114,6 +114,29 @@ export const getSupportTickets = async (req: Request, res: Response) => {
       ];
     }
 
+    const { statsOnly } = req.query;
+
+    if (statsOnly === 'true') {
+      const [totalCount, openCount, inProgressCount, resolvedCount, closedCount] = await Promise.all([
+        SupportTicket.countDocuments({}),
+        SupportTicket.countDocuments({ status: 'OPEN' }),
+        SupportTicket.countDocuments({ status: 'IN_PROGRESS' }),
+        SupportTicket.countDocuments({ status: 'RESOLVED' }),
+        SupportTicket.countDocuments({ status: 'CLOSED' })
+      ]);
+
+      return res.json({
+        success: true,
+        stats: {
+          total: totalCount,
+          open: openCount,
+          inProgress: inProgressCount,
+          resolved: resolvedCount,
+          closed: closedCount
+        }
+      });
+    }
+
     const [tickets, totalCount, openCount, inProgressCount, resolvedCount, closedCount] = await Promise.all([
       SupportTicket.find(query)
         .populate('resolvedBy', 'name email')

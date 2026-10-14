@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useRef, Suspense } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import io from 'socket.io-client';
-import api from '@/lib/api';
+import api, { getBaseURL } from '@/lib/api';
 import { 
   Clock, 
   ShieldAlert, 
@@ -68,6 +68,10 @@ function AttemptContent() {
   const [streamsStarted, setStreamsStarted] = useState(false);
   const [aiStatus, setAiStatus] = useState('Initializing AI...');
   const [examStatus, setExamStatus] = useState<'IN_PROGRESS' | 'PAUSED' | 'TERMINATED' | 'SUBMITTED'>('IN_PROGRESS');
+  const examStatusRef = useRef<'IN_PROGRESS' | 'PAUSED' | 'TERMINATED' | 'SUBMITTED'>('IN_PROGRESS');
+  useEffect(() => {
+    examStatusRef.current = examStatus;
+  }, [examStatus]);
   const [violationReviewState, setViolationReviewState] = useState({ active: false, reason: '', reminders: 0 });
   const [resumeCountdown, setResumeCountdown] = useState<number | null>(null);
 
@@ -378,6 +382,8 @@ function AttemptContent() {
         streamRef.current = stream;
         if (videoRef.current) {
           videoRef.current.srcObject = stream;
+          videoRef.current.muted = true;
+          videoRef.current.play().catch(err => console.warn('Webcam play error in attempt:', err));
         }
 
         // REM-03: Enforce Screen Share
@@ -509,15 +515,77 @@ function AttemptContent() {
     };
   }, [isLoading, examStatus, attemptId, examId]);
 
-  // Clean up screen share and media tracks on window unload / refresh
+  // Window Unload & Exam Closure Detection:
+  // Detects if candidate closes the browser window, tab, or navigates away during an active exam.
   useEffect(() => {
-    const handleBeforeUnload = () => {
+    const reportExamClosedViolation = () => {
+      // Only report if exam is active, timer started, and not submitted
+      if (
+        isSubmittedRef.current || 
+        examStatusRef.current === 'SUBMITTED' || 
+        examStatusRef.current === 'TERMINATED' ||
+        !timerStartedRef.current
+      ) {
+        return;
+      }
+
+      const violationType = 'WINDOW_CLOSED';
+      const severity = 'CRITICAL';
+      const description = 'Candidate closed or navigated away from the exam window while examination was in progress.';
+
+      // 1. Send via active socket if connected
+      const activeSocket = socketRef.current || socket;
+      if (activeSocket && activeSocket.connected) {
+        try {
+          activeSocket.emit('violation:created', {
+            attemptId,
+            type: violationType,
+            severity,
+            source: 'BROWSER',
+            actionTaken: 'FLAG',
+            description
+          });
+        } catch (e) {}
+      }
+
+      // 2. Transmit guaranteed delivery via navigator.sendBeacon
+      if (typeof navigator !== 'undefined' && navigator.sendBeacon) {
+        try {
+          const token = localStorage.getItem('token') || '';
+          const payload = JSON.stringify({
+            type: violationType,
+            severity,
+            source: 'BROWSER',
+            actionTaken: 'FLAG',
+            description,
+            token
+          });
+          const blob = new Blob([payload], { type: 'application/json' });
+          const beaconUrl = `${getBaseURL()}/candidate/attempts/${attemptId}/violations?token=${encodeURIComponent(token)}`;
+          navigator.sendBeacon(beaconUrl, blob);
+        } catch (beaconErr) {
+          console.warn('Beacon transmission error:', beaconErr);
+        }
+      }
+    };
+
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (
+        !isSubmittedRef.current && 
+        examStatusRef.current === 'IN_PROGRESS' && 
+        timerStartedRef.current
+      ) {
+        reportExamClosedViolation();
+        const confirmationMessage = 'WARNING: You are in an active examination! Closing or leaving this window is recorded as a CRITICAL violation and will result in test termination.';
+        e.preventDefault();
+        e.returnValue = confirmationMessage;
+        return confirmationMessage;
+      }
+      
+      // Clean up media tracks on normal unload
       if (screenStreamRef.current) {
         screenStreamRef.current.getTracks().forEach(t => {
-          try {
-            t.onended = null;
-            t.stop();
-          } catch (e) {}
+          try { t.onended = null; t.stop(); } catch (e) {}
         });
       }
       if (streamRef.current) {
@@ -526,9 +594,25 @@ function AttemptContent() {
         });
       }
     };
+
+    const handlePageHide = () => {
+      if (
+        !isSubmittedRef.current && 
+        examStatusRef.current === 'IN_PROGRESS' && 
+        timerStartedRef.current
+      ) {
+        reportExamClosedViolation();
+      }
+    };
+
     window.addEventListener('beforeunload', handleBeforeUnload);
-    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
-  }, []);
+    window.addEventListener('pagehide', handlePageHide);
+
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+      window.removeEventListener('pagehide', handlePageHide);
+    };
+  }, [attemptId, socket]);
 
   const requestAdminReview = (reason: string) => {
     const activeSocket = socketRef.current || socket;
@@ -705,21 +789,26 @@ function AttemptContent() {
     } else if (type === 'FACE_NOT_FOUND') {
       handleViolation('FACE_NOT_FOUND', 'CRITICAL', customMessage || 'Candidate face not detected in camera frame (turned away or left seat).');
       addWarning('Your face is not visible in camera! Please face the webcam directly.');
+      playProctorTone('warning');
     } else if (type === 'LOOKING_AWAY') {
       handleViolation('LOOKING_AWAY', 'HIGH', customMessage || 'Candidate turned their face away from the examination screen.');
       addWarning('Head turned away! Please maintain focus directly on the examination screen.');
+      playProctorTone('warning');
     } else if (type === 'TAB_SWITCH') {
       handleViolation('TAB_SWITCH', 'CRITICAL', customMessage || 'Switched away from active exam tab.');
       addWarning('Switching tabs is strictly forbidden during the test.');
+      playProctorTone('warning');
     } else if (type === 'COPY_PASTE') {
       handleViolation('COPY_PASTE', 'HIGH', customMessage || 'Candidate attempted an unauthorized copy/paste action.');
       addWarning('Copying or pasting exam content is prohibited.');
     } else if (type === 'SCREEN_SHARE_STOPPED') {
       handleViolation('SCREEN_SHARE_STOPPED', 'CRITICAL', customMessage || 'Screen sharing stopped before exam submission.');
       addWarning('Screen sharing must remain active throughout the exam.');
+      playProctorTone('warning');
     } else if (type === 'UNAUTHORIZED_DEVICE') {
       handleViolation('UNAUTHORIZED_DEVICE', 'CRITICAL', customMessage || 'Secondary display or external monitor detected.');
       addWarning('External displays and secondary monitors are prohibited.');
+      playProctorTone('warning');
     }
   }
 
@@ -743,7 +832,7 @@ function AttemptContent() {
             delegate: "CPU"
           },
           runningMode: "IMAGE",
-          minDetectionConfidence: 0.3
+          minDetectionConfidence: 0.45
         });
 
         // Initialize ObjectDetector for electronic device & mobile phone detection
@@ -770,13 +859,34 @@ function AttemptContent() {
     };
 
     const detectFaces = async () => {
-      if (!isRunning || isSubmittedRef.current || examStatus !== 'IN_PROGRESS') return;
+      if (!isRunning || isSubmittedRef.current) return;
+      if (examStatusRef.current !== 'IN_PROGRESS') {
+        if (isRunning) {
+          animationFrameId = requestAnimationFrame(detectFaces);
+        }
+        return;
+      }
       const now = performance.now();
 
       if (videoRef.current && faceDetector && (now - lastDetect >= 250)) {
         lastDetect = now;
         try {
-          if (videoRef.current.readyState >= 2 && videoRef.current.videoWidth > 0) {
+          const isVideoActive = 
+            videoRef.current.readyState >= 2 && 
+            videoRef.current.videoWidth > 0 && 
+            !videoRef.current.paused &&
+            Boolean(streamRef.current?.getVideoTracks().some(t => t.readyState === 'live' && t.enabled));
+
+          if (!isVideoActive) {
+            // Camera feed is paused, blank, obscured, or disconnected
+            noFaceFrames.current += 1;
+            headTurnFrames.current = 0;
+            setAiStatus('AI Warning: Camera Stream Inactive / Obscured');
+            if (noFaceFrames.current >= 4) { // ~1.0 second
+              triggerAIViolation('FACE_NOT_FOUND', 'Candidate face not detected in camera frame (camera feed inactive, obstructed, or unavailable).');
+              noFaceFrames.current = 0;
+            }
+          } else {
             // A. CHECK FOR ELECTRONIC DEVICE / MOBILE PHONE
             let isPhoneInFrame = false;
             if (objectDetector) {
@@ -813,7 +923,12 @@ function AttemptContent() {
 
             // B. FACE DETECTION
             const detections = faceDetector.detect(videoRef.current);
-            const count = detections?.detections?.length || 0;
+            // Filter for confident human face detections (eliminates false positives from chair/room shadows)
+            const validFaces = (detections?.detections || []).filter((d: any) => {
+              const score = d.categories?.[0]?.score ?? 1;
+              return score >= 0.45;
+            });
+            const count = validFaces.length;
 
             // 1. MULTIPLE FACES CHECK
             if (count > 1) {
@@ -834,7 +949,7 @@ function AttemptContent() {
               noFaceFrames.current += 1;
               headTurnFrames.current = 0;
               setAiStatus('AI Warning: No Face Detected in Frame');
-              if (noFaceFrames.current >= 6) { // ~1.5 seconds of face absence
+              if (noFaceFrames.current >= 4) { // ~1.0 second of continuous face absence
                 triggerAIViolation('FACE_NOT_FOUND', 'Candidate face not detected in camera frame (turned away or left seat).');
                 noFaceFrames.current = 0;
               }
@@ -844,7 +959,7 @@ function AttemptContent() {
 
             // 3. SINGLE FACE DETECTED: CHECK HEAD TURN / LOOKING AWAY
             if (count === 1) {
-              const det = detections.detections[0];
+              const det = validFaces[0];
               const kp = det.keypoints;
               let isFaceTurned = false;
               let turnReason = '';
@@ -1642,9 +1757,15 @@ function AttemptContent() {
                 </button>
                 <button 
                   onClick={() => triggerAIViolation('FACE_NOT_FOUND')}
-                  className="text-xs bg-amber-500/20 text-amber-400 hover:bg-amber-500/30 py-1.5 rounded border border-amber-500/30 transition-colors"
+                  className="text-xs bg-amber-500/20 text-amber-400 hover:bg-amber-500/30 py-1.5 rounded border border-amber-500/30 transition-colors cursor-pointer"
                 >
-                  Simulate: Look Away
+                  Simulate: Face Not Found
+                </button>
+                <button 
+                  onClick={() => triggerAIViolation('LOOKING_AWAY')}
+                  className="text-xs bg-yellow-500/20 text-yellow-400 hover:bg-yellow-500/30 py-1.5 rounded border border-yellow-500/30 transition-colors cursor-pointer"
+                >
+                  Simulate: Looking Away
                 </button>
               </div>
             </div>

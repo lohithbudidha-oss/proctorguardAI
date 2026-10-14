@@ -46,8 +46,6 @@ function isOptionSelectedByCandidate(opt: any, optIdx: number, candidateSelected
   const optId = typeof opt === 'object' && opt !== null ? (opt.id ?? opt.value ?? opt.text) : opt;
   const optText = typeof opt === 'object' && opt !== null ? (opt.text ?? opt.value ?? opt.id) : opt;
   const optLetter = String.fromCharCode(65 + optIdx).toLowerCase();
-  const optIdxStr = String(optIdx);
-  const optIdx1Str = String(optIdx + 1);
 
   const clean = (val: any) => String(val ?? '').trim().toLowerCase().replace(/^["']|["']$/g, '');
 
@@ -57,8 +55,6 @@ function isOptionSelectedByCandidate(opt: any, optIdx: number, candidateSelected
     return c === clean(optId) ||
            c === clean(optText) ||
            c === optLetter ||
-           c === optIdxStr ||
-           c === optIdx1Str ||
            c.startsWith(`${optLetter})`) ||
            c.startsWith(`(${optLetter})`) ||
            c.startsWith(`${optLetter}.`);
@@ -76,8 +72,6 @@ function isOptionCorrectAnswer(opt: any, optIdx: number, correctAnswer: any): bo
   const optId = typeof opt === 'object' && opt !== null ? (opt.id ?? opt.value ?? opt.text) : opt;
   const optText = typeof opt === 'object' && opt !== null ? (opt.text ?? opt.value ?? opt.id) : opt;
   const optLetter = String.fromCharCode(65 + optIdx).toLowerCase();
-  const optIdxStr = String(optIdx);
-  const optIdx1Str = String(optIdx + 1);
 
   const clean = (val: any) => String(val ?? '').trim().toLowerCase().replace(/^["']|["']$/g, '');
 
@@ -87,8 +81,6 @@ function isOptionCorrectAnswer(opt: any, optIdx: number, correctAnswer: any): bo
     return cr === clean(optId) ||
            cr === clean(optText) ||
            cr === optLetter ||
-           cr === optIdxStr ||
-           cr === optIdx1Str ||
            cr.startsWith(`${optLetter})`) ||
            cr.startsWith(`(${optLetter})`) ||
            cr.startsWith(`${optLetter}.`);

@@ -11,6 +11,14 @@ import PublicFooter from '@/components/PublicFooter';
 export default function LandingPage() {
   const router = useRouter();
 
+  // Background wake-up ping to ensure backend is fully warm and awake before user logs in
+  React.useEffect(() => {
+    try {
+      const liveUrl = process.env.NEXT_PUBLIC_API_URL || 'https://proctorguardai.onrender.com/api';
+      fetch(`${liveUrl}/health`, { method: 'GET', mode: 'no-cors' }).catch(() => {});
+    } catch {}
+  }, []);
+
   const handleAdminPortalClick = (e: React.MouseEvent) => {
     e.preventDefault();
     const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
@@ -24,7 +32,7 @@ export default function LandingPage() {
             isAdmin = !payload.exp || (payload.exp * 1000 > Date.now());
           }
         }
-      } catch (err) {}
+      } catch {}
     }
 
     if (isAdmin) {

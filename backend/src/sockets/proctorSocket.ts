@@ -93,6 +93,16 @@ export const setupSockets = (io: Server) => {
         const screenshot = data.screenshot || data.image || data.snapshotImage || '';
         const driveFolderUrl = `https://drive.google.com/drive/folders/1P_3yKzFloiMrF8Pe1XFl9Lh-nqvPTit1?usp=sharing`;
 
+        // Check for deduplication within 3 seconds
+        const recentDuplicate = await ViolationEvent.findOne({
+          attemptId: data.attemptId,
+          type: data.type || 'VIOLATION',
+          detectedAt: { $gte: new Date(Date.now() - 3000) }
+        });
+        if (recentDuplicate) {
+          return;
+        }
+
         // 1. Immediately create and save violation in database
         const violation = new ViolationEvent({
           attemptId: data.attemptId,
@@ -326,14 +336,63 @@ export const setupSockets = (io: Server) => {
       }
     });
 
-    socket.on('disconnect', () => {
+    socket.on('disconnect', async () => {
       console.log(`[Socket] ${userRole} disconnected: ${userId}`);
-      if (userRole === Role.CANDIDATE) {
+      if (userRole === Role.CANDIDATE && userId) {
         io.to('proctors').emit('candidate:status_update', {
           candidateId: userId,
           status: 'OFFLINE',
           timestamp: new Date()
         });
+
+        // Automatically detect exam window closure / abandonment during an active attempt
+        try {
+          const activeAttempt = await Attempt.findOne({
+            candidateId: userId,
+            status: AttemptStatus.IN_PROGRESS
+          });
+
+          if (activeAttempt) {
+            const now = new Date();
+            const isExpired = activeAttempt.expiresAt && now > activeAttempt.expiresAt;
+            if (!isExpired) {
+              // Deduplicate if a WINDOW_CLOSED, EXAM_ABANDONED, or NETWORK_DISCONNECT violation was already logged in last 6s
+              const recentCloseViolation = await ViolationEvent.findOne({
+                attemptId: activeAttempt._id,
+                type: { $in: ['WINDOW_CLOSED', 'EXAM_ABANDONED', 'NETWORK_DISCONNECT'] },
+                detectedAt: { $gte: new Date(Date.now() - 6000) }
+              });
+
+              if (!recentCloseViolation) {
+                const driveFolderUrl = `https://drive.google.com/drive/folders/1P_3yKzFloiMrF8Pe1XFl9Lh-nqvPTit1?usp=sharing`;
+                const violation = new ViolationEvent({
+                  attemptId: activeAttempt._id,
+                  candidateId: userId,
+                  type: 'WINDOW_CLOSED',
+                  severity: 'CRITICAL',
+                  source: 'SYSTEM',
+                  actionTaken: 'FLAG',
+                  detectedAt: now,
+                  description: 'Candidate abruptly closed the examination window or disconnected while the test was in progress.',
+                  driveFolderUrl
+                });
+                await violation.save();
+
+                const populatedViolation = await ViolationEvent.findById(violation._id)
+                  .populate('candidateId', 'name email')
+                  .populate({ path: 'attemptId', populate: { path: 'examId', select: 'title' } });
+
+                io.to('proctors').emit('violation:alert', {
+                  candidateId: userId,
+                  violation: populatedViolation || violation
+                });
+                console.log(`[ProctorSocket] Recorded WINDOW_CLOSED violation for candidate ${userId} on attempt ${activeAttempt._id}`);
+              }
+            }
+          }
+        } catch (discErr) {
+          console.error('[ProctorSocket] Error recording disconnect violation:', discErr);
+        }
       }
     });
   });

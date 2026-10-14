@@ -1,17 +1,12 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
-import Link from 'next/link';
+import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { 
-  ShieldCheck, 
   HelpCircle, 
   Camera, 
   Monitor, 
   Wifi, 
-  AlertTriangle, 
-  Mail, 
-  Phone, 
   CheckCircle2, 
   ChevronDown, 
   ChevronUp, 
@@ -33,29 +28,28 @@ export default function SupportPage() {
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [nameError, setNameError] = useState<string | null>(null);
   const [messageError, setMessageError] = useState<string | null>(null);
-  const [formData, setFormData] = useState({
-    name: '',
-    email: '',
-    category: 'TECHNICAL',
-    message: ''
-  });
-
-  // Pre-fill candidate information if logged in or stored
-  useEffect(() => {
-    try {
-      if (typeof window !== 'undefined') {
+  
+  // Pre-fill candidate information if logged in or stored (without cascading re-renders)
+  const [formData, setFormData] = useState(() => {
+    let name = '';
+    let email = '';
+    if (typeof window !== 'undefined') {
+      try {
         const stored = localStorage.getItem('user');
         if (stored) {
           const u = JSON.parse(stored);
-          setFormData(prev => ({
-            ...prev,
-            name: prev.name || u.name || '',
-            email: prev.email || u.email || ''
-          }));
+          name = u.name || '';
+          email = u.email || '';
         }
-      }
-    } catch (e) {}
-  }, []);
+      } catch {}
+    }
+    return {
+      name,
+      email,
+      category: 'TECHNICAL',
+      message: ''
+    };
+  });
 
   const DESCRIPTION_MAX_LENGTH = 500;
 

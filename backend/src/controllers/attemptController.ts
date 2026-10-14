@@ -283,16 +283,12 @@ function isSingleAnswerMatch(q: any, candidateVal: any, correctVal: any): boolea
     for (let idx = 0; idx < q.options.length; idx++) {
       const opt = q.options[idx];
       const optLetter = String.fromCharCode(97 + idx); // 'a', 'b', 'c', 'd'
-      const optIdxStr = String(idx);
-      const optIdxOneBased = String(idx + 1);
 
       const optTokens = new Set<string>([
-        optLetter,
-        optIdxStr,
-        optIdxOneBased
+        optLetter
       ]);
 
-      if (typeof opt === 'string') {
+      if (typeof opt === 'string' || typeof opt === 'number') {
         extractTokens(opt).forEach(t => optTokens.add(t));
       } else if (typeof opt === 'object' && opt !== null) {
         if (opt.id) extractTokens(opt.id).forEach(t => optTokens.add(t));
@@ -493,6 +489,16 @@ export const recordViolation = async (req: AuthRequest, res: Response, next: Nex
 
     const shot = screenshot || req.body.image || req.body.snapshotImage || '';
     const driveFolderUrl = `https://drive.google.com/drive/folders/1P_3yKzFloiMrF8Pe1XFl9Lh-nqvPTit1?usp=sharing`;
+
+    // Deduplicate identical violation event received within 3 seconds
+    const recentDuplicate = await ViolationEvent.findOne({
+      attemptId,
+      type: type || 'VIOLATION',
+      detectedAt: { $gte: new Date(Date.now() - 3000) }
+    });
+    if (recentDuplicate) {
+      return res.status(200).json({ success: true, violation: recentDuplicate, deduplicated: true });
+    }
 
     // 1. Save violation immediately to MongoDB
     const violation = new ViolationEvent({

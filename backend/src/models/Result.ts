@@ -47,6 +47,7 @@ const ResultSchema: Schema = new Schema({
 
 ResultSchema.index({ attemptId: 1 });
 ResultSchema.index({ candidateId: 1, examId: 1 });
+ResultSchema.index({ candidateId: 1, createdAt: -1 });
 ResultSchema.index({ createdAt: -1 });
 
 export default mongoose.model<IResult>('Result', ResultSchema);
