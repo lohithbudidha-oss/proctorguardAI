@@ -424,7 +424,51 @@ export default function CandidateExamRecordsPage() {
   };
 
   const isCompletedStatus = (status: string) => {
-    return ['SUBMITTED', 'COMPLETED', 'AUTO_SUBMITTED', 'FORCE_SUBMITTED'].includes(status);
+    return ['SUBMITTED', 'COMPLETED', 'AUTO_SUBMITTED', 'FORCE_SUBMITTED', 'FORCEFULLY_SUBMITTED', 'TERMINATED'].includes(status);
+  };
+
+  const getStatusBadge = (status: string) => {
+    const norm = (status || '').toUpperCase().trim();
+    if (norm === 'TERMINATED') {
+      return {
+        label: 'TERMINATED',
+        className: 'bg-rose-50 text-rose-700 border-rose-200',
+        dotColor: 'bg-rose-500'
+      };
+    }
+    if (norm === 'FORCE_SUBMITTED' || norm === 'FORCEFULLY_SUBMITTED') {
+      return {
+        label: 'FORCEFULLY SUBMITTED',
+        className: 'bg-amber-50 text-amber-800 border-amber-300',
+        dotColor: 'bg-amber-500'
+      };
+    }
+    if (norm === 'AUTO_SUBMITTED') {
+      return {
+        label: 'AUTO SUBMITTED',
+        className: 'bg-indigo-50 text-indigo-700 border-indigo-200',
+        dotColor: 'bg-indigo-500'
+      };
+    }
+    if (norm === 'SUBMITTED' || norm === 'COMPLETED') {
+      return {
+        label: 'SUBMITTED',
+        className: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+        dotColor: 'bg-emerald-500'
+      };
+    }
+    if (norm === 'IN_PROGRESS') {
+      return {
+        label: 'IN PROGRESS',
+        className: 'bg-blue-50 text-blue-700 border-blue-200 animate-pulse',
+        dotColor: 'bg-blue-500'
+      };
+    }
+    return {
+      label: norm.replace(/_/g, ' ') || 'UNKNOWN',
+      className: 'bg-slate-50 text-slate-700 border-slate-200',
+      dotColor: 'bg-slate-400'
+    };
   };
 
   const filteredCandidates = useMemo(() => {
@@ -772,10 +816,12 @@ export default function CandidateExamRecordsPage() {
                       <div className="flex items-start justify-between mb-3 gap-2">
                         <div className="flex items-center space-x-3 min-w-0">
                           <div className={`w-12 h-12 rounded-xl flex items-center justify-center font-black text-lg border shrink-0 ${
-                            isCompleted 
-                              ? cand.verificationStatus === 'APPROVED'
-                                ? 'bg-emerald-50 text-emerald-600 border-emerald-200'
-                                : 'bg-amber-50 text-amber-700 border-amber-200' 
+                            cand.status === 'TERMINATED'
+                              ? 'bg-rose-50 text-rose-600 border-rose-200'
+                              : cand.status === 'FORCE_SUBMITTED' || cand.status === 'FORCEFULLY_SUBMITTED'
+                              ? 'bg-amber-50 text-amber-700 border-amber-200'
+                              : isCompleted 
+                              ? 'bg-emerald-50 text-emerald-600 border-emerald-200' 
                               : 'bg-blue-50 text-blue-600 border-blue-200'
                           }`}>
                             {cand.name.charAt(0).toUpperCase()}
@@ -790,30 +836,15 @@ export default function CandidateExamRecordsPage() {
                           </div>
                         </div>
 
-                        <span className={`px-2.5 py-1 rounded-full text-[11px] font-extrabold uppercase tracking-wide border shrink-0 flex items-center ${
-                          isCompleted
-                            ? cand.verificationStatus === 'APPROVED'
-                              ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                              : cand.verificationStatus === 'REJECTED'
-                              ? 'bg-rose-50 text-rose-700 border-rose-200'
-                              : 'bg-amber-50 text-amber-800 border-amber-300'
-                            : 'bg-blue-50 text-blue-700 border-blue-200 animate-pulse'
-                        }`}>
-                          {isCompleted ? (
-                            cand.verificationStatus === 'APPROVED' ? (
-                              'Approved'
-                            ) : cand.verificationStatus === 'REJECTED' ? (
-                              'Rejected'
-                            ) : (
-                              <>
-                                <span className="w-1.5 h-1.5 rounded-full bg-amber-500 mr-1.5 animate-pulse shrink-0"></span>
-                                Submitted • Pending Verification
-                              </>
-                            )
-                          ) : (
-                            cand.status.replace(/_/g, ' ')
-                          )}
-                        </span>
+                        {(() => {
+                          const badge = getStatusBadge(cand.status);
+                          return (
+                            <span className={`px-2.5 py-1 rounded-full text-[11px] font-extrabold uppercase tracking-wide border shrink-0 flex items-center ${badge.className}`}>
+                              <span className={`w-1.5 h-1.5 rounded-full mr-1.5 shrink-0 ${badge.dotColor}`}></span>
+                              {badge.label}
+                            </span>
+                          );
+                        })()}
                       </div>
 
                       {/* Exam Title */}
@@ -973,30 +1004,15 @@ export default function CandidateExamRecordsPage() {
               <div className="bg-slate-50 rounded-2xl p-5 border border-slate-200">
                 <div className="flex items-center justify-between mb-3">
                   <span className="text-xs font-bold uppercase tracking-wider text-slate-500">Exam Details</span>
-                  <span className={`text-[11px] font-extrabold uppercase px-2.5 py-0.5 rounded-full border flex items-center ${
-                    isCompletedStatus(selectedCandidate.status)
-                      ? selectedCandidate.verificationStatus === 'APPROVED'
-                        ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                        : selectedCandidate.verificationStatus === 'REJECTED'
-                        ? 'bg-rose-50 text-rose-700 border-rose-200'
-                        : 'bg-amber-50 text-amber-800 border-amber-300'
-                      : 'bg-blue-50 text-blue-700 border-blue-200'
-                  }`}>
-                    {isCompletedStatus(selectedCandidate.status) ? (
-                      selectedCandidate.verificationStatus === 'APPROVED' ? (
-                        'Approved'
-                      ) : selectedCandidate.verificationStatus === 'REJECTED' ? (
-                        'Rejected'
-                      ) : (
-                        <>
-                          <span className="w-1.5 h-1.5 rounded-full bg-amber-500 mr-1.5 animate-pulse shrink-0"></span>
-                          Submitted • Pending Verification
-                        </>
-                      )
-                    ) : (
-                      selectedCandidate.status.replace(/_/g, ' ')
-                    )}
-                  </span>
+                  {(() => {
+                    const badge = getStatusBadge(selectedCandidate.status);
+                    return (
+                      <span className={`text-[11px] font-extrabold uppercase px-2.5 py-0.5 rounded-full border flex items-center ${badge.className}`}>
+                        <span className={`w-1.5 h-1.5 rounded-full mr-1.5 shrink-0 ${badge.dotColor}`}></span>
+                        {badge.label}
+                      </span>
+                    );
+                  })()}
                 </div>
                 
                 <h4 className="font-extrabold text-slate-900 text-base mb-3">{selectedCandidate.examName}</h4>
@@ -1198,19 +1214,19 @@ export default function CandidateExamRecordsPage() {
 
               {/* Integrity & Verification Action for Completed & Submitted Sessions */}
               {isCompletedStatus(selectedCandidate.status) && selectedCandidate.verificationStatus !== 'APPROVED' && (
-                <div className="bg-amber-50/80 rounded-2xl p-4 border border-amber-300 shadow-2xs">
-                  <span className="text-xs font-extrabold uppercase tracking-wider text-amber-900 block mb-1.5 flex items-center">
-                    <Clock className="w-3.5 h-3.5 mr-1.5 text-amber-600 shrink-0 animate-pulse" />
-                    Pending Administrator Verification
+                <div className="bg-slate-50 rounded-2xl p-4 border border-slate-200 shadow-2xs">
+                  <span className="text-xs font-extrabold uppercase tracking-wider text-slate-800 block mb-1.5 flex items-center">
+                    <FileText className="w-3.5 h-3.5 mr-1.5 text-blue-600 shrink-0" />
+                    Assessment & Integrity Review
                   </span>
-                  <p className="text-xs text-amber-800 leading-relaxed mb-3 font-medium">
-                    Assessment submitted. Review candidate answers, telemetry, and integrity infractions to approve or reject this submission.
+                  <p className="text-xs text-slate-600 leading-relaxed mb-3 font-medium">
+                    Review candidate answers, telemetry, and integrity infractions to finalize or audit verification status.
                   </p>
                   <Link
                     href={`/admin/results?search=${encodeURIComponent(selectedCandidate.name || selectedCandidate.email || '')}`}
                     className="flex items-center justify-center p-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition shadow-xs"
                   >
-                    <span>Verify in Integrity & Results Portal</span>
+                    <span>Open in Results & Verification Portal</span>
                     <ArrowRight className="w-3.5 h-3.5 ml-1.5" />
                   </Link>
                 </div>
