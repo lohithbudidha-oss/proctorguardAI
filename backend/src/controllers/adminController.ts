@@ -153,7 +153,9 @@ export const getLiveCandidates = async (req: Request, res: Response, next: NextF
           { candidateId: { $in: cIdsToFetch } }
         ]
       })
-        .select('attemptId candidateId type severity detectedAt description actionTaken snapshotImage screenshot driveUrl driveFolderUrl')
+        // IMPORTANT: Exclude snapshotImage/screenshot from initial fetch to prevent 45s timeouts.
+        // Heavy base64 images are served on-demand via GET /api/admin/violations/:id/proof
+        .select('attemptId candidateId type severity detectedAt description actionTaken driveUrl driveFolderUrl')
         .sort({ _id: -1 })
         .limit(200)
         .lean()
@@ -163,22 +165,11 @@ export const getLiveCandidates = async (req: Request, res: Response, next: NextF
     const examMap = new Map<string, any>(exams.map((e: any) => [e._id.toString(), e]));
     const resultMap = new Map<string, any>(results.map((r: any) => [r.attemptId.toString(), r]));
 
-    // Track which candidates already have a preloaded screenshot to keep response < 200KB
-    const candidateHasProofScreenshot = new Set<string>();
-
     const violationMapByAttempt = new Map<string, any[]>();
     const violationMapByCandidate = new Map<string, any[]>();
 
     for (const v of violations) {
       const candIdStr = v.candidateId ? v.candidateId.toString() : '';
-      const rawScreenshot = v.screenshot || v.snapshotImage || '';
-      const hasImage = Boolean(rawScreenshot);
-
-      let retainedScreenshot = '';
-      if (hasImage && candIdStr && !candidateHasProofScreenshot.has(candIdStr)) {
-        retainedScreenshot = rawScreenshot;
-        candidateHasProofScreenshot.add(candIdStr);
-      }
 
       const vObj = {
         id: v._id,
@@ -187,8 +178,9 @@ export const getLiveCandidates = async (req: Request, res: Response, next: NextF
         severity: v.severity,
         detectedAt: v.detectedAt,
         description: v.description || '',
-        screenshot: retainedScreenshot,
-        hasScreenshot: hasImage || Boolean(v.driveUrl),
+        // No inline screenshot — use /api/admin/violations/:id/proof for on-demand loading
+        screenshot: '',
+        hasScreenshot: Boolean((v as any).hasScreenshot || (v as any).driveUrl || (v as any).driveFolderUrl),
         driveUrl: (v as any).driveUrl || '',
         actionTaken: v.actionTaken
       };
@@ -382,7 +374,9 @@ export const getViolations = async (req: Request, res: Response, next: NextFunct
 
     // 1. Fetch violations with flat lean projection to eliminate memory saturation and timeouts
     const rawViolations = await ViolationEvent.find()
-      .select('_id candidateId attemptId type severity detectedAt description actionTaken screenshot driveUrl driveFolderUrl')
+      // IMPORTANT: Exclude screenshot/snapshotImage to prevent memory saturation and 45s timeouts.
+      // Full screenshot data is served on-demand via GET /api/admin/violations/:id/proof
+      .select('_id candidateId attemptId type severity detectedAt description actionTaken driveUrl driveFolderUrl')
       .sort({ detectedAt: -1 })
       .limit(limit)
       .lean();
@@ -455,8 +449,8 @@ export const getViolations = async (req: Request, res: Response, next: NextFunct
 
     const attemptMap = new Map<string, any>(populatedAttempts.map((att: any) => [att._id.toString(), att]));
 
-    // 3. Format violations: include screenshot for top 15; for older ones provide on-demand proof endpoint
-    const normalizedViolations = rawViolations.map((v: any, index: number) => {
+    // 3. Format violations: no inline screenshot — use /api/admin/violations/:id/proof for on-demand loading
+    const normalizedViolations = rawViolations.map((v: any) => {
       const attId = (v.attemptId?._id || v.attemptId)?.toString() || null;
       const matchedAttempt = attId ? attemptMap.get(attId) : null;
 
@@ -473,14 +467,6 @@ export const getViolations = async (req: Request, res: Response, next: NextFunct
         examId: { _id: 'assessment', title: 'Assessment' }
       };
 
-      const hasRawScreenshot = Boolean(v.screenshot || (v as any).snapshotImage);
-      // For top 15 violations, include the base64 screenshot directly.
-      // For older entries (16-60), omit heavy data URLs to keep payload < 300KB and latency < 1s
-      let screenshot = v.screenshot || '';
-      if (index >= 15 && screenshot && screenshot.length > 500) {
-        screenshot = ''; // fetch on-demand via /violations/:id/proof
-      }
-
       return {
         _id: v._id,
         candidateId: candidate,
@@ -490,8 +476,9 @@ export const getViolations = async (req: Request, res: Response, next: NextFunct
         detectedAt: v.detectedAt,
         description: v.description || '',
         actionTaken: v.actionTaken || 'LOG',
-        hasScreenshot: hasRawScreenshot,
-        screenshot,
+        // hasScreenshot reflects whether proof image exists — read from the lightweight boolean field
+        hasScreenshot: Boolean(v.hasScreenshot || v.driveUrl || v.driveFolderUrl),
+        screenshot: '', // fetch on-demand via GET /api/admin/violations/:id/proof
         driveUrl: v.driveUrl || v.driveFolderUrl
       };
     });
@@ -687,7 +674,10 @@ export const getCandidateAnswers = async (req: Request, res: Response, next: Nex
 
     const questions = await Question.find({ examId: result.examId }).sort({ order: 1, createdAt: 1 });
     const answers = await Answer.find({ attemptId: result.attemptId });
-    const violations = await ViolationEvent.find({ attemptId: result.attemptId }).sort({ detectedAt: -1 });
+    const violations = await ViolationEvent.find({ attemptId: result.attemptId })
+      .select('_id type severity description detectedAt actionTaken hasScreenshot driveUrl driveFolderUrl createdAt')
+      .sort({ detectedAt: -1 })
+      .lean();
 
     const answersBreakdown = questions.map((q: any, idx: number) => {
       const ans = answers.find(a => String(a.questionId) === String(q._id));
@@ -754,7 +744,10 @@ export const getCandidateAnswers = async (req: Request, res: Response, next: Nex
         type: v.type,
         severity: v.severity,
         description: v.description,
-        screenshot: v.screenshot || v.snapshotImage || v.image || '',
+        // screenshot served on-demand via GET /api/admin/violations/:id/proof
+        hasScreenshot: Boolean(v.hasScreenshot || v.driveUrl),
+        screenshot: '',
+        driveUrl: v.driveUrl || v.driveFolderUrl || '',
         detectedAt: v.detectedAt || v.createdAt
       }))
     });
@@ -785,7 +778,10 @@ export const getCandidateReportHtml = async (req: Request, res: Response, next: 
     const exam: any = result.examId;
     const questions = await Question.find({ examId: result.examId }).sort({ order: 1, createdAt: 1 });
     const answers = await Answer.find({ attemptId: result.attemptId });
-    const violations = await ViolationEvent.find({ attemptId: result.attemptId }).sort({ detectedAt: -1 });
+    const violations = await ViolationEvent.find({ attemptId: result.attemptId })
+      .select('_id type severity description detectedAt actionTaken hasScreenshot driveUrl driveFolderUrl createdAt')
+      .sort({ detectedAt: -1 })
+      .lean();
 
     const answersBreakdown = questions.map((q: any, idx: number) => {
       const ans = answers.find(a => String(a.questionId) === String(q._id));

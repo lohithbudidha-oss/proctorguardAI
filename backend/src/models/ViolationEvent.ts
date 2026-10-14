@@ -58,6 +58,7 @@ export interface IViolationEvent extends Document {
   description?: string;
   screenshot?: string;
   snapshotImage?: string;
+  hasScreenshot?: boolean; // lightweight boolean flag — set to true when screenshot/snapshotImage is saved
   driveUrl?: string;
   driveFileId?: string;
   driveFolderUrl?: string;
@@ -82,10 +83,14 @@ const ViolationEventSchema: Schema = new Schema({
   description: { type: String },
   screenshot: { type: String },
   snapshotImage: { type: String },
+  hasScreenshot: { type: Boolean, default: false }, // lightweight flag, updated in pre-save
   driveUrl: { type: String },
   driveFileId: { type: String },
   driveFolderUrl: { type: String }
 }, { timestamps: true, strict: false });
+
+
+
 
 ViolationEventSchema.index({ attemptId: 1, detectedAt: -1 });
 ViolationEventSchema.index({ candidateId: 1, detectedAt: -1 });

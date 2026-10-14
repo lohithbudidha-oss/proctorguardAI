@@ -562,6 +562,7 @@ export const recordViolation = async (req: AuthRequest, res: Response, next: Nex
       description: description || '',
       screenshot: shot,
       snapshotImage: shot,
+      hasScreenshot: Boolean(shot), // lightweight flag for fast admin listing queries
       driveFolderUrl
     });
     await violation.save();
