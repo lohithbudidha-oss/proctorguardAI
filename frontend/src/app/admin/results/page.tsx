@@ -153,7 +153,9 @@ export default function AdminResultsPage() {
   };
 
   const handleRefresh = async () => {
-    if (refreshing) return;
+    try {
+      sessionStorage.removeItem('pg_cached_admin_results');
+    } catch (e) {}
     await fetchResults(true);
   };
 
@@ -314,7 +316,7 @@ export default function AdminResultsPage() {
             <button 
               type="button"
               onClick={handleRefresh}
-              disabled={refreshing || loading}
+              disabled={refreshing}
               className={`px-3.5 py-1.5 rounded-lg text-xs font-bold border transition shadow-2xs cursor-pointer flex items-center h-8.5 shrink-0 whitespace-nowrap active:scale-95 disabled:opacity-60 ${
                 refreshSuccess
                   ? 'bg-emerald-50 text-emerald-700 border-emerald-300'

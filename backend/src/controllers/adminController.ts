@@ -411,12 +411,69 @@ export const getViolations = async (req: Request, res: Response, next: NextFunct
 
 export const getResults = async (req: Request, res: Response, next: NextFunction) => {
   try {
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+
+    const now = new Date();
+
+    // 1. Auto-finalize any expired active attempts
+    try {
+      const expiredAttempts: any[] = await Attempt.find({
+        status: AttemptStatus.IN_PROGRESS,
+        expiresAt: { $exists: true, $lte: now }
+      });
+      for (const exp of expiredAttempts) {
+        exp.status = AttemptStatus.AUTO_SUBMITTED;
+        exp.submittedAt = exp.submittedAt || exp.expiresAt || now;
+        await exp.save();
+      }
+    } catch (expErr) {
+      console.error('Error auto-finalizing expired attempts in getResults:', expErr);
+    }
+
+    // 2. Discover all finalized/submitted attempts that don't have a Result record yet
+    try {
+      const finalizedAttempts: any[] = await Attempt.find({
+        $or: [
+          { status: { $in: [
+            AttemptStatus.SUBMITTED,
+            AttemptStatus.AUTO_SUBMITTED,
+            AttemptStatus.FORCE_SUBMITTED,
+            AttemptStatus.COMPLETED,
+            AttemptStatus.TERMINATED,
+            AttemptStatus.INVALIDATED
+          ] } },
+          { submittedAt: { $exists: true, $ne: null } }
+        ]
+      }).lean();
+
+      const existingResults: any[] = await Result.find().select('attemptId').lean();
+      const existingAttemptIds = new Set(existingResults.map((r: any) => r.attemptId?.toString()).filter(Boolean));
+
+      const { evaluateAttempt } = require('./attemptController');
+      for (const att of finalizedAttempts) {
+        const attIdStr = att?._id ? att._id.toString() : '';
+        if (attIdStr && !existingAttemptIds.has(attIdStr)) {
+          try {
+            const candIdStr = att?.candidateId ? att.candidateId.toString() : undefined;
+            await evaluateAttempt(attIdStr, candIdStr);
+            existingAttemptIds.add(attIdStr);
+          } catch (evalErr) {
+            console.error('Error auto-evaluating attempt for results in getResults:', evalErr);
+          }
+        }
+      }
+    } catch (syncErr) {
+      console.error('Error syncing finalized attempts in getResults:', syncErr);
+    }
+
+    // 3. Query all results with full population
     const results = await Result.find()
-      .populate('candidateId', 'name email status')
+      .populate('candidateId', 'name email status role')
       .populate('examId', 'title duration passingPercentage passMark')
-      .populate('attemptId', 'startedAt submittedAt status attemptNumber durationSeconds expiresAt')
+      .populate('attemptId', 'startedAt submittedAt status attemptNumber durationSeconds expiresAt candidateId')
       .sort({ createdAt: -1 })
       .lean();
+
     res.status(200).json({ success: true, results });
   } catch (err) {
     next(err);

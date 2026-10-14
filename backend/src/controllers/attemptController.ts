@@ -372,9 +372,16 @@ function checkAnswerCorrectness(q: any, candidateAns: any): boolean {
   return isSingleAnswerMatch(q, candidateAns, correct);
 }
 
-export const evaluateAttempt = async (attemptId: string, candidateId: string) => {
-    const attempt = await Attempt.findOne({ _id: attemptId, candidateId });
+export const evaluateAttempt = async (attemptId: string, candidateId?: string) => {
+    let attempt: any = null;
+    if (candidateId) {
+      attempt = await Attempt.findOne({ _id: attemptId, candidateId });
+    }
+    if (!attempt) {
+      attempt = await Attempt.findById(attemptId);
+    }
     if (!attempt) return null;
+    const resolvedCandidateId = candidateId || attempt.candidateId?.toString();
     const questions = await Question.find({ examId: attempt.examId });
     const answers = await Answer.find({ attemptId });
     const violations = await ViolationEvent.find({ attemptId });
@@ -433,7 +440,7 @@ export const evaluateAttempt = async (attemptId: string, candidateId: string) =>
     if (!result) {
       result = new Result({
         attemptId,
-        candidateId,
+        candidateId: resolvedCandidateId,
         examId: attempt.examId,
         totalQuestions: questions.length,
         attempted,
