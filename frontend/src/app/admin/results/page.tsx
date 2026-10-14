@@ -93,6 +93,9 @@ export default function AdminResultsPage() {
     }
     return true;
   });
+  const [refreshing, setRefreshing] = useState(false);
+  const [refreshSuccess, setRefreshSuccess] = useState<string | null>(null);
+  const [refreshError, setRefreshError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedExamFilter, setSelectedExamFilter] = useState<string>('ALL');
   const [statusFilter, setStatusFilter] = useState<'ALL' | 'PASS' | 'FAIL' | 'APPROVED' | 'PENDING' | 'FLAGGED'>('ALL');
@@ -109,19 +112,49 @@ export default function AdminResultsPage() {
     } catch (e) {}
   }, []);
 
-  const fetchResults = async () => {
+  const fetchResults = async (isManual = false) => {
+    if (isManual) {
+      setRefreshing(true);
+      setRefreshSuccess(null);
+      setRefreshError(null);
+    }
     try {
-      const res = await api.get('/admin/results');
+      const res = await api.get('/admin/results', {
+        params: { _t: Date.now() },
+        headers: {
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          'Pragma': 'no-cache'
+        }
+      });
       const list = res.data.results || [];
       setResults(list);
       try {
         sessionStorage.setItem('pg_cached_admin_results', JSON.stringify(list.slice(0, 50)));
       } catch (e) {}
-    } catch (err) {
+
+      if (isManual) {
+        setRefreshSuccess(`Refreshed (${list.length} ${list.length === 1 ? 'record' : 'records'})`);
+        setTimeout(() => setRefreshSuccess(null), 3000);
+      }
+      return list;
+    } catch (err: any) {
       console.error('Failed to fetch exam results', err);
+      if (isManual) {
+        const errMsg = err?.response?.data?.message || err?.message || 'Failed to refresh results';
+        setRefreshError(errMsg);
+        setTimeout(() => setRefreshError(null), 4000);
+      }
     } finally {
       setLoading(false);
+      if (isManual) {
+        setRefreshing(false);
+      }
     }
+  };
+
+  const handleRefresh = async () => {
+    if (refreshing) return;
+    await fetchResults(true);
   };
 
   const handleVerifyStatus = async (id: string, newStatus: 'APPROVED' | 'REJECTED') => {
@@ -280,13 +313,19 @@ export default function AdminResultsPage() {
             </Link>
             <button 
               type="button"
-              onClick={fetchResults}
-              disabled={loading}
-              className="px-3.5 py-1.5 bg-white hover:bg-slate-50 text-slate-700 rounded-lg text-xs font-bold border border-slate-200 transition shadow-2xs cursor-pointer flex items-center h-8.5 shrink-0 whitespace-nowrap active:scale-95 disabled:opacity-60"
-              title="Refresh latest results"
+              onClick={handleRefresh}
+              disabled={refreshing || loading}
+              className={`px-3.5 py-1.5 rounded-lg text-xs font-bold border transition shadow-2xs cursor-pointer flex items-center h-8.5 shrink-0 whitespace-nowrap active:scale-95 disabled:opacity-60 ${
+                refreshSuccess
+                  ? 'bg-emerald-50 text-emerald-700 border-emerald-300'
+                  : refreshError
+                  ? 'bg-rose-50 text-rose-700 border-rose-300'
+                  : 'bg-white hover:bg-slate-50 text-slate-700 border-slate-200'
+              }`}
+              title="Refresh latest results from server"
             >
-              <RefreshCw className={`w-3.5 h-3.5 mr-1.5 ${loading ? 'animate-spin text-blue-600' : 'text-slate-500'}`} />
-              {loading ? 'Refreshing...' : 'Refresh Results'}
+              <RefreshCw className={`w-3.5 h-3.5 mr-1.5 ${refreshing || loading ? 'animate-spin text-blue-600' : refreshSuccess ? 'text-emerald-600' : 'text-slate-500'}`} />
+              {refreshing ? 'Refreshing...' : refreshSuccess ? refreshSuccess : refreshError ? 'Refresh Failed' : 'Refresh Results'}
             </button>
           </div>
         </div>
@@ -393,12 +432,12 @@ export default function AdminResultsPage() {
             ))}
 
             <button
-              onClick={fetchResults}
-              disabled={loading}
-              className="p-2 text-slate-400 hover:text-slate-700 rounded-lg hover:bg-slate-100 transition-colors cursor-pointer ml-1"
+              onClick={handleRefresh}
+              disabled={refreshing || loading}
+              className="p-2 text-slate-400 hover:text-slate-700 rounded-lg hover:bg-slate-100 transition-colors cursor-pointer ml-1 disabled:opacity-50"
               title="Refresh results"
             >
-              <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin text-blue-600' : ''}`} />
+              <RefreshCw className={`w-4 h-4 ${refreshing || loading ? 'animate-spin text-blue-600' : ''}`} />
             </button>
           </div>
         </div>

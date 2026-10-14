@@ -35,8 +35,28 @@ import api from '@/lib/api';
 import { sanitizeSearchInput } from '@/lib/sanitize';
 
 export default function ResultsVerificationPage() {
-  const [results, setResults] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [results, setResults] = useState<any[]>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const cached = sessionStorage.getItem('pg_cached_integrity_reports');
+        if (cached) return JSON.parse(cached);
+      } catch (e) {}
+    }
+    return [];
+  });
+  const [loading, setLoading] = useState(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const cached = sessionStorage.getItem('pg_cached_integrity_reports');
+        if (cached && JSON.parse(cached).length > 0) return false;
+      } catch (e) {}
+    }
+    return true;
+  });
+  const [refreshing, setRefreshing] = useState(false);
+  const [refreshSuccess, setRefreshSuccess] = useState<string | null>(null);
+  const [refreshError, setRefreshError] = useState<string | null>(null);
+  const [lastRefreshedAt, setLastRefreshedAt] = useState<Date | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<'ALL' | 'PENDING' | 'APPROVED' | 'REJECTED'>('ALL');
 
@@ -67,7 +87,10 @@ export default function ResultsVerificationPage() {
     setIsDriveModalOpen(true);
     setLoadingDriveData(true);
     try {
-      const res = await api.get('/admin/drive/files');
+      const res = await api.get('/admin/drive/files', {
+        params: { _t: Date.now() },
+        headers: { 'Cache-Control': 'no-cache, no-store, must-revalidate', 'Pragma': 'no-cache' }
+      });
       setDriveData(res.data);
     } catch (err) {
       console.error('Failed to load drive files:', err);
@@ -76,15 +99,50 @@ export default function ResultsVerificationPage() {
     }
   };
 
-  const fetchResults = async () => {
+  const fetchResults = async (isManual = false) => {
+    if (isManual) {
+      setRefreshing(true);
+      setRefreshSuccess(null);
+      setRefreshError(null);
+    }
     try {
-      const res = await api.get('/admin/results');
-      setResults(res.data.results || []);
-    } catch (error) {
+      const res = await api.get('/admin/results', {
+        params: { _t: Date.now() },
+        headers: {
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          'Pragma': 'no-cache'
+        }
+      });
+      const data = res.data.results || [];
+      setResults(data);
+      setLastRefreshedAt(new Date());
+      try {
+        sessionStorage.setItem('pg_cached_integrity_reports', JSON.stringify(data.slice(0, 50)));
+      } catch (e) {}
+
+      if (isManual) {
+        setRefreshSuccess(`Refreshed (${data.length} ${data.length === 1 ? 'record' : 'records'})`);
+        setTimeout(() => setRefreshSuccess(null), 3000);
+      }
+      return data;
+    } catch (error: any) {
       console.error('Failed to fetch results', error);
+      if (isManual) {
+        const errMsg = error?.response?.data?.message || error?.message || 'Failed to refresh records';
+        setRefreshError(errMsg);
+        setTimeout(() => setRefreshError(null), 4000);
+      }
     } finally {
       setLoading(false);
+      if (isManual) {
+        setRefreshing(false);
+      }
     }
+  };
+
+  const handleRefresh = async () => {
+    if (refreshing) return;
+    await fetchResults(true);
   };
 
   const openCandidateAnswers = async (resultItem: any) => {
@@ -100,7 +158,13 @@ export default function ResultsVerificationPage() {
     setAnswersQuestionFilter('ALL');
 
     try {
-      const res = await api.get(`/admin/results/${resultItem._id}/answers`);
+      const res = await api.get(`/admin/results/${resultItem._id}/answers`, {
+        params: { _t: Date.now() },
+        headers: {
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          'Pragma': 'no-cache'
+        }
+      });
       setSelectedAnswersData(res.data);
     } catch (err) {
       console.error('Failed to fetch candidate answers', err);
@@ -119,7 +183,7 @@ export default function ResultsVerificationPage() {
   const verifyResult = async (id: string, status: 'APPROVED' | 'REJECTED') => {
     try {
       await api.patch(`/admin/results/${id}/verify`, { status });
-      fetchResults();
+      await fetchResults(false);
       if (selectedAnswersData && (selectedAnswersData.result?._id === id || selectedAnswersData.result?.id === id)) {
         setSelectedAnswersData((prev: any) => ({
           ...prev,
@@ -217,13 +281,19 @@ export default function ResultsVerificationPage() {
             </Link>
             <button 
               type="button"
-              onClick={fetchResults}
-              disabled={loading}
-              className="px-3.5 py-1.5 bg-white hover:bg-slate-50 text-slate-700 rounded-lg text-xs font-bold border border-slate-200 transition shadow-2xs cursor-pointer flex items-center h-8.5 shrink-0 whitespace-nowrap active:scale-95 disabled:opacity-60"
-              title="Refresh latest verification records"
+              onClick={handleRefresh}
+              disabled={refreshing || loading}
+              className={`px-3.5 py-1.5 rounded-lg text-xs font-bold border transition shadow-2xs cursor-pointer flex items-center h-8.5 shrink-0 whitespace-nowrap active:scale-95 disabled:opacity-60 ${
+                refreshSuccess
+                  ? 'bg-emerald-50 text-emerald-700 border-emerald-300'
+                  : refreshError
+                  ? 'bg-rose-50 text-rose-700 border-rose-300'
+                  : 'bg-white hover:bg-slate-50 text-slate-700 border-slate-200'
+              }`}
+              title="Refresh latest verification and integrity records"
             >
-              <RefreshCw className={`w-3.5 h-3.5 mr-1.5 ${loading ? 'animate-spin text-blue-600' : 'text-slate-500'}`} />
-              Refresh
+              <RefreshCw className={`w-3.5 h-3.5 mr-1.5 ${refreshing || loading ? 'animate-spin text-blue-600' : refreshSuccess ? 'text-emerald-600' : 'text-slate-500'}`} />
+              {refreshing ? 'Refreshing...' : refreshSuccess ? refreshSuccess : refreshError ? 'Refresh Failed' : 'Refresh'}
             </button>
           </div>
         </div>
@@ -264,6 +334,15 @@ export default function ResultsVerificationPage() {
                 {tab === 'ALL' ? `All (${results.length})` : tab}
               </button>
             ))}
+            <button
+              type="button"
+              onClick={handleRefresh}
+              disabled={refreshing || loading}
+              className="p-1.5 text-slate-500 hover:text-slate-900 rounded-lg hover:bg-white transition-all cursor-pointer disabled:opacity-50"
+              title="Refresh integrity records"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${refreshing || loading ? 'animate-spin text-blue-600' : ''}`} />
+            </button>
           </div>
         </div>
 

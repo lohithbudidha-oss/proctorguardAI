@@ -20,7 +20,8 @@ import {
   Sparkles,
   CheckCircle,
   Award,
-  Info
+  Info,
+  Headphones
 } from 'lucide-react';
 import api from '@/lib/api';
 import { sanitizeSearchInput } from '@/lib/sanitize';
@@ -298,7 +299,16 @@ export default function CandidateDashboard() {
             <BrandLogo size="md" variant="dark" />
           </Link>
           
-          <div className="flex items-center space-x-6">
+          <div className="flex items-center space-x-3 sm:space-x-4">
+            <Link 
+              href="/support"
+              className="inline-flex items-center space-x-1.5 px-3 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 hover:text-blue-800 border border-blue-200 rounded-xl text-xs font-bold transition-all shadow-2xs group cursor-pointer"
+              title="Need help or camera support? Contact Help Desk"
+            >
+              <Headphones className="w-3.5 h-3.5 text-blue-600 group-hover:scale-105 transition-transform" />
+              <span>Contact Us</span>
+            </Link>
+
             <div ref={notificationRef} className="relative">
               <button 
                 onClick={() => setShowNotifications(!showNotifications)}
@@ -467,6 +477,14 @@ export default function CandidateDashboard() {
                 </button>
               )}
             </div>
+            <Link
+              href="/support"
+              className="bg-white hover:bg-slate-50 px-3.5 py-2 rounded-xl border border-slate-200 shadow-xs flex items-center space-x-1.5 text-slate-700 hover:text-blue-600 text-xs font-bold transition-all shrink-0 cursor-pointer"
+              title="Need assistance? Contact Proctoring Support Desk"
+            >
+              <Headphones className="w-4 h-4 text-blue-600" />
+              <span>Contact Us</span>
+            </Link>
             <div className="bg-white px-4 py-2 rounded-xl border border-slate-200 shadow-xs flex items-center space-x-2 shrink-0">
               <ShieldCheck className="w-4 h-4 text-emerald-500" />
               <span className="text-xs font-semibold text-slate-700">Security active</span>
