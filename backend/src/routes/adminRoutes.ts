@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { getCandidates, updateCandidateStatus, approveCandidate, deleteCandidate, getLiveCandidates, lockAttempt, unlockAttempt, forceSubmitAttempt } from '../controllers/adminController';
-import { createExam, getExams, getExamById, updateExam, deleteExam, publishExam, getExamCandidates, assignCandidate, assignAllCandidates, unassignCandidate, allowRewriteAll, allowRewrite } from '../controllers/examController';
+import { createExam, getExams, getExamStats, getExamById, updateExam, deleteExam, publishExam, getExamCandidates, assignCandidate, assignAllCandidates, unassignCandidate, allowRewriteAll, allowRewrite } from '../controllers/examController';
 import { getQuestions, createQuestion, updateQuestion, deleteQuestion } from '../controllers/questionController';
 import { authenticate, requireRole } from '../middleware/authMiddleware';
 import { Role } from '../models/User';
@@ -21,6 +21,7 @@ router.delete('/candidates/:id', deleteCandidate);
 
 router.post('/exams', createExam);
 router.get('/exams', getExams);
+router.get('/exams/stats', getExamStats);
 router.get('/exams/:id', getExamById);
 router.patch('/exams/:id', updateExam);
 router.delete('/exams/:id', deleteExam);

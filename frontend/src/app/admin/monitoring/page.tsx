@@ -91,7 +91,9 @@ export default function CandidateExamRecordsPage() {
   });
   const [selectedCandidate, setSelectedCandidate] = useState<CandidateExamRecord | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
-  const [statusFilter, setStatusFilter] = useState<'ALL' | 'COMPLETED' | 'IN_PROGRESS'>('ALL');
+  type StatusFilterType = 'ALL' | 'IN_PROGRESS' | 'SUBMITTED' | 'FORCE_SUBMITTED' | 'TERMINATED' | 'ASSIGNED';
+  const [statusFilter, setStatusFilter] = useState<StatusFilterType>('ALL');
+  const [selectedExamFilter, setSelectedExamFilter] = useState<string>('ALL');
   const [selectedProofModal, setSelectedProofModal] = useState<{
     image: string;
     type: string;
@@ -221,6 +223,16 @@ export default function CandidateExamRecordsPage() {
       const u = localStorage.getItem('user');
       if (u) setAdminProfile(JSON.parse(u));
     } catch (e) {}
+
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      const eParam = params.get('examId') || params.get('exam');
+      if (eParam) setSelectedExamFilter(eParam);
+      const sParam = params.get('status')?.toUpperCase();
+      if (sParam && ['IN_PROGRESS', 'SUBMITTED', 'FORCE_SUBMITTED', 'TERMINATED', 'ASSIGNED'].includes(sParam)) {
+        setStatusFilter(sParam as StatusFilterType);
+      }
+    }
   }, []);
 
   const handleLogout = () => {
@@ -514,8 +526,33 @@ export default function CandidateExamRecordsPage() {
     }
   };
 
+  const isCandidateInProgress = (status: string) => {
+    const s = (status || '').toUpperCase();
+    return s === 'IN_PROGRESS' || s === 'PAUSED' || s === 'LOCKED';
+  };
+
+  const isCandidateSubmitted = (status: string) => {
+    const s = (status || '').toUpperCase();
+    return s === 'SUBMITTED' || s === 'AUTO_SUBMITTED' || s === 'COMPLETED';
+  };
+
+  const isCandidateForceSubmitted = (status: string) => {
+    const s = (status || '').toUpperCase();
+    return s === 'FORCE_SUBMITTED' || s === 'FORCEFULLY_SUBMITTED';
+  };
+
+  const isCandidateTerminated = (status: string) => {
+    const s = (status || '').toUpperCase();
+    return s === 'TERMINATED';
+  };
+
+  const isCandidateAssigned = (status: string) => {
+    const s = (status || '').toUpperCase();
+    return s === 'ASSIGNED' || s === 'READY' || s === 'WAITING';
+  };
+
   const isCompletedStatus = (status: string) => {
-    return ['SUBMITTED', 'COMPLETED', 'AUTO_SUBMITTED', 'FORCE_SUBMITTED', 'FORCEFULLY_SUBMITTED', 'TERMINATED'].includes(status);
+    return isCandidateSubmitted(status) || isCandidateForceSubmitted(status) || isCandidateTerminated(status);
   };
 
   const getStatusBadge = (status: string) => {
@@ -556,22 +593,105 @@ export default function CandidateExamRecordsPage() {
       };
     }
     return {
-      label: norm.replace(/_/g, ' ') || 'UNKNOWN',
+      label: norm.replace(/_/g, ' ') || 'ASSIGNED',
       className: 'bg-slate-50 text-slate-700 border-slate-200',
       dotColor: 'bg-slate-400'
     };
   };
 
+  // Live Exam-Based Candidate Status Breakdown
+  const examStatsList = useMemo(() => {
+    const map = new Map<string, {
+      examId: string;
+      examName: string;
+      total: number;
+      inProgress: number;
+      submitted: number;
+      forceSubmitted: number;
+      terminated: number;
+      assigned: number;
+    }>();
+
+    candidates.forEach(cand => {
+      const eKey = cand.examId || cand.examName || 'unknown_exam';
+      const eName = cand.examName || 'Assessment';
+
+      if (!map.has(eKey)) {
+        map.set(eKey, {
+          examId: cand.examId || eKey,
+          examName: eName,
+          total: 0,
+          inProgress: 0,
+          submitted: 0,
+          forceSubmitted: 0,
+          terminated: 0,
+          assigned: 0
+        });
+      }
+
+      const item = map.get(eKey)!;
+      item.total++;
+
+      if (isCandidateTerminated(cand.status)) {
+        item.terminated++;
+      } else if (isCandidateForceSubmitted(cand.status)) {
+        item.forceSubmitted++;
+      } else if (isCandidateSubmitted(cand.status)) {
+        item.submitted++;
+      } else if (isCandidateInProgress(cand.status)) {
+        item.inProgress++;
+      } else {
+        item.assigned++;
+      }
+    });
+
+    return Array.from(map.values());
+  }, [candidates]);
+
+  const totalCandidatesCount = candidates.length;
+  const totalInProgressCount = useMemo(() => candidates.filter(c => isCandidateInProgress(c.status)).length, [candidates]);
+  const totalSubmittedCount = useMemo(() => candidates.filter(c => isCandidateSubmitted(c.status)).length, [candidates]);
+  const totalForceSubmittedCount = useMemo(() => candidates.filter(c => isCandidateForceSubmitted(c.status)).length, [candidates]);
+  const totalTerminatedCount = useMemo(() => candidates.filter(c => isCandidateTerminated(c.status)).length, [candidates]);
+  const totalAssignedCount = useMemo(() => candidates.filter(c => isCandidateAssigned(c.status)).length, [candidates]);
+  const completedCandidatesCount = totalSubmittedCount + totalForceSubmittedCount + totalTerminatedCount;
+  const flaggedCandidatesCount = useMemo(() => candidates.filter(c => c.violations && c.violations.length > 0).length, [candidates]);
+
+  // Candidate counts scoped to the currently selected exam
+  const currentExamCandidates = useMemo(() => {
+    if (selectedExamFilter === 'ALL') return candidates;
+    return candidates.filter(c => 
+      (c.examId && c.examId === selectedExamFilter) ||
+      (c.examName && c.examName.toLowerCase() === selectedExamFilter.toLowerCase())
+    );
+  }, [candidates, selectedExamFilter]);
+
+  const currentExamTotal = currentExamCandidates.length;
+  const currentExamInProgress = useMemo(() => currentExamCandidates.filter(c => isCandidateInProgress(c.status)).length, [currentExamCandidates]);
+  const currentExamSubmitted = useMemo(() => currentExamCandidates.filter(c => isCandidateSubmitted(c.status)).length, [currentExamCandidates]);
+  const currentExamForceSubmitted = useMemo(() => currentExamCandidates.filter(c => isCandidateForceSubmitted(c.status)).length, [currentExamCandidates]);
+  const currentExamTerminated = useMemo(() => currentExamCandidates.filter(c => isCandidateTerminated(c.status)).length, [currentExamCandidates]);
+  const currentExamAssigned = useMemo(() => currentExamCandidates.filter(c => isCandidateAssigned(c.status)).length, [currentExamCandidates]);
+
   const filteredCandidates = useMemo(() => {
     const tokens = searchQuery.trim().toLowerCase().split(/\s+/).filter(Boolean);
 
     return candidates.filter(c => {
-      const matchesStatus = 
-        statusFilter === 'ALL' ||
-        (statusFilter === 'COMPLETED' && isCompletedStatus(c.status)) ||
-        (statusFilter === 'IN_PROGRESS' && !isCompletedStatus(c.status));
+      // Exam Filter
+      if (selectedExamFilter !== 'ALL') {
+        const matchesExam = 
+          (c.examId && c.examId === selectedExamFilter) ||
+          (c.examName && c.examName.toLowerCase() === selectedExamFilter.toLowerCase());
+        if (!matchesExam) return false;
+      }
 
-      if (!matchesStatus) return false;
+      // Status Filter
+      if (statusFilter === 'IN_PROGRESS' && !isCandidateInProgress(c.status)) return false;
+      if (statusFilter === 'SUBMITTED' && !isCandidateSubmitted(c.status)) return false;
+      if (statusFilter === 'FORCE_SUBMITTED' && !isCandidateForceSubmitted(c.status)) return false;
+      if (statusFilter === 'TERMINATED' && !isCandidateTerminated(c.status)) return false;
+      if (statusFilter === 'ASSIGNED' && !isCandidateAssigned(c.status)) return false;
+
       if (tokens.length === 0) return true;
 
       // Build complete searchable text across candidate name, email, exam, status, scores, and violations
@@ -583,7 +703,11 @@ export default function CandidateExamRecordsPage() {
         c.attemptId || '',
         c.status || '',
         (c.status || '').replace(/_/g, ' '),
-        isCompletedStatus(c.status) ? 'completed submitted written finished' : 'in progress active taking ongoing',
+        isCandidateInProgress(c.status) ? 'in progress active taking ongoing' : '',
+        isCandidateSubmitted(c.status) ? 'submitted auto submitted completed written' : '',
+        isCandidateForceSubmitted(c.status) ? 'force submitted forcefully submitted force' : '',
+        isCandidateTerminated(c.status) ? 'terminated stop disqualified cancelled' : '',
+        isCandidateAssigned(c.status) ? 'assigned scheduled pending' : '',
         c.resultStatus || '',
         c.resultStatus === 'PASS' ? 'pass passed qualified' : '',
         c.resultStatus === 'FAIL' ? 'fail failed disqualified' : '',
@@ -612,11 +736,7 @@ export default function CandidateExamRecordsPage() {
       const candidateBlob = searchParts.join(' ').toLowerCase();
       return tokens.every(token => candidateBlob.includes(token));
     });
-  }, [candidates, searchQuery, statusFilter]);
-
-  const totalCandidatesCount = candidates.length;
-  const completedCandidatesCount = candidates.filter(c => isCompletedStatus(c.status)).length;
-  const flaggedCandidatesCount = candidates.filter(c => c.violations && c.violations.length > 0).length;
+  }, [candidates, searchQuery, statusFilter, selectedExamFilter]);
 
   const formatSeconds = (secs: number) => {
     if (!secs || secs <= 0) return 'N/A';
@@ -759,23 +879,79 @@ export default function CandidateExamRecordsPage() {
           </div>
 
           {/* Quick Stats Badges Bar */}
-          <div className="mt-4 pt-3.5 border-t border-slate-100/80 flex items-center gap-2.5 flex-wrap">
-            <div className="inline-flex items-center text-xs font-bold text-blue-700 bg-blue-50/90 px-3.5 py-1.5 rounded-full border border-blue-200 shadow-2xs whitespace-nowrap">
-              <span className="w-2 h-2 bg-blue-500 rounded-full mr-2 shrink-0"></span> 
+          <div className="mt-4 pt-3.5 border-t border-slate-100/80 flex items-center gap-2 flex-wrap">
+            <button
+              onClick={() => { setSelectedExamFilter('ALL'); setStatusFilter('ALL'); }}
+              className={`inline-flex items-center text-xs font-bold px-3 py-1.5 rounded-full border transition-all cursor-pointer shadow-2xs whitespace-nowrap ${
+                statusFilter === 'ALL' && selectedExamFilter === 'ALL'
+                  ? 'bg-blue-600 text-white border-blue-600 shadow-sm'
+                  : 'bg-blue-50/90 hover:bg-blue-100 text-blue-700 border-blue-200'
+              }`}
+            >
+              <span className={`w-2 h-2 rounded-full mr-2 shrink-0 ${statusFilter === 'ALL' && selectedExamFilter === 'ALL' ? 'bg-white' : 'bg-blue-500'}`}></span> 
               <span>Total Candidates: {totalCandidatesCount}</span>
-            </div>
-            <div className="inline-flex items-center text-xs font-bold text-emerald-700 bg-emerald-50/90 px-3.5 py-1.5 rounded-full border border-emerald-200 shadow-2xs whitespace-nowrap">
+            </button>
+
+            <button
+              onClick={() => setStatusFilter(statusFilter === 'IN_PROGRESS' ? 'ALL' : 'IN_PROGRESS')}
+              className={`inline-flex items-center text-xs font-bold px-3 py-1.5 rounded-full border transition-all cursor-pointer shadow-2xs whitespace-nowrap ${
+                statusFilter === 'IN_PROGRESS'
+                  ? 'bg-sky-600 text-white border-sky-600 shadow-sm'
+                  : 'bg-sky-50 hover:bg-sky-100 text-sky-800 border-sky-300'
+              }`}
+            >
+              <span className="w-2 h-2 bg-sky-500 rounded-full mr-2 shrink-0 animate-ping"></span> 
+              <span>In Progress: {totalInProgressCount}</span>
+            </button>
+
+            <button
+              onClick={() => setStatusFilter(statusFilter === 'SUBMITTED' ? 'ALL' : 'SUBMITTED')}
+              className={`inline-flex items-center text-xs font-bold px-3 py-1.5 rounded-full border transition-all cursor-pointer shadow-2xs whitespace-nowrap ${
+                statusFilter === 'SUBMITTED'
+                  ? 'bg-emerald-600 text-white border-emerald-600 shadow-sm'
+                  : 'bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border-emerald-300'
+              }`}
+            >
               <span className="w-2 h-2 bg-emerald-500 rounded-full mr-2 shrink-0"></span> 
-              <span>Exams Completed: {completedCandidatesCount}</span>
-            </div>
-            <div className="inline-flex items-center text-xs font-bold text-rose-700 bg-rose-50/90 px-3.5 py-1.5 rounded-full border border-rose-200 shadow-2xs whitespace-nowrap">
+              <span>Submitted: {totalSubmittedCount}</span>
+            </button>
+
+            <button
+              onClick={() => setStatusFilter(statusFilter === 'FORCE_SUBMITTED' ? 'ALL' : 'FORCE_SUBMITTED')}
+              className={`inline-flex items-center text-xs font-bold px-3 py-1.5 rounded-full border transition-all cursor-pointer shadow-2xs whitespace-nowrap ${
+                statusFilter === 'FORCE_SUBMITTED'
+                  ? 'bg-amber-600 text-white border-amber-600 shadow-sm'
+                  : 'bg-amber-50 hover:bg-amber-100 text-amber-900 border-amber-300'
+              }`}
+            >
+              <span className="w-2 h-2 bg-amber-500 rounded-full mr-2 shrink-0"></span> 
+              <span>Force Submitted: {totalForceSubmittedCount}</span>
+            </button>
+
+            <button
+              onClick={() => setStatusFilter(statusFilter === 'TERMINATED' ? 'ALL' : 'TERMINATED')}
+              className={`inline-flex items-center text-xs font-bold px-3 py-1.5 rounded-full border transition-all cursor-pointer shadow-2xs whitespace-nowrap ${
+                statusFilter === 'TERMINATED'
+                  ? 'bg-rose-600 text-white border-rose-600 shadow-sm'
+                  : 'bg-rose-50 hover:bg-rose-100 text-rose-800 border-rose-300'
+              }`}
+            >
               <span className="w-2 h-2 bg-rose-500 rounded-full mr-2 shrink-0"></span> 
+              <span>Terminated: {totalTerminatedCount}</span>
+            </button>
+
+            <Link 
+              href="/admin/violations" 
+              className="inline-flex items-center text-xs font-bold text-rose-700 bg-rose-50/90 hover:bg-rose-100 px-3 py-1.5 rounded-full border border-rose-200 transition-colors shadow-2xs whitespace-nowrap"
+            >
+              <AlertTriangle className="w-3.5 h-3.5 mr-1.5 text-rose-600" />
               <span>Flagged Violations: {flaggedCandidatesCount}</span>
-            </div>
+            </Link>
+
             {pendingApprovalsCount > 0 && (
               <Link 
                 href="/admin/candidates?filter=pending" 
-                className="inline-flex items-center text-xs font-bold text-amber-800 bg-amber-50 hover:bg-amber-100 px-3.5 py-1.5 rounded-full border border-amber-300 transition-colors shadow-2xs whitespace-nowrap group"
+                className="inline-flex items-center text-xs font-bold text-amber-800 bg-amber-50 hover:bg-amber-100 px-3 py-1.5 rounded-full border border-amber-300 transition-colors shadow-2xs whitespace-nowrap group"
                 title="Review and approve pending candidates"
               >
                 <span className="w-2 h-2 bg-amber-500 rounded-full mr-2 shrink-0 animate-ping"></span> 
@@ -811,9 +987,145 @@ export default function CandidateExamRecordsPage() {
           </div>
         )}
 
+        {/* Live Examination Status by Assessment (Exam-Based Breakdown) */}
+        {examStatsList.length > 0 && (
+          <div className="px-8 pt-6 pb-1 z-10">
+            <div className="bg-white rounded-2xl border border-slate-200/90 p-5 shadow-xs">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+                <div className="flex items-center space-x-2.5">
+                  <div className="p-2 bg-blue-50 text-blue-600 rounded-xl border border-blue-100 shadow-2xs">
+                    <BookOpen className="w-4 h-4 text-blue-600" />
+                  </div>
+                  <div>
+                    <h2 className="text-sm font-extrabold text-slate-900 tracking-tight flex items-center">
+                      Live Candidate Examination Status (Exam-Based)
+                      <span className="ml-2.5 inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-200">
+                        <span className="w-1.5 h-1.5 rounded-full bg-blue-500 mr-1 animate-pulse"></span>
+                        Live Telemetry
+                      </span>
+                    </h2>
+                    <p className="text-xs text-slate-500 font-medium mt-0.5">
+                      Real-time breakdown of candidates taking, submitted, force submitted, and terminated across examinations
+                    </p>
+                  </div>
+                </div>
+
+                {selectedExamFilter !== 'ALL' && (
+                  <button
+                    onClick={() => setSelectedExamFilter('ALL')}
+                    className="inline-flex items-center space-x-1.5 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-lg transition-colors cursor-pointer self-start sm:self-auto"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                    <span>Clear Filter (Show All Exams)</span>
+                  </button>
+                )}
+              </div>
+
+              {/* Cards Grid: All Exams Summary Card + Individual Exam Cards */}
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3.5">
+                {/* "All Exams" Card */}
+                <div
+                  onClick={() => setSelectedExamFilter('ALL')}
+                  className={`p-4 rounded-xl border-2 transition-all cursor-pointer ${
+                    selectedExamFilter === 'ALL'
+                      ? 'border-blue-600 bg-blue-50/40 shadow-sm ring-2 ring-blue-500/20'
+                      : 'border-slate-200 hover:border-slate-300 bg-slate-50/50 hover:bg-white'
+                  }`}
+                >
+                  <div className="flex items-center justify-between mb-3">
+                    <span className="text-xs font-extrabold text-slate-900 flex items-center">
+                      <BarChart3 className="w-3.5 h-3.5 mr-1.5 text-blue-600" />
+                      All Examinations Summary
+                    </span>
+                    <span className="text-[11px] font-bold bg-white text-slate-700 px-2 py-0.5 rounded-full border border-slate-200 shadow-2xs font-mono">
+                      {totalCandidatesCount} Candidates
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-4 gap-1.5 text-center">
+                    <div className="bg-blue-50/90 p-2 rounded-lg border border-blue-200">
+                      <div className="flex items-center justify-center space-x-1">
+                        <span className="w-1.5 h-1.5 bg-blue-500 rounded-full animate-ping"></span>
+                        <span className="text-xs font-black text-blue-700">{totalInProgressCount}</span>
+                      </div>
+                      <span className="text-[9px] font-extrabold uppercase text-blue-600 tracking-wider block mt-0.5">In Progress</span>
+                    </div>
+
+                    <div className="bg-emerald-50/90 p-2 rounded-lg border border-emerald-200">
+                      <span className="text-xs font-black text-emerald-700 block">{totalSubmittedCount}</span>
+                      <span className="text-[9px] font-extrabold uppercase text-emerald-600 tracking-wider block mt-0.5">Submitted</span>
+                    </div>
+
+                    <div className="bg-amber-50/90 p-2 rounded-lg border border-amber-200">
+                      <span className="text-xs font-black text-amber-700 block">{totalForceSubmittedCount}</span>
+                      <span className="text-[9px] font-extrabold uppercase text-amber-600 tracking-wider block mt-0.5">Force Sub</span>
+                    </div>
+
+                    <div className="bg-rose-50/90 p-2 rounded-lg border border-rose-200">
+                      <span className="text-xs font-black text-rose-700 block">{totalTerminatedCount}</span>
+                      <span className="text-[9px] font-extrabold uppercase text-rose-600 tracking-wider block mt-0.5">Terminated</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Per-Exam Cards */}
+                {examStatsList.map((stat) => {
+                  const isSelected = selectedExamFilter === stat.examId || selectedExamFilter === stat.examName;
+
+                  return (
+                    <div
+                      key={stat.examId}
+                      onClick={() => setSelectedExamFilter(isSelected ? 'ALL' : stat.examId)}
+                      className={`p-4 rounded-xl border-2 transition-all cursor-pointer ${
+                        isSelected
+                          ? 'border-blue-600 bg-blue-50/40 shadow-sm ring-2 ring-blue-500/20'
+                          : 'border-slate-200 hover:border-blue-300 bg-white hover:bg-slate-50/40'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between mb-3">
+                        <span className="text-xs font-extrabold text-slate-900 truncate pr-2" title={stat.examName}>
+                          {stat.examName}
+                        </span>
+                        <span className="text-[11px] font-bold bg-slate-100 text-slate-700 px-2 py-0.5 rounded-full border border-slate-200 shrink-0 font-mono">
+                          {stat.total}
+                        </span>
+                      </div>
+
+                      <div className="grid grid-cols-4 gap-1.5 text-center">
+                        <div className="bg-blue-50/90 p-2 rounded-lg border border-blue-200">
+                          <div className="flex items-center justify-center space-x-1">
+                            {stat.inProgress > 0 && <span className="w-1.5 h-1.5 bg-blue-500 rounded-full animate-ping"></span>}
+                            <span className="text-xs font-black text-blue-700">{stat.inProgress}</span>
+                          </div>
+                          <span className="text-[9px] font-extrabold uppercase text-blue-600 tracking-wider block mt-0.5">In Progress</span>
+                        </div>
+
+                        <div className="bg-emerald-50/90 p-2 rounded-lg border border-emerald-200">
+                          <span className="text-xs font-black text-emerald-700 block">{stat.submitted}</span>
+                          <span className="text-[9px] font-extrabold uppercase text-emerald-600 tracking-wider block mt-0.5">Submitted</span>
+                        </div>
+
+                        <div className="bg-amber-50/90 p-2 rounded-lg border border-amber-200">
+                          <span className="text-xs font-black text-amber-700 block">{stat.forceSubmitted}</span>
+                          <span className="text-[9px] font-extrabold uppercase text-amber-600 tracking-wider block mt-0.5">Force Sub</span>
+                        </div>
+
+                        <div className="bg-rose-50/90 p-2 rounded-lg border border-rose-200">
+                          <span className="text-xs font-black text-rose-700 block">{stat.terminated}</span>
+                          <span className="text-[9px] font-extrabold uppercase text-rose-600 tracking-wider block mt-0.5">Terminated</span>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Filter and Search Bar */}
-        <div className="px-8 pt-6 pb-2 z-10 flex flex-col sm:flex-row gap-4 justify-between items-center">
-          <div className="relative w-full sm:w-96">
+        <div className="px-8 pt-4 pb-2 z-10 flex flex-col xl:flex-row gap-4 justify-between items-start xl:items-center">
+          <div className="relative w-full xl:w-96">
             <Search className="w-4 h-4 absolute left-3 top-3 text-slate-400" />
             <input 
               type="text" 
@@ -833,37 +1145,70 @@ export default function CandidateExamRecordsPage() {
             )}
           </div>
 
-          <div className="flex items-center space-x-1 bg-white p-1 rounded-xl border border-slate-200 text-xs font-semibold shadow-sm w-full sm:w-auto">
+          <div className="flex items-center space-x-1 bg-white p-1 rounded-xl border border-slate-200 text-xs font-semibold shadow-sm w-full xl:w-auto overflow-x-auto">
             <button 
               onClick={() => setStatusFilter('ALL')}
-              className={`px-3.5 py-1.5 rounded-lg transition-all ${
+              className={`px-3 py-1.5 rounded-lg transition-all whitespace-nowrap cursor-pointer ${
                 statusFilter === 'ALL' 
-                  ? 'bg-blue-600 text-white shadow-sm' 
+                  ? 'bg-blue-600 text-white shadow-sm font-bold' 
                   : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
               }`}
             >
-              All Candidates ({candidates.length})
-            </button>
-            <button 
-              onClick={() => setStatusFilter('COMPLETED')}
-              className={`px-3.5 py-1.5 rounded-lg transition-all ${
-                statusFilter === 'COMPLETED' 
-                  ? 'bg-blue-600 text-white shadow-sm' 
-                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
-              }`}
-            >
-              Submitted / Written ({completedCandidatesCount})
+              All ({currentExamTotal})
             </button>
             <button 
               onClick={() => setStatusFilter('IN_PROGRESS')}
-              className={`px-3.5 py-1.5 rounded-lg transition-all ${
+              className={`px-3 py-1.5 rounded-lg transition-all flex items-center whitespace-nowrap cursor-pointer ${
                 statusFilter === 'IN_PROGRESS' 
-                  ? 'bg-blue-600 text-white shadow-sm' 
+                  ? 'bg-sky-600 text-white shadow-sm font-bold' 
                   : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
               }`}
             >
-              In Progress ({candidates.length - completedCandidatesCount})
+              <span className={`w-1.5 h-1.5 rounded-full mr-1.5 ${statusFilter === 'IN_PROGRESS' ? 'bg-white' : 'bg-sky-500'} animate-ping`}></span>
+              In Progress ({currentExamInProgress})
             </button>
+            <button 
+              onClick={() => setStatusFilter('SUBMITTED')}
+              className={`px-3 py-1.5 rounded-lg transition-all whitespace-nowrap cursor-pointer ${
+                statusFilter === 'SUBMITTED' 
+                  ? 'bg-emerald-600 text-white shadow-sm font-bold' 
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
+              }`}
+            >
+              Submitted ({currentExamSubmitted})
+            </button>
+            <button 
+              onClick={() => setStatusFilter('FORCE_SUBMITTED')}
+              className={`px-3 py-1.5 rounded-lg transition-all whitespace-nowrap cursor-pointer ${
+                statusFilter === 'FORCE_SUBMITTED' 
+                  ? 'bg-amber-600 text-white shadow-sm font-bold' 
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
+              }`}
+            >
+              Force Submitted ({currentExamForceSubmitted})
+            </button>
+            <button 
+              onClick={() => setStatusFilter('TERMINATED')}
+              className={`px-3 py-1.5 rounded-lg transition-all whitespace-nowrap cursor-pointer ${
+                statusFilter === 'TERMINATED' 
+                  ? 'bg-rose-600 text-white shadow-sm font-bold' 
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
+              }`}
+            >
+              Terminated ({currentExamTerminated})
+            </button>
+            {currentExamAssigned > 0 && (
+              <button 
+                onClick={() => setStatusFilter('ASSIGNED')}
+                className={`px-3 py-1.5 rounded-lg transition-all whitespace-nowrap cursor-pointer ${
+                  statusFilter === 'ASSIGNED' 
+                    ? 'bg-slate-700 text-white shadow-sm font-bold' 
+                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
+                }`}
+              >
+                Assigned ({currentExamAssigned})
+              </button>
+            )}
           </div>
         </div>
 
@@ -1268,7 +1613,7 @@ export default function CandidateExamRecordsPage() {
                                 </div>
                               </div>
                             </div>
-                          ) : (v.hasScreenshot !== false) ? (
+                          ) : (v.id || v._id) ? (
                             <div className="mt-1">
                               <button
                                 type="button"
@@ -1731,7 +2076,7 @@ export default function CandidateExamRecordsPage() {
                             </div>
                           </div>
                         </div>
-                      ) : (v.hasScreenshot !== false) ? (
+                      ) : (v.id || v._id) ? (
                         <div className="sm:w-48 shrink-0 flex flex-col justify-center">
                           <button
                             type="button"

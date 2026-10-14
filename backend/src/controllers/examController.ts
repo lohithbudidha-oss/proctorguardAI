@@ -198,11 +198,136 @@ import Assignment, { AssignmentStatus } from '../models/Assignment';
 import User, { Role } from '../models/User';
 import Attempt from '../models/Attempt';
 
+export const getExamStats = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const exams = await Exam.find().select('_id title duration status').sort({ createdAt: -1 }).lean();
+
+    const examIds = exams.map(e => e._id);
+    const [attempts, assignments] = await Promise.all([
+      Attempt.find({ examId: { $in: examIds } })
+        .select('examId candidateId status startedAt submittedAt')
+        .sort({ createdAt: -1 })
+        .lean(),
+      Assignment.find({ examId: { $in: examIds } })
+        .select('examId candidateId status')
+        .lean()
+    ]);
+
+    const statsMap = new Map<string, {
+      examId: string;
+      examTitle: string;
+      duration: number;
+      examStatus: string;
+      total: number;
+      inProgress: number;
+      submitted: number;
+      forceSubmitted: number;
+      terminated: number;
+      assigned: number;
+    }>();
+
+    for (const exam of exams) {
+      statsMap.set(exam._id.toString(), {
+        examId: exam._id.toString(),
+        examTitle: exam.title,
+        duration: exam.duration,
+        examStatus: exam.status,
+        total: 0,
+        inProgress: 0,
+        submitted: 0,
+        forceSubmitted: 0,
+        terminated: 0,
+        assigned: 0
+      });
+    }
+
+    const processedCandidateExamPairs = new Set<string>();
+
+    for (const att of attempts) {
+      const eId = att.examId?.toString();
+      const cId = att.candidateId?.toString();
+      if (!eId || !statsMap.has(eId)) continue;
+
+      const key = `${eId}_${cId}`;
+      if (processedCandidateExamPairs.has(key)) continue;
+      processedCandidateExamPairs.add(key);
+
+      const entry = statsMap.get(eId)!;
+      entry.total++;
+
+      const s = (att.status || '').toUpperCase();
+      if (s === 'TERMINATED') {
+        entry.terminated++;
+      } else if (s === 'FORCE_SUBMITTED' || s === 'FORCEFULLY_SUBMITTED') {
+        entry.forceSubmitted++;
+      } else if (s === 'SUBMITTED' || s === 'AUTO_SUBMITTED' || s === 'COMPLETED') {
+        entry.submitted++;
+      } else if (s === 'IN_PROGRESS' || s === 'PAUSED' || s === 'LOCKED') {
+        entry.inProgress++;
+      } else {
+        entry.assigned++;
+      }
+    }
+
+    for (const assign of assignments) {
+      const eId = assign.examId?.toString();
+      const cId = assign.candidateId?.toString();
+      if (!eId || !statsMap.has(eId)) continue;
+
+      const key = `${eId}_${cId}`;
+      if (processedCandidateExamPairs.has(key)) continue;
+      processedCandidateExamPairs.add(key);
+
+      const entry = statsMap.get(eId)!;
+      entry.total++;
+      entry.assigned++;
+    }
+
+    const stats = Array.from(statsMap.values());
+
+    const totals = stats.reduce((acc, curr) => ({
+      total: acc.total + curr.total,
+      inProgress: acc.inProgress + curr.inProgress,
+      submitted: acc.submitted + curr.submitted,
+      forceSubmitted: acc.forceSubmitted + curr.forceSubmitted,
+      terminated: acc.terminated + curr.terminated,
+      assigned: acc.assigned + curr.assigned
+    }), { total: 0, inProgress: 0, submitted: 0, forceSubmitted: 0, terminated: 0, assigned: 0 });
+
+    res.status(200).json({ success: true, stats, totals });
+  } catch (err) {
+    next(err);
+  }
+};
+
 export const getExamCandidates = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { id: examId } = req.params;
-    const assignments = await Assignment.find({ examId }).populate('candidateId', 'name email status');
-    res.status(200).json({ success: true, candidates: assignments });
+    const assignments = await Assignment.find({ examId }).populate('candidateId', 'name email status').lean();
+
+    const attempts = await Attempt.find({ examId }).select('candidateId status score percentage submittedAt startedAt').sort({ createdAt: -1 }).lean();
+    const attemptMap = new Map<string, any>();
+    for (const att of attempts) {
+      const cId = att.candidateId?.toString();
+      if (cId && !attemptMap.has(cId)) {
+        attemptMap.set(cId, att);
+      }
+    }
+
+    const candidatesWithAttemptStatus = assignments.map((a: any) => {
+      const cId = (a.candidateId?._id || a.candidateId)?.toString();
+      const att = cId ? attemptMap.get(cId) : null;
+      return {
+        ...a,
+        attemptStatus: att ? att.status : 'ASSIGNED',
+        score: att?.score,
+        percentage: att?.percentage,
+        submittedAt: att?.submittedAt,
+        startedAt: att?.startedAt
+      };
+    });
+
+    res.status(200).json({ success: true, candidates: candidatesWithAttemptStatus });
   } catch (err) {
     next(err);
   }

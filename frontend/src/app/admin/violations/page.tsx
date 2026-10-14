@@ -46,6 +46,11 @@ interface ViolationItem {
   };
   attemptId?: {
     _id?: string;
+    candidateId?: {
+      _id?: string;
+      name?: string;
+      email?: string;
+    };
     examId?: {
       _id?: string;
       title?: string;

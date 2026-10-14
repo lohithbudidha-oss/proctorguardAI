@@ -95,5 +95,6 @@ const ViolationEventSchema: Schema = new Schema({
 ViolationEventSchema.index({ attemptId: 1, detectedAt: -1 });
 ViolationEventSchema.index({ candidateId: 1, detectedAt: -1 });
 ViolationEventSchema.index({ detectedAt: -1 });
+ViolationEventSchema.index({ hasScreenshot: 1 });
 
 export default mongoose.model<IViolationEvent>('ViolationEvent', ViolationEventSchema);

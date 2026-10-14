@@ -155,9 +155,9 @@ export const getLiveCandidates = async (req: Request, res: Response, next: NextF
       })
         // IMPORTANT: Exclude snapshotImage/screenshot from initial fetch to prevent 45s timeouts.
         // Heavy base64 images are served on-demand via GET /api/admin/violations/:id/proof
-        .select('attemptId candidateId type severity detectedAt description actionTaken driveUrl driveFolderUrl')
-        .sort({ _id: -1 })
-        .limit(200)
+        .select('_id attemptId candidateId type severity detectedAt description actionTaken hasScreenshot driveUrl driveFolderUrl')
+        .sort({ detectedAt: -1 })
+        .limit(250)
         .lean()
     ]);
 
@@ -180,7 +180,8 @@ export const getLiveCandidates = async (req: Request, res: Response, next: NextF
         description: v.description || '',
         // No inline screenshot — use /api/admin/violations/:id/proof for on-demand loading
         screenshot: '',
-        hasScreenshot: Boolean((v as any).hasScreenshot || (v as any).driveUrl || (v as any).driveFolderUrl),
+        // If hasScreenshot field is not yet set on past records, allow on-demand proof check
+        hasScreenshot: (v as any).hasScreenshot !== undefined ? Boolean((v as any).hasScreenshot) : true,
         driveUrl: (v as any).driveUrl || '',
         actionTaken: v.actionTaken
       };
@@ -376,7 +377,7 @@ export const getViolations = async (req: Request, res: Response, next: NextFunct
     const rawViolations = await ViolationEvent.find()
       // IMPORTANT: Exclude screenshot/snapshotImage to prevent memory saturation and 45s timeouts.
       // Full screenshot data is served on-demand via GET /api/admin/violations/:id/proof
-      .select('_id candidateId attemptId type severity detectedAt description actionTaken driveUrl driveFolderUrl')
+      .select('_id candidateId attemptId type severity detectedAt description actionTaken hasScreenshot driveUrl driveFolderUrl')
       .sort({ detectedAt: -1 })
       .limit(limit)
       .lean();
@@ -476,8 +477,8 @@ export const getViolations = async (req: Request, res: Response, next: NextFunct
         detectedAt: v.detectedAt,
         description: v.description || '',
         actionTaken: v.actionTaken || 'LOG',
-        // hasScreenshot reflects whether proof image exists — read from the lightweight boolean field
-        hasScreenshot: Boolean(v.hasScreenshot || v.driveUrl || v.driveFolderUrl),
+        // hasScreenshot reflects whether proof image exists — fallback to true if not yet migrated
+        hasScreenshot: (v as any).hasScreenshot !== undefined ? Boolean((v as any).hasScreenshot) : true,
         screenshot: '', // fetch on-demand via GET /api/admin/violations/:id/proof
         driveUrl: v.driveUrl || v.driveFolderUrl
       };
@@ -745,7 +746,7 @@ export const getCandidateAnswers = async (req: Request, res: Response, next: Nex
         severity: v.severity,
         description: v.description,
         // screenshot served on-demand via GET /api/admin/violations/:id/proof
-        hasScreenshot: Boolean(v.hasScreenshot || v.driveUrl),
+        hasScreenshot: (v as any).hasScreenshot !== undefined ? Boolean((v as any).hasScreenshot) : true,
         screenshot: '',
         driveUrl: v.driveUrl || v.driveFolderUrl || '',
         detectedAt: v.detectedAt || v.createdAt

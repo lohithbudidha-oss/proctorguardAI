@@ -27,6 +27,22 @@ const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/aptitu
 mongoose.connect(MONGODB_URI)
   .then(() => {
     console.log('Connected to MongoDB');
+    
+    // Background migration: set hasScreenshot: true on past violations with screenshots/drive proofs
+    import('./models/ViolationEvent').then(({ default: ViolationEvent }) => {
+      ViolationEvent.updateMany(
+        {
+          hasScreenshot: { $ne: true },
+          $or: [
+            { screenshot: { $exists: true, $ne: '' } },
+            { snapshotImage: { $exists: true, $ne: '' } },
+            { driveUrl: { $exists: true, $ne: '' } }
+          ]
+        },
+        { $set: { hasScreenshot: true } }
+      ).exec().catch(() => {});
+    }).catch(() => {});
+
     server.listen(port, () => {
       console.log(`Server running on port ${port}`);
     });
