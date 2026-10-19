@@ -2,15 +2,12 @@
 
 import React from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
-import { ShieldCheck, UserCheck, MonitorPlay, Lock } from 'lucide-react';
+import { ShieldCheck, UserCheck, MonitorPlay } from 'lucide-react';
 
 import PublicNavbar from '@/components/PublicNavbar';
 import PublicFooter from '@/components/PublicFooter';
 
 export default function LandingPage() {
-  const router = useRouter();
-
   // Background wake-up ping to ensure backend is fully warm and awake before user logs in
   React.useEffect(() => {
     try {
@@ -18,29 +15,6 @@ export default function LandingPage() {
       fetch(`${liveUrl}/health`, { method: 'GET' }).catch(() => {});
     } catch {}
   }, []);
-
-  const handleAdminPortalClick = (e: React.MouseEvent) => {
-    e.preventDefault();
-    const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
-    let isAdmin = false;
-    if (token) {
-      try {
-        const parts = token.split('.');
-        if (parts.length >= 2) {
-          const payload = JSON.parse(atob(parts[1]));
-          if (payload.role === 'ADMIN' || payload.role === 'PROCTOR') {
-            isAdmin = !payload.exp || (payload.exp * 1000 > Date.now());
-          }
-        }
-      } catch {}
-    }
-
-    if (isAdmin) {
-      router.push('/admin/monitoring');
-    } else {
-      router.push('/login?role=admin');
-    }
-  };
 
   return (
     <div className="min-h-screen flex flex-col font-sans bg-white">
@@ -55,16 +29,13 @@ export default function LandingPage() {
             AI-assisted exam integrity, continuous environmental monitoring, and comprehensive evidence capture to ensure fair and secure testing for organizations worldwide.
           </p>
           
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-4 sm:gap-6">
-            <Link href="/login" className="w-full sm:w-auto min-w-[200px] px-8 py-4 bg-blue-600 text-white rounded-xl font-bold text-lg hover:bg-blue-700 shadow-md hover:shadow-lg transition-all duration-200 text-center">
+          <div className="flex items-center justify-center">
+            <Link 
+              href="/login" 
+              className="w-full sm:w-auto min-w-[220px] px-9 py-4 bg-blue-600 text-white rounded-xl font-bold text-lg hover:bg-blue-700 shadow-md hover:shadow-lg transition-all duration-200 text-center inline-flex items-center justify-center"
+            >
               Candidate Login
             </Link>
-            <button 
-              onClick={handleAdminPortalClick} 
-              className="w-full sm:w-auto min-w-[200px] px-8 py-4 bg-white text-slate-800 border-2 border-slate-200 rounded-xl font-bold text-lg hover:border-blue-600 hover:text-blue-600 shadow-sm transition-all duration-200 flex items-center justify-center cursor-pointer"
-            >
-              <Lock className="w-5 h-5 mr-2 text-slate-500" /> Admin Portal
-            </button>
           </div>
         </div>
 
