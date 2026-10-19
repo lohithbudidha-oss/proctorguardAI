@@ -1,38 +1,40 @@
 import app from '../src/app';
 import mongoose from 'mongoose';
-import { Request, Response, NextFunction } from 'express';
+import { Request, Response } from 'express';
 
 const MONGODB_URI = process.env.MONGODB_URI || process.env.MONGODB_URL || (process.env.NODE_ENV === 'production'
   ? undefined
   : 'mongodb://localhost:27017/aptitude_portal');
 
-// Serverless DB Connection Middleware: Ensures MongoDB connection is ready before processing API routes
-app.use(async (req: Request, res: Response, next: NextFunction) => {
+async function connectToDatabase() {
+  if (mongoose.connection.readyState === 1) return;
+  if (!MONGODB_URI) throw new Error('MONGODB_URI or MONGODB_URL is required in production');
+
+  if (mongoose.connection.readyState === 2) {
+    await mongoose.connection.asPromise();
+    return;
+  }
+
+  await mongoose.connect(MONGODB_URI);
+}
+
+export default async function handler(req: Request, res: Response) {
   const pathname = (req.url || '').split('?')[0];
-  // Health checks and root routes should never be blocked by DB state
-  if (req.method === 'OPTIONS' || pathname === '/' || pathname === '' || pathname === '/health' || pathname === '/api/health') {
-    return next();
-  }
-
-  if (mongoose.connection.readyState === 1) {
-    return next();
-  }
-
-  if (!MONGODB_URI) {
-    console.error('MONGODB_URI or MONGODB_URL is missing in environment variables.');
-    return res.status(503).json({
-      success: false,
-      error: { code: 'DATABASE_CONFIG_MISSING', message: 'Database configuration missing in environment variables.' }
-    });
+  // Health checks, root, socket.io, and OPTIONS requests should never be blocked by DB connection
+  if (
+    req.method === 'OPTIONS' ||
+    pathname === '/' ||
+    pathname === '' ||
+    pathname === '/health' ||
+    pathname === '/api/health' ||
+    pathname.startsWith('/socket.io')
+  ) {
+    return app(req, res);
   }
 
   try {
-    if (mongoose.connection.readyState === 2) {
-      await mongoose.connection.asPromise();
-    } else {
-      await mongoose.connect(MONGODB_URI);
-    }
-    next();
+    await connectToDatabase();
+    return app(req, res);
   } catch (error: any) {
     console.error('Vercel MongoDB connection failed:', error);
     const reqOrigin = (req.headers.origin as string) || '';
@@ -51,8 +53,4 @@ app.use(async (req: Request, res: Response, next: NextFunction) => {
       }
     });
   }
-});
-
-// Primary serverless export for Vercel
-module.exports = app;
-export default app;
+}
