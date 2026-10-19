@@ -29,7 +29,9 @@ import {
   Sparkles,
   Download,
   UserCheck,
-  LifeBuoy
+  LifeBuoy,
+  BookOpen,
+  ChevronDown
 } from 'lucide-react';
 import api from '@/lib/api';
 import { sanitizeSearchInput } from '@/lib/sanitize';
@@ -113,6 +115,12 @@ export default function AdminResultsPage() {
       const u = localStorage.getItem('user');
       if (u) setAdminProfile(JSON.parse(u));
     } catch (e) {}
+
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      const eParam = params.get('examId') || params.get('exam');
+      if (eParam) setSelectedExamFilter(eParam);
+    }
   }, []);
 
   const fetchResults = async (isManual = false) => {
@@ -255,6 +263,22 @@ export default function AdminResultsPage() {
       return tokens.every(t => blob.includes(t));
     });
   }, [results, selectedExamFilter, statusFilter, searchQuery]);
+
+  // Exam filter dropdown options
+  const examFilterOptions = useMemo(() => {
+    const map = new Map<string, { id: string; name: string; count: number }>();
+    results.forEach(r => {
+      const eId = r.examId?._id;
+      const eName = r.examId?.title;
+      if (eId && eName) {
+        if (!map.has(eId)) {
+          map.set(eId, { id: eId, name: eName, count: 0 });
+        }
+        map.get(eId)!.count++;
+      }
+    });
+    return Array.from(map.values()).sort((a, b) => b.count - a.count);
+  }, [results]);
 
   // Overall statistics
   const stats = useMemo(() => {
@@ -440,27 +464,58 @@ export default function AdminResultsPage() {
         </div>
 
         {/* Search & Filter Toolbar */}
-        <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-xs mb-6 flex flex-col md:flex-row items-center justify-between gap-4">
-          <div className="relative w-full md:w-96">
-            <Search className="w-4 h-4 absolute left-3.5 top-3 text-slate-400" />
-            <input 
-              type="text" 
-              placeholder="Search candidate name, email, exam title..." 
-              value={searchQuery}
-              onChange={e => setSearchQuery(sanitizeSearchInput(e.target.value))}
-              className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-9.5 pr-9 py-2 text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition shadow-xs"
-            />
-            {searchQuery && (
-              <button 
-                onClick={() => setSearchQuery('')}
-                className="absolute right-3 top-2.5 text-slate-400 hover:text-slate-600 transition-colors p-0.5 rounded-full hover:bg-slate-200"
-              >
-                <X className="w-3.5 h-3.5" />
-              </button>
+        <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-xs mb-6 flex flex-col xl:flex-row items-stretch xl:items-center justify-between gap-4">
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full xl:w-auto flex-1 max-w-3xl">
+            <div className="relative flex-1 min-w-[240px]">
+              <Search className="w-4 h-4 absolute left-3.5 top-3 text-slate-400" />
+              <input 
+                type="text" 
+                placeholder="Search candidate name, email, exam title..." 
+                value={searchQuery}
+                onChange={e => setSearchQuery(sanitizeSearchInput(e.target.value))}
+                className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-9.5 pr-9 py-2 text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition shadow-xs"
+              />
+              {searchQuery && (
+                <button 
+                  onClick={() => setSearchQuery('')}
+                  className="absolute right-3 top-2.5 text-slate-400 hover:text-slate-600 transition-colors p-0.5 rounded-full hover:bg-slate-200"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              )}
+            </div>
+
+            {/* Filter by Exam */}
+            {examFilterOptions.length > 0 && (
+              <div className="relative w-full sm:w-64 shrink-0">
+                <div className="relative flex items-center">
+                  <BookOpen className={`w-4 h-4 absolute left-3 pointer-events-none transition-colors ${selectedExamFilter !== 'ALL' ? 'text-blue-600' : 'text-slate-400'}`} />
+                  <select
+                    value={selectedExamFilter}
+                    onChange={e => setSelectedExamFilter(e.target.value)}
+                    className={`w-full appearance-none bg-slate-50 border rounded-xl pl-9 pr-8 py-2 text-xs font-bold transition shadow-xs cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500/20 ${
+                      selectedExamFilter !== 'ALL'
+                        ? 'border-blue-500 text-blue-700 bg-blue-50/50 ring-1 ring-blue-500/30'
+                        : 'border-slate-200 text-slate-700 hover:border-slate-300'
+                    }`}
+                    title="Filter results by examination"
+                  >
+                    <option value="ALL">All Examinations ({results.length})</option>
+                    {examFilterOptions.map(opt => (
+                      <option key={opt.id} value={opt.id}>
+                        {opt.name} ({opt.count})
+                      </option>
+                    ))}
+                  </select>
+                  <div className="absolute right-3 flex items-center pointer-events-none text-slate-400">
+                    <ChevronDown className="w-4 h-4" />
+                  </div>
+                </div>
+              </div>
             )}
           </div>
 
-          <div className="flex items-center space-x-1.5 overflow-x-auto w-full md:w-auto">
+          <div className="flex items-center space-x-1.5 overflow-x-auto w-full xl:w-auto">
             {(['ALL', 'PASS', 'FAIL', 'APPROVED', 'PENDING', 'FLAGGED'] as const).map(tab => (
               <button
                 key={tab}

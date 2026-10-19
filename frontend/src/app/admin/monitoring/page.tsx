@@ -35,7 +35,9 @@ import {
   UserCheck,
   ArrowRight,
   LifeBuoy,
-  RefreshCw
+  RefreshCw,
+  Filter,
+  ChevronDown
 } from 'lucide-react';
 import api from '@/lib/api';
 import { getViolationInfo } from '@/lib/violations';
@@ -96,6 +98,18 @@ export default function CandidateExamRecordsPage() {
   type StatusFilterType = 'ALL' | 'IN_PROGRESS' | 'SUBMITTED' | 'FORCE_SUBMITTED' | 'TERMINATED' | 'ASSIGNED';
   const [statusFilter, setStatusFilter] = useState<StatusFilterType>('ALL');
   const [selectedExamFilter, setSelectedExamFilter] = useState<string>('ALL');
+  const [allExams, setAllExams] = useState<{ _id: string; title: string }[]>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const cached = sessionStorage.getItem('pg_cached_admin_exams');
+        if (cached) {
+          const list = JSON.parse(cached);
+          return list.map((e: any) => ({ _id: e._id || e.id, title: e.title }));
+        }
+      } catch (e) {}
+    }
+    return [];
+  });
   const [selectedProofModal, setSelectedProofModal] = useState<{
     image: string;
     type: string;
@@ -220,6 +234,19 @@ export default function CandidateExamRecordsPage() {
         try { sessionStorage.setItem('pg_cached_tickets_count', String(res.data.stats.open)); } catch (e) {}
       }
     }).catch(() => {});
+  };
+
+  const fetchAllExams = () => {
+    api.get('/admin/exams').then(res => {
+      const list = res.data?.exams || [];
+      const parsed = list.map((e: any) => ({ _id: e._id || e.id, title: e.title }));
+      setAllExams(parsed);
+      try {
+        sessionStorage.setItem('pg_cached_admin_exams', JSON.stringify(list));
+      } catch (e) {}
+    }).catch(err => {
+      console.warn('Failed to fetch exams for candidate filter', err);
+    });
   };
 
   useEffect(() => {
@@ -405,11 +432,13 @@ export default function CandidateExamRecordsPage() {
 
   useEffect(() => {
     fetchCandidateRecords();
+    fetchAllExams();
     fetchPendingApprovalsCount();
     fetchOpenTicketsCount();
 
     const interval = setInterval(() => {
       fetchCandidateRecords();
+      fetchAllExams();
       fetchPendingApprovalsCount();
     }, 25000);
 
@@ -627,6 +656,23 @@ export default function CandidateExamRecordsPage() {
   };
 
   // Live Exam-Based Candidate Status Breakdown
+  const isCandidateMatchingExam = (cand: CandidateExamRecord, filterVal: string) => {
+    if (filterVal === 'ALL') return true;
+    if (cand.examId && String(cand.examId) === String(filterVal)) return true;
+    if (cand.examName && cand.examName.toLowerCase() === filterVal.toLowerCase()) return true;
+
+    // Cross-match with allExams list
+    const matchedById = allExams.find(e => String(e._id) === String(filterVal));
+    if (matchedById && cand.examName && cand.examName.toLowerCase() === matchedById.title.toLowerCase()) {
+      return true;
+    }
+    const matchedByTitle = allExams.find(e => e.title.toLowerCase() === filterVal.toLowerCase());
+    if (matchedByTitle && cand.examId && String(cand.examId) === String(matchedByTitle._id)) {
+      return true;
+    }
+    return false;
+  };
+
   const examStatsList = useMemo(() => {
     const map = new Map<string, {
       examId: string;
@@ -675,6 +721,48 @@ export default function CandidateExamRecordsPage() {
     return Array.from(map.values());
   }, [candidates]);
 
+  // Exam Filter Options for the Select dropdown
+  const examFilterOptions = useMemo(() => {
+    const map = new Map<string, { id: string; name: string; candidateCount: number }>();
+
+    // 1. Incorporate all exams from backend
+    allExams.forEach(e => {
+      const id = String(e._id);
+      const name = e.title;
+      const count = candidates.filter(c => isCandidateMatchingExam(c, id)).length;
+      map.set(id, { id, name, candidateCount: count });
+    });
+
+    // 2. Incorporate any exams present in candidate records (in case an exam is in records but not in allExams)
+    candidates.forEach(cand => {
+      const eId = cand.examId || cand.examName;
+      const eName = cand.examName || 'Assessment';
+      if (!eId) return;
+
+      const alreadyHas = Array.from(map.values()).some(
+        opt => opt.id === eId || opt.name.toLowerCase() === eName.toLowerCase()
+      );
+
+      if (!alreadyHas) {
+        const count = candidates.filter(c => isCandidateMatchingExam(c, eId)).length;
+        map.set(eId, { id: eId, name: eName, candidateCount: count });
+      }
+    });
+
+    return Array.from(map.values()).sort((a, b) => {
+      if (b.candidateCount !== a.candidateCount) {
+        return b.candidateCount - a.candidateCount;
+      }
+      return a.name.localeCompare(b.name);
+    });
+  }, [allExams, candidates]);
+
+  const activeExamName = useMemo(() => {
+    if (selectedExamFilter === 'ALL') return '';
+    const match = examFilterOptions.find(opt => opt.id === selectedExamFilter || opt.name.toLowerCase() === selectedExamFilter.toLowerCase());
+    return match ? match.name : selectedExamFilter;
+  }, [selectedExamFilter, examFilterOptions]);
+
   const totalCandidatesCount = candidates.length;
   const totalInProgressCount = useMemo(() => candidates.filter(c => isCandidateInProgress(c.status)).length, [candidates]);
   const totalSubmittedCount = useMemo(() => candidates.filter(c => isCandidateSubmitted(c.status)).length, [candidates]);
@@ -687,11 +775,8 @@ export default function CandidateExamRecordsPage() {
   // Candidate counts scoped to the currently selected exam
   const currentExamCandidates = useMemo(() => {
     if (selectedExamFilter === 'ALL') return candidates;
-    return candidates.filter(c => 
-      (c.examId && c.examId === selectedExamFilter) ||
-      (c.examName && c.examName.toLowerCase() === selectedExamFilter.toLowerCase())
-    );
-  }, [candidates, selectedExamFilter]);
+    return candidates.filter(c => isCandidateMatchingExam(c, selectedExamFilter));
+  }, [candidates, selectedExamFilter, allExams]);
 
   const currentExamTotal = currentExamCandidates.length;
   const currentExamInProgress = useMemo(() => currentExamCandidates.filter(c => isCandidateInProgress(c.status)).length, [currentExamCandidates]);
@@ -706,10 +791,7 @@ export default function CandidateExamRecordsPage() {
     return candidates.filter(c => {
       // Exam Filter
       if (selectedExamFilter !== 'ALL') {
-        const matchesExam = 
-          (c.examId && c.examId === selectedExamFilter) ||
-          (c.examName && c.examName.toLowerCase() === selectedExamFilter.toLowerCase());
-        if (!matchesExam) return false;
+        if (!isCandidateMatchingExam(c, selectedExamFilter)) return false;
       }
 
       // Status Filter
@@ -921,6 +1003,23 @@ export default function CandidateExamRecordsPage() {
               <span>Total Candidates: {totalCandidatesCount}</span>
             </button>
 
+            {selectedExamFilter !== 'ALL' && (
+              <span className="inline-flex items-center text-xs font-bold px-3 py-1.5 rounded-full border border-blue-300 bg-blue-100/70 text-blue-800 shadow-2xs whitespace-nowrap">
+                <BookOpen className="w-3.5 h-3.5 mr-1.5 text-blue-600" />
+                <span>Filtered: {activeExamName}</span>
+                <span className="ml-1.5 bg-blue-200 text-blue-900 text-[10px] px-1.5 py-0.2 rounded-full font-mono">
+                  {currentExamTotal}
+                </span>
+                <button
+                  onClick={() => setSelectedExamFilter('ALL')}
+                  className="ml-2 hover:bg-blue-200 p-0.5 rounded-full text-blue-700 cursor-pointer"
+                  title="Clear exam filter"
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              </span>
+            )}
+
             <button
               onClick={() => setStatusFilter(statusFilter === 'IN_PROGRESS' ? 'ALL' : 'IN_PROGRESS')}
               className={`inline-flex items-center text-xs font-bold px-3 py-1.5 rounded-full border transition-all cursor-pointer shadow-2xs whitespace-nowrap ${
@@ -1099,7 +1198,9 @@ export default function CandidateExamRecordsPage() {
 
                 {/* Per-Exam Cards */}
                 {examStatsList.map((stat) => {
-                  const isSelected = selectedExamFilter === stat.examId || selectedExamFilter === stat.examName;
+                  const isSelected = selectedExamFilter === stat.examId || 
+                                     selectedExamFilter === stat.examName ||
+                                     (activeExamName && stat.examName.toLowerCase() === activeExamName.toLowerCase());
 
                   return (
                     <div
@@ -1153,28 +1254,73 @@ export default function CandidateExamRecordsPage() {
         )}
 
         {/* Filter and Search Bar */}
-        <div className="px-8 pt-4 pb-2 z-10 flex flex-col xl:flex-row gap-4 justify-between items-start xl:items-center">
-          <div className="relative w-full xl:w-96">
-            <Search className="w-4 h-4 absolute left-3 top-3 text-slate-400" />
-            <input 
-              type="text" 
-              placeholder="Search candidate name, email, exam, status, violation..." 
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(sanitizeSearchInput(e.target.value))}
-              className="w-full bg-white border border-slate-200 rounded-xl pl-9 pr-9 py-2 text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition shadow-sm"
-            />
-            {searchQuery && (
-              <button 
-                onClick={() => setSearchQuery('')}
-                className="absolute right-3 top-2.5 text-slate-400 hover:text-slate-600 transition-colors p-0.5 rounded-full hover:bg-slate-100"
-                title="Clear search"
+        <div className="px-8 pt-4 pb-2 z-10 flex flex-col xl:flex-row gap-3.5 justify-between items-stretch xl:items-center">
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full xl:w-auto flex-1 max-w-4xl">
+            {/* Search Input */}
+            <div className="relative flex-1 min-w-[240px]">
+              <Search className="w-4 h-4 absolute left-3 top-3 text-slate-400 pointer-events-none" />
+              <input 
+                type="text" 
+                placeholder="Search candidate name, email, exam, status, violation..." 
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(sanitizeSearchInput(e.target.value))}
+                className="w-full bg-white border border-slate-200 rounded-xl pl-9 pr-9 py-2 text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition shadow-sm"
+              />
+              {searchQuery && (
+                <button 
+                  onClick={() => setSearchQuery('')}
+                  className="absolute right-3 top-2.5 text-slate-400 hover:text-slate-600 transition-colors p-0.5 rounded-full hover:bg-slate-100 cursor-pointer"
+                  title="Clear search"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              )}
+            </div>
+
+            {/* Filter by Exam Dropdown */}
+            <div className="relative w-full sm:w-72 shrink-0">
+              <div className="relative flex items-center">
+                <BookOpen className={`w-4 h-4 absolute left-3 pointer-events-none transition-colors ${selectedExamFilter !== 'ALL' ? 'text-blue-600' : 'text-slate-400'}`} />
+                <select 
+                  id="exam-filter-select"
+                  aria-label="Filter candidates by examination"
+                  value={selectedExamFilter}
+                  onChange={(e) => setSelectedExamFilter(e.target.value)}
+                  className={`w-full appearance-none bg-white border rounded-xl pl-9 pr-8 py-2 text-xs font-bold transition shadow-sm cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500/20 ${
+                    selectedExamFilter !== 'ALL'
+                      ? 'border-blue-500 text-blue-700 bg-blue-50/40 ring-1 ring-blue-500/30'
+                      : 'border-slate-200 text-slate-700 hover:border-slate-300'
+                  }`}
+                  title="Filter candidates by examination"
+                >
+                  <option value="ALL">All Examinations ({totalCandidatesCount} Candidates)</option>
+                  {examFilterOptions.map(opt => (
+                    <option key={opt.id} value={opt.id}>
+                      {opt.name} ({opt.candidateCount} {opt.candidateCount === 1 ? 'candidate' : 'candidates'})
+                    </option>
+                  ))}
+                </select>
+                <div className="absolute right-3 flex items-center pointer-events-none text-slate-400">
+                  <ChevronDown className="w-4 h-4" />
+                </div>
+              </div>
+            </div>
+
+            {/* Quick Clear Exam Filter Button */}
+            {selectedExamFilter !== 'ALL' && (
+              <button
+                onClick={() => setSelectedExamFilter('ALL')}
+                className="inline-flex items-center space-x-1.5 px-3 py-2 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-xl text-xs font-bold transition-all border border-blue-200 shrink-0 cursor-pointer shadow-2xs active:scale-95"
+                title="Reset exam filter to show all examinations"
               >
                 <X className="w-3.5 h-3.5" />
+                <span>All Exams</span>
               </button>
             )}
           </div>
 
-          <div className="flex items-center space-x-1 bg-white p-1 rounded-xl border border-slate-200 text-xs font-semibold shadow-sm w-full xl:w-auto overflow-x-auto">
+          {/* Status Filter Buttons */}
+          <div className="flex items-center space-x-1 bg-white p-1 rounded-xl border border-slate-200 text-xs font-semibold shadow-sm w-full xl:w-auto overflow-x-auto shrink-0">
             <button 
               onClick={() => setStatusFilter('ALL')}
               className={`px-3 py-1.5 rounded-lg transition-all whitespace-nowrap cursor-pointer ${
@@ -1241,6 +1387,36 @@ export default function CandidateExamRecordsPage() {
           </div>
         </div>
 
+        {/* Active Exam Filter Notification Pill */}
+        {selectedExamFilter !== 'ALL' && (
+          <div className="px-8 pt-1.5 pb-0.5 flex items-center gap-2 flex-wrap text-xs">
+            <span className="text-slate-500 font-semibold flex items-center">
+              <Filter className="w-3.5 h-3.5 mr-1 text-slate-400" />
+              Active Exam Filter:
+            </span>
+            <span className="inline-flex items-center bg-blue-50 text-blue-800 border border-blue-200 font-bold px-3 py-1 rounded-full shadow-2xs">
+              <BookOpen className="w-3.5 h-3.5 mr-1.5 text-blue-600" />
+              <span>{activeExamName}</span>
+              <span className="ml-2 bg-blue-200/70 text-blue-900 text-[10px] px-1.5 py-0.5 rounded-full font-mono">
+                {currentExamTotal} {currentExamTotal === 1 ? 'candidate' : 'candidates'}
+              </span>
+              <button
+                onClick={() => setSelectedExamFilter('ALL')}
+                className="ml-2 p-0.5 hover:bg-blue-200 rounded-full text-blue-600 hover:text-blue-900 transition-colors cursor-pointer"
+                title="Remove exam filter"
+              >
+                <X className="w-3 h-3" />
+              </button>
+            </span>
+            <button
+              onClick={() => setSelectedExamFilter('ALL')}
+              className="text-xs text-blue-600 hover:text-blue-800 font-bold hover:underline cursor-pointer ml-1"
+            >
+              Clear Filter
+            </button>
+          </div>
+        )}
+
         {/* Candidate Exam Info Cards Grid */}
         <main className="flex-1 p-8 overflow-y-auto z-10 custom-scrollbar">
           {loading ? (
@@ -1253,10 +1429,20 @@ export default function CandidateExamRecordsPage() {
               <Users className="w-16 h-16 mb-4 opacity-30 text-slate-400" />
               <h3 className="text-xl font-bold text-slate-700">No Candidate Records Found</h3>
               <p className="text-sm mt-2 max-w-sm text-center text-slate-500">
-                {searchQuery || statusFilter !== 'ALL'
+                {selectedExamFilter !== 'ALL'
+                  ? `No candidates found for exam "${activeExamName}"${statusFilter !== 'ALL' ? ` with status ${statusFilter.replace('_', ' ')}` : ''}.`
+                  : searchQuery || statusFilter !== 'ALL'
                   ? 'No candidates match your current search and status filter.'
                   : 'Candidates who have taken or are taking exams will appear here with full exam info.'}
               </p>
+              {selectedExamFilter !== 'ALL' && (
+                <button
+                  onClick={() => setSelectedExamFilter('ALL')}
+                  className="mt-4 px-4 py-2 bg-blue-50 hover:bg-blue-100 text-blue-700 text-xs font-bold rounded-xl border border-blue-200 transition-colors cursor-pointer"
+                >
+                  Show Candidates From All Exams
+                </button>
+              )}
             </div>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-5">
