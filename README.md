@@ -19,6 +19,7 @@ The platform follows a highly modular, real-time architecture:
 
 
 
+
 1. **Database Requirements**
    Ensure MongoDB is running locally on port `27017` or update the `MONGODB_URI` environment variable in the backend.
 
