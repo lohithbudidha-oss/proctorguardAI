@@ -198,12 +198,12 @@ export const saveAnswer = async (req: AuthRequest, res: Response, next: NextFunc
 export const submitAttempt = async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     const { attemptId } = req.params;
-    if (attemptId) {
-      markAttemptAsSubmitted(String(attemptId));
-    }
     const candidateId = req.user?.userId;
     if (!candidateId) {
       return res.status(401).json({ success: false, message: 'Unauthorized' });
+    }
+    if (attemptId) {
+      markAttemptAsSubmitted(String(attemptId), String(candidateId));
     }
 
     const attempt = await Attempt.findOne({ _id: attemptId, candidateId });
@@ -537,7 +537,7 @@ export const recordViolation = async (req: AuthRequest, res: Response, next: Nex
 
     // Do not record violations once the exam is submitted, completed, or terminated
     if (
-      isAttemptMarkedSubmitted(String(attemptId)) ||
+      isAttemptMarkedSubmitted(String(attemptId), String(finalCandidateId)) ||
       ['SUBMITTED', 'AUTO_SUBMITTED', 'FORCE_SUBMITTED', 'COMPLETED', 'TERMINATED', 'INVALIDATED'].includes(attempt.status) || 
       attempt.submittedAt
     ) {

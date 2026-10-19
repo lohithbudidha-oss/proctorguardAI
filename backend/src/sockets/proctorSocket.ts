@@ -19,17 +19,23 @@ interface AuthenticatedSocket extends Socket {
 let ioInstance: Server | null = null;
 export const getIO = (): Server | null => ioInstance;
 
-// Track attempts that candidate has clicked confirm & submit on, to prevent false violations
+// Track attempts and candidates that have clicked confirm & submit, to prevent false violations
 const submittedAttempts = new Set<string>();
+const submittedCandidates = new Set<string>();
 
-export const markAttemptAsSubmitted = (attemptId: string) => {
+export const markAttemptAsSubmitted = (attemptId: string, candidateId?: string) => {
   if (attemptId) {
     submittedAttempts.add(String(attemptId));
   }
+  if (candidateId) {
+    submittedCandidates.add(String(candidateId));
+  }
 };
 
-export const isAttemptMarkedSubmitted = (attemptId: string): boolean => {
-  return submittedAttempts.has(String(attemptId));
+export const isAttemptMarkedSubmitted = (attemptId: string, candidateId?: string): boolean => {
+  if (attemptId && submittedAttempts.has(String(attemptId))) return true;
+  if (candidateId && submittedCandidates.has(String(candidateId))) return true;
+  return false;
 };
 
 export const setupSockets = (io: Server) => {
@@ -73,15 +79,21 @@ export const setupSockets = (io: Server) => {
     }
 
     // Candidate submitting or submitted event
-    socket.on('attempt:submitting', (data: { attemptId: string }) => {
+    socket.on('attempt:submitting', (data: { attemptId?: string }) => {
       if (data?.attemptId) {
         submittedAttempts.add(String(data.attemptId));
       }
+      if (userId) {
+        submittedCandidates.add(String(userId));
+      }
     });
 
-    socket.on('attempt:submitted', (data: { attemptId: string }) => {
+    socket.on('attempt:submitted', (data: { attemptId?: string }) => {
       if (data?.attemptId) {
         submittedAttempts.add(String(data.attemptId));
+      }
+      if (userId) {
+        submittedCandidates.add(String(userId));
       }
     });
 
@@ -109,7 +121,10 @@ export const setupSockets = (io: Server) => {
     // Receiving violation from candidate AI client
     socket.on('violation:created', async (data) => {
       if (userRole !== Role.CANDIDATE) return;
-      if (data?.attemptId && submittedAttempts.has(String(data.attemptId))) {
+      if (
+        (data?.attemptId && submittedAttempts.has(String(data.attemptId))) ||
+        (userId && submittedCandidates.has(String(userId)))
+      ) {
         return; // Violation rules are not applicable after candidate clicks confirm & submit
       }
       
@@ -213,7 +228,10 @@ export const setupSockets = (io: Server) => {
     // Forward instant snapshots to proctors and link to latest violation if available
     socket.on('evidence:snapshot', async (data) => {
       if (userRole !== Role.CANDIDATE) return;
-      if (data?.attemptId && submittedAttempts.has(String(data.attemptId))) return;
+      if (
+        (data?.attemptId && submittedAttempts.has(String(data.attemptId))) ||
+        (userId && submittedCandidates.has(String(userId)))
+      ) return;
       
       try {
         const attempt = await Attempt.findOne({ _id: data.attemptId });
@@ -378,6 +396,11 @@ export const setupSockets = (io: Server) => {
           timestamp: new Date()
         });
 
+        // Candidate has submitted the examination - no violations or screenshots applicable
+        if (submittedCandidates.has(String(userId))) {
+          return;
+        }
+
         // Automatically detect exam window closure / abandonment during an active attempt
         try {
           const activeAttempt = await Attempt.findOne({
@@ -386,12 +409,23 @@ export const setupSockets = (io: Server) => {
           });
 
           if (activeAttempt) {
-            if (activeAttempt.submittedAt || submittedAttempts.has(String(activeAttempt._id))) {
+            if (
+              activeAttempt.submittedAt || 
+              submittedAttempts.has(String(activeAttempt._id)) ||
+              submittedCandidates.has(String(userId)) ||
+              submittedCandidates.has(String(activeAttempt.candidateId))
+            ) {
               return; // Candidate has submitted the examination - no violations applicable
             }
             // Check fresh database state in case attempt was just submitted
             const fresh = await Attempt.findById(activeAttempt._id);
-            if (!fresh || fresh.submittedAt || ['SUBMITTED', 'AUTO_SUBMITTED', 'FORCE_SUBMITTED', 'COMPLETED', 'TERMINATED', 'INVALIDATED'].includes(fresh.status) || submittedAttempts.has(String(activeAttempt._id))) {
+            if (
+              !fresh || 
+              fresh.submittedAt || 
+              ['SUBMITTED', 'AUTO_SUBMITTED', 'FORCE_SUBMITTED', 'COMPLETED', 'TERMINATED', 'INVALIDATED'].includes(fresh.status) || 
+              submittedAttempts.has(String(activeAttempt._id)) ||
+              submittedCandidates.has(String(userId))
+            ) {
               return;
             }
             const now = new Date();

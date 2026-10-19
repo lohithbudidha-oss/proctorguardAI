@@ -107,6 +107,7 @@ function AttemptContent() {
   const isSubmittedRef = useRef(false);
   // Dedicated synchronous lock for candidate clicking "Confirm & Submit" - prevents any post-submit violations
   const isConfirmSubmittedRef = useRef(false);
+  const isSubmittingRef = useRef(false);
 
   // Mobile phone & electronic device tracking: 3 warnings limit, auto-terminate on 4th infraction
   const [mobilePhoneStrikes, setMobilePhoneStrikes] = useState<number>(0);
@@ -1613,9 +1614,10 @@ function AttemptContent() {
   };
 
   async function submitExam(reason?: string, isTermination = false, isAutoSubmit = false) {
-    if (isSubmittedRef.current || isConfirmSubmittedRef.current || examStatusRef.current === 'SUBMITTED' || examStatusRef.current === 'TERMINATED') return;
-    isSubmittedRef.current = true;
+    if (isSubmittingRef.current || examStatus === 'SUBMITTED' || examStatus === 'TERMINATED') return;
+    isSubmittingRef.current = true;
     isConfirmSubmittedRef.current = true;
+    isSubmittedRef.current = true;
     examStatusRef.current = isTermination ? 'TERMINATED' : 'SUBMITTED';
     setExamStatus(isTermination ? 'TERMINATED' : 'SUBMITTED');
     setShowReviewCatalogModal(false);
@@ -2014,14 +2016,12 @@ function AttemptContent() {
               <button 
                 onClick={() => {
                   isConfirmSubmittedRef.current = true;
-                  isSubmittedRef.current = true;
-                  examStatusRef.current = 'SUBMITTED';
                   submitExam('Exam completed.', false, false);
                 }} 
-                disabled={examStatus === 'SUBMITTED' || examStatus === 'TERMINATED' || isConfirmSubmittedRef.current}
+                disabled={examStatus === 'SUBMITTED' || examStatus === 'TERMINATED' || isSubmittingRef.current}
                 className="mt-6 bg-blue-600 text-white px-6 py-2 rounded font-semibold hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {examStatus === 'SUBMITTED' ? 'Ending...' : 'End Exam'}
+                {examStatus === 'SUBMITTED' || isSubmittingRef.current ? 'Ending...' : 'End Exam'}
               </button>
             </div>
           ) : (
@@ -2292,15 +2292,13 @@ function AttemptContent() {
               <button
                 onClick={() => {
                   isConfirmSubmittedRef.current = true;
-                  isSubmittedRef.current = true;
-                  examStatusRef.current = 'SUBMITTED';
                   submitExam('Exam submitted successfully.', false, false);
                 }}
-                disabled={examStatus === 'SUBMITTED' || examStatus === 'TERMINATED' || isConfirmSubmittedRef.current}
+                disabled={examStatus === 'SUBMITTED' || examStatus === 'TERMINATED' || isSubmittingRef.current}
                 className="w-full sm:w-auto px-6 py-2.5 bg-[#047857] hover:bg-[#03543f] text-white font-extrabold rounded-xl transition text-sm flex items-center justify-center shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <CheckCircle className="w-4 h-4 mr-2" />
-                {examStatus === 'SUBMITTED' ? 'Submitting...' : 'Confirm & Submit Exam'}
+                {examStatus === 'SUBMITTED' || isSubmittingRef.current ? 'Submitting...' : 'Confirm & Submit Exam'}
               </button>
             </div>
 
