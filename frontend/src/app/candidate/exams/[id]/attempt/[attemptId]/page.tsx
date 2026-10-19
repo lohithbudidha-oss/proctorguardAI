@@ -105,6 +105,8 @@ function AttemptContent() {
   const headTurnFrames = useRef(0);
   const lastViolationTimeRef = useRef<Record<string, number>>({});
   const isSubmittedRef = useRef(false);
+  // Dedicated synchronous lock for candidate clicking "Confirm & Submit" - prevents any post-submit violations
+  const isConfirmSubmittedRef = useRef(false);
 
   // Mobile phone & electronic device tracking: 3 warnings limit, auto-terminate on 4th infraction
   const [mobilePhoneStrikes, setMobilePhoneStrikes] = useState<number>(0);
@@ -226,7 +228,14 @@ function AttemptContent() {
       }
 
       // Do not process fullscreen exit if exam is already submitted/terminating or streams not active
-      if (isSubmittedRef.current || examStatus !== 'IN_PROGRESS' || !streamsStarted) {
+      if (
+        isSubmittedRef.current || 
+        isConfirmSubmittedRef.current || 
+        examStatusRef.current === 'SUBMITTED' || 
+        examStatusRef.current === 'TERMINATED' || 
+        examStatus !== 'IN_PROGRESS' || 
+        !streamsStarted
+      ) {
         return;
       }
       if (!isCurrentlyFullscreen) {
@@ -365,7 +374,7 @@ function AttemptContent() {
           }
 
           camTrack.onended = () => {
-            if (isSubmittedRef.current || examStatus !== 'IN_PROGRESS') return;
+            if (isSubmittedRef.current || isConfirmSubmittedRef.current || examStatusRef.current === 'SUBMITTED' || examStatusRef.current === 'TERMINATED' || examStatus !== 'IN_PROGRESS') return;
             addWarning('Webcam was closed or disconnected.');
           };
         } catch (camErr: any) {
@@ -426,7 +435,7 @@ function AttemptContent() {
         const screenTrack = screenStream.getVideoTracks()[0];
         if (screenTrack) {
           screenTrack.onended = () => {
-            if (isSubmittedRef.current || examStatus !== 'IN_PROGRESS') return;
+            if (isSubmittedRef.current || isConfirmSubmittedRef.current || examStatusRef.current === 'SUBMITTED' || examStatusRef.current === 'TERMINATED' || examStatus !== 'IN_PROGRESS') return;
             handleViolation('SCREEN_SHARE_STOPPED', 'CRITICAL', 'Screen sharing was stopped.');
           };
         }
@@ -530,8 +539,11 @@ function AttemptContent() {
       // Only report if exam is active, timer started, and not submitted
       if (
         isSubmittedRef.current || 
+        isConfirmSubmittedRef.current ||
         examStatusRef.current === 'SUBMITTED' || 
         examStatusRef.current === 'TERMINATED' ||
+        examStatus === 'SUBMITTED' ||
+        examStatus === 'TERMINATED' ||
         !timerStartedRef.current
       ) {
         return;
@@ -580,7 +592,9 @@ function AttemptContent() {
     const handleBeforeUnload = (e: BeforeUnloadEvent) => {
       if (
         !isSubmittedRef.current && 
+        !isConfirmSubmittedRef.current &&
         examStatusRef.current === 'IN_PROGRESS' && 
+        examStatus === 'IN_PROGRESS' &&
         timerStartedRef.current
       ) {
         reportExamClosedViolation();
@@ -606,7 +620,9 @@ function AttemptContent() {
     const handlePageHide = () => {
       if (
         !isSubmittedRef.current && 
+        !isConfirmSubmittedRef.current &&
         examStatusRef.current === 'IN_PROGRESS' && 
+        examStatus === 'IN_PROGRESS' &&
         timerStartedRef.current
       ) {
         reportExamClosedViolation();
@@ -684,7 +700,14 @@ function AttemptContent() {
   };
 
   const triggerMobilePhoneViolation = (customMsg?: string) => {
-    if (isSubmittedRef.current || examStatus === 'SUBMITTED' || examStatus === 'TERMINATED') {
+    if (
+      isSubmittedRef.current || 
+      isConfirmSubmittedRef.current || 
+      examStatusRef.current === 'SUBMITTED' || 
+      examStatusRef.current === 'TERMINATED' || 
+      examStatus === 'SUBMITTED' || 
+      examStatus === 'TERMINATED'
+    ) {
       return;
     }
     const now = Date.now();
@@ -787,6 +810,16 @@ function AttemptContent() {
     type: 'MULTIPLE_FACES' | 'FACE_NOT_FOUND' | 'LOOKING_AWAY' | 'UNAUTHORIZED_DEVICE' | 'TAB_SWITCH' | 'COPY_PASTE' | 'SCREEN_SHARE_STOPPED' | 'MOBILE_PHONE_DETECTED',
     customMessage?: string
   ) {
+    if (
+      isSubmittedRef.current || 
+      isConfirmSubmittedRef.current || 
+      examStatusRef.current === 'SUBMITTED' || 
+      examStatusRef.current === 'TERMINATED' || 
+      examStatus === 'SUBMITTED' || 
+      examStatus === 'TERMINATED'
+    ) {
+      return;
+    }
     if (type === 'MOBILE_PHONE_DETECTED') {
       triggerMobilePhoneViolation(customMessage);
       return;
@@ -818,6 +851,92 @@ function AttemptContent() {
       addWarning('External displays and secondary monitors are prohibited.');
       playProctorTone('warning');
     }
+  }
+
+  // Helper: Filter real distinct human faces and eliminate multi-anchor duplicates, noise & background artifacts
+  function filterDistinctHumanFaces(rawDetections: any[], frameWidth: number, frameHeight: number): any[] {
+    if (!rawDetections || rawDetections.length === 0) return [];
+
+    // Minimum bounding box dimension: at least 42px or 7% of frame dimension to ignore micro-artifacts
+    const minDim = Math.max(42, Math.min(frameWidth, frameHeight) * 0.07);
+
+    // 1. Initial filter: discard detections that are too small or have confidence < 0.48
+    const candidateFaces = rawDetections.filter((d: any) => {
+      const score = d.categories?.[0]?.score ?? 1;
+      const box = d.boundingBox;
+      if (!box) return score >= 0.52;
+      if (box.width < minDim || box.height < minDim) return false;
+      return score >= 0.48;
+    });
+
+    if (candidateFaces.length <= 1) return candidateFaces;
+
+    // Sort by confidence score descending
+    candidateFaces.sort((a: any, b: any) => (b.categories?.[0]?.score ?? 0) - (a.categories?.[0]?.score ?? 0));
+
+    const distinctFaces: any[] = [];
+
+    for (const face of candidateFaces) {
+      const boxA = face.boundingBox;
+      const scoreA = face.categories?.[0]?.score ?? 0;
+
+      if (!boxA) {
+        if (distinctFaces.length === 0) distinctFaces.push(face);
+        continue;
+      }
+
+      let isDuplicate = false;
+
+      for (const existing of distinctFaces) {
+        const boxB = existing.boundingBox;
+        if (!boxB) continue;
+
+        // Calculate intersection rectangle
+        const xLeft = Math.max(boxA.originX, boxB.originX);
+        const yTop = Math.max(boxA.originY, boxB.originY);
+        const xRight = Math.min(boxA.originX + boxA.width, boxB.originX + boxB.width);
+        const yBottom = Math.min(boxA.originY + boxA.height, boxB.originY + boxB.height);
+
+        if (xRight > xLeft && yBottom > yTop) {
+          const intersectionArea = (xRight - xLeft) * (yBottom - yTop);
+          const areaA = boxA.width * boxA.height;
+          const areaB = boxB.width * boxB.height;
+          const unionArea = areaA + areaB - intersectionArea;
+          const iou = unionArea > 0 ? intersectionArea / unionArea : 0;
+          const minAreaRatio = Math.min(areaA, areaB) > 0 ? intersectionArea / Math.min(areaA, areaB) : 0;
+
+          // Overlapping detection boxes belonging to the same individual
+          if (iou > 0.16 || minAreaRatio > 0.28) {
+            isDuplicate = true;
+            break;
+          }
+        }
+
+        // Check center distance: multi-anchor detections of the same face have nearby centers
+        const centerAX = boxA.originX + boxA.width / 2;
+        const centerAY = boxA.originY + boxA.height / 2;
+        const centerBX = boxB.originX + boxB.width / 2;
+        const centerBY = boxB.originY + boxB.height / 2;
+        const centerDist = Math.hypot(centerAX - centerBX, centerAY - centerBY);
+        const avgDim = (boxA.width + boxA.height + boxB.width + boxB.height) / 4;
+
+        if (centerDist < avgDim * 0.58) {
+          isDuplicate = true;
+          break;
+        }
+      }
+
+      if (!isDuplicate) {
+        // For any secondary or subsequent face, require higher confidence (>= 0.62)
+        // to eliminate background wall shadows, shirt prints, and optical reflections
+        if (distinctFaces.length >= 1 && scoreA < 0.62) {
+          continue;
+        }
+        distinctFaces.push(face);
+      }
+    }
+
+    return distinctFaces;
   }
 
   // AI Face & Object Detection (Mediapipe BlazeFace & EfficientDet)
@@ -867,7 +986,7 @@ function AttemptContent() {
     };
 
     const detectFaces = async () => {
-      if (!isRunning || isSubmittedRef.current) return;
+      if (!isRunning || isSubmittedRef.current || isConfirmSubmittedRef.current) return;
       if (examStatusRef.current !== 'IN_PROGRESS') {
         if (isRunning) {
           animationFrameId = requestAnimationFrame(detectFaces);
@@ -929,13 +1048,12 @@ function AttemptContent() {
               phoneDetectedFramesRef.current = Math.max(0, phoneDetectedFramesRef.current - 1);
             }
 
-            // B. FACE DETECTION
+            // B. FACE DETECTION WITH NMS OVERLAP SUPPRESSION
             const detections = faceDetector.detect(videoRef.current);
-            // Filter for confident human face detections (eliminates false positives from chair/room shadows)
-            const validFaces = (detections?.detections || []).filter((d: any) => {
-              const score = d.categories?.[0]?.score ?? 1;
-              return score >= 0.45;
-            });
+            const frameW = videoRef.current?.videoWidth || 640;
+            const frameH = videoRef.current?.videoHeight || 480;
+
+            const validFaces = filterDistinctHumanFaces(detections?.detections || [], frameW, frameH);
             const count = validFaces.length;
 
             // 1. MULTIPLE FACES CHECK
@@ -944,8 +1062,8 @@ function AttemptContent() {
               headTurnFrames.current = 0;
               noFaceFrames.current = 0;
               setAiStatus(`AI Alert: ${count} Faces Detected!`);
-              if (multipleFaceFrames.current >= 4) { // ~1 second
-                triggerAIViolation('MULTIPLE_FACES', `${count} faces detected in the camera frame simultaneously.`);
+              if (multipleFaceFrames.current >= 8) { // ~2.0 seconds of persistent multiple faces (eliminates false positives)
+                triggerAIViolation('MULTIPLE_FACES', `${count} distinct individuals detected in camera view simultaneously.`);
                 multipleFaceFrames.current = 0;
               }
             } else {
@@ -1054,7 +1172,13 @@ function AttemptContent() {
     } catch (e) {}
 
     const handleVisibilityChange = () => {
-      if (isSubmittedRef.current || examStatus !== 'IN_PROGRESS') return;
+      if (
+        isSubmittedRef.current || 
+        isConfirmSubmittedRef.current || 
+        examStatusRef.current === 'SUBMITTED' || 
+        examStatusRef.current === 'TERMINATED' || 
+        examStatus !== 'IN_PROGRESS'
+      ) return;
       if (document.visibilityState === 'hidden') {
         handleViolation('TAB_SWITCH', 'CRITICAL', 'Candidate switched away from the active exam tab.');
         addWarning('Switching tabs is strictly forbidden during the test.');
@@ -1062,34 +1186,64 @@ function AttemptContent() {
     };
 
     const handleFocusLoss = () => {
-      if (isSubmittedRef.current || examStatus !== 'IN_PROGRESS') return;
+      if (
+        isSubmittedRef.current || 
+        isConfirmSubmittedRef.current || 
+        examStatusRef.current === 'SUBMITTED' || 
+        examStatusRef.current === 'TERMINATED' || 
+        examStatus !== 'IN_PROGRESS'
+      ) return;
       handleViolation('WINDOW_FOCUS_LOST', 'CRITICAL', 'Exam window lost focus (clicked outside or opened background app).');
       addWarning('Please keep the exam window active and focused.');
     };
 
     const handleCopy = (e: Event) => {
       e.preventDefault();
-      if (isSubmittedRef.current || examStatus !== 'IN_PROGRESS') return;
+      if (
+        isSubmittedRef.current || 
+        isConfirmSubmittedRef.current || 
+        examStatusRef.current === 'SUBMITTED' || 
+        examStatusRef.current === 'TERMINATED' || 
+        examStatus !== 'IN_PROGRESS'
+      ) return;
       handleViolation('COPY_PASTE', 'HIGH', 'Candidate attempted to copy test questions or content.');
       addWarning('Copying exam content is strictly prohibited.');
     };
 
     const handlePaste = (e: Event) => {
       e.preventDefault();
-      if (isSubmittedRef.current || examStatus !== 'IN_PROGRESS') return;
+      if (
+        isSubmittedRef.current || 
+        isConfirmSubmittedRef.current || 
+        examStatusRef.current === 'SUBMITTED' || 
+        examStatusRef.current === 'TERMINATED' || 
+        examStatus !== 'IN_PROGRESS'
+      ) return;
       handleViolation('COPY_PASTE', 'HIGH', 'Candidate attempted to paste content into the examination.');
       addWarning('Pasting content during the exam is strictly prohibited.');
     };
 
     const handleContextMenu = (e: Event) => {
       e.preventDefault();
-      if (isSubmittedRef.current || examStatus !== 'IN_PROGRESS') return;
+      if (
+        isSubmittedRef.current || 
+        isConfirmSubmittedRef.current || 
+        examStatusRef.current === 'SUBMITTED' || 
+        examStatusRef.current === 'TERMINATED' || 
+        examStatus !== 'IN_PROGRESS'
+      ) return;
       handleViolation('COPY_PASTE', 'MEDIUM', 'Candidate attempted to open right-click context menu.');
       addWarning('Right-click context menu is disabled.');
     };
 
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (isSubmittedRef.current || examStatus !== 'IN_PROGRESS') return;
+      if (
+        isSubmittedRef.current || 
+        isConfirmSubmittedRef.current || 
+        examStatusRef.current === 'SUBMITTED' || 
+        examStatusRef.current === 'TERMINATED' || 
+        examStatus !== 'IN_PROGRESS'
+      ) return;
 
       // PrintScreen / Screenshot / Photographing screen attempt
       if (
@@ -1182,7 +1336,14 @@ function AttemptContent() {
   }, [isLoading, timerStarted, examStatus]);
 
   async function captureSnapshotAndReport(type: string, severity: string, message: string, actionTaken: string = 'LOG') {
-    if (isSubmittedRef.current || examStatus === 'SUBMITTED' || examStatus === 'TERMINATED') {
+    if (
+      isSubmittedRef.current || 
+      isConfirmSubmittedRef.current || 
+      examStatusRef.current === 'SUBMITTED' || 
+      examStatusRef.current === 'TERMINATED' || 
+      examStatus === 'SUBMITTED' || 
+      examStatus === 'TERMINATED'
+    ) {
       return;
     }
     let screenshot = '';
@@ -1335,7 +1496,14 @@ function AttemptContent() {
   }
 
   function handleViolation(type: string, severity: string, message: string, actionTaken: string = 'LOG') {
-    if (isSubmittedRef.current || examStatus === 'SUBMITTED' || examStatus === 'TERMINATED') {
+    if (
+      isSubmittedRef.current || 
+      isConfirmSubmittedRef.current || 
+      examStatusRef.current === 'SUBMITTED' || 
+      examStatusRef.current === 'TERMINATED' || 
+      examStatus === 'SUBMITTED' || 
+      examStatus === 'TERMINATED'
+    ) {
       return;
     }
     const now = Date.now();
@@ -1398,7 +1566,7 @@ function AttemptContent() {
           const screenTrack = screenStream.getVideoTracks()[0];
           if (screenTrack) {
             screenTrack.onended = () => {
-              if (isSubmittedRef.current || examStatus !== 'IN_PROGRESS') return;
+              if (isSubmittedRef.current || isConfirmSubmittedRef.current || examStatusRef.current === 'SUBMITTED' || examStatusRef.current === 'TERMINATED' || examStatus !== 'IN_PROGRESS') return;
               handleViolation('SCREEN_SHARE_STOPPED', 'CRITICAL', 'Screen sharing was stopped.');
             };
           }
@@ -1445,11 +1613,29 @@ function AttemptContent() {
   };
 
   async function submitExam(reason?: string, isTermination = false, isAutoSubmit = false) {
-    if (isSubmittedRef.current || examStatus === 'SUBMITTED' || examStatus === 'TERMINATED') return;
+    if (isSubmittedRef.current || isConfirmSubmittedRef.current || examStatusRef.current === 'SUBMITTED' || examStatusRef.current === 'TERMINATED') return;
     isSubmittedRef.current = true;
+    isConfirmSubmittedRef.current = true;
+    examStatusRef.current = isTermination ? 'TERMINATED' : 'SUBMITTED';
     setExamStatus(isTermination ? 'TERMINATED' : 'SUBMITTED');
     setShowReviewCatalogModal(false);
     setShowWarningModal(false);
+
+    // Notify backend proctor socket immediately that attempt is being finalized
+    // This adds the attemptId to submittedAttempts in the socket system to ensure zero violations can be triggered
+    const activeSocket = socketRef.current || socket;
+    if (activeSocket) {
+      try {
+        activeSocket.emit('attempt:submitting', { attemptId });
+        activeSocket.emit('attempt:submitted', { attemptId });
+      } catch (e) {}
+    }
+
+    // Immediately neutralize window unload / navigation handlers so no browser exit violations can be dispatched
+    if (typeof window !== 'undefined') {
+      window.onbeforeunload = null;
+      window.onpagehide = null;
+    }
 
     // Display non-blocking submission status overlay immediately
     if (isTermination) {
@@ -1479,7 +1665,10 @@ function AttemptContent() {
     try {
       if (streamRef.current) {
         streamRef.current.getTracks().forEach(track => {
-          try { track.stop(); } catch(e) {}
+          try {
+            track.onended = null;
+            track.stop();
+          } catch(e) {}
         });
         streamRef.current = null;
       }
@@ -1508,70 +1697,59 @@ function AttemptContent() {
       stopAllRecordings();
     } catch(e) {}
 
-    // 3. Disconnect socket to prevent any further events
-    try {
-      if (socket) {
-        if (isTermination) {
-          socket.emit('attempt:terminated', { attemptId, reason, action: 'TERMINATE' });
-        }
-        socket.disconnect();
-      }
-    } catch(e) {}
-
-    // 4. Safely exit fullscreen
-    if (typeof document !== 'undefined' && document.fullscreenElement) {
-      document.exitFullscreen().catch(()=>{});
-    }
-
+    // 3. Submit attempt to backend database FIRST so attempt status is SUBMITTED in DB before socket disconnects
     try {
       await api.post(`/candidate/attempts/${attemptId}/submit`, {
         isTermination,
         status: isTermination ? 'TERMINATED' : 'SUBMITTED',
         reason: reason || ''
       });
-      
-      // Record local completion for dashboard state
-      try {
-        sessionStorage.removeItem('pg_cached_candidate_exams');
-      } catch (e) {}
-
-      const completedStr = localStorage.getItem('completed_exams') || '[]';
-      try {
-        const completedExams = JSON.parse(completedStr);
-        if (!completedExams.includes(examId)) {
-          completedExams.push(examId);
-          localStorage.setItem('completed_exams', JSON.stringify(completedExams));
-        }
-      } catch(e) {}
-
-      try {
-        sessionStorage.setItem('just_submitted_exam', JSON.stringify({
-          examId,
-          attemptId,
-          examTitle: exam?.title || 'Examination',
-          submittedAt: new Date().toISOString()
-        }));
-      } catch (e) {}
-
-      // Smooth delay so candidate sees final submission overlay and redirected cleanly
-      setTimeout(() => {
-        router.push(`/candidate/dashboard?submitted=true&examId=${examId}`);
-      }, 1800);
     } catch (err) {
-      console.error('Submit failed', err);
-      try {
-        sessionStorage.setItem('just_submitted_exam', JSON.stringify({
-          examId,
-          attemptId,
-          examTitle: exam?.title || 'Examination',
-          submittedAt: new Date().toISOString()
-        }));
-      } catch (e) {}
-      // Force routing even if API fails to prevent candidate being stuck
-      setTimeout(() => {
-        router.push(`/candidate/dashboard?submitted=true&examId=${examId}`);
-      }, 1800);
+      console.error('Submit API call failed:', err);
     }
+
+    // 4. Disconnect socket to prevent any further events
+    try {
+      if (activeSocket) {
+        if (isTermination) {
+          activeSocket.emit('attempt:terminated', { attemptId, reason, action: 'TERMINATE' });
+        }
+        activeSocket.disconnect();
+      }
+    } catch(e) {}
+
+    // 5. Safely exit fullscreen
+    if (typeof document !== 'undefined' && document.fullscreenElement) {
+      document.exitFullscreen().catch(()=>{});
+    }
+
+    // 6. Record local completion for dashboard state and redirect
+    try {
+      sessionStorage.removeItem('pg_cached_candidate_exams');
+    } catch (e) {}
+
+    const completedStr = localStorage.getItem('completed_exams') || '[]';
+    try {
+      const completedExams = JSON.parse(completedStr);
+      if (!completedExams.includes(examId)) {
+        completedExams.push(examId);
+        localStorage.setItem('completed_exams', JSON.stringify(completedExams));
+      }
+    } catch(e) {}
+
+    try {
+      sessionStorage.setItem('just_submitted_exam', JSON.stringify({
+        examId,
+        attemptId,
+        examTitle: exam?.title || 'Examination',
+        submittedAt: new Date().toISOString()
+      }));
+    } catch (e) {}
+
+    // Smooth delay so candidate sees final submission overlay and redirected cleanly
+    setTimeout(() => {
+      router.push(`/candidate/dashboard?submitted=true&examId=${examId}`);
+    }, 1800);
   }
 
   const currentQ = questions[currentQuestionIdx];
@@ -1834,8 +2012,13 @@ function AttemptContent() {
               <h2 className="text-xl font-bold text-slate-800">No Questions Found</h2>
               <p className="text-slate-500 mt-2">This exam doesn't have any questions configured.</p>
               <button 
-                onClick={() => submitExam('Exam completed.', false, false)} 
-                disabled={examStatus === 'SUBMITTED' || examStatus === 'TERMINATED'}
+                onClick={() => {
+                  isConfirmSubmittedRef.current = true;
+                  isSubmittedRef.current = true;
+                  examStatusRef.current = 'SUBMITTED';
+                  submitExam('Exam completed.', false, false);
+                }} 
+                disabled={examStatus === 'SUBMITTED' || examStatus === 'TERMINATED' || isConfirmSubmittedRef.current}
                 className="mt-6 bg-blue-600 text-white px-6 py-2 rounded font-semibold hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {examStatus === 'SUBMITTED' ? 'Ending...' : 'End Exam'}
@@ -2107,8 +2290,13 @@ function AttemptContent() {
               </button>
 
               <button
-                onClick={() => submitExam('Exam submitted successfully.', false, false)}
-                disabled={examStatus === 'SUBMITTED' || examStatus === 'TERMINATED'}
+                onClick={() => {
+                  isConfirmSubmittedRef.current = true;
+                  isSubmittedRef.current = true;
+                  examStatusRef.current = 'SUBMITTED';
+                  submitExam('Exam submitted successfully.', false, false);
+                }}
+                disabled={examStatus === 'SUBMITTED' || examStatus === 'TERMINATED' || isConfirmSubmittedRef.current}
                 className="w-full sm:w-auto px-6 py-2.5 bg-[#047857] hover:bg-[#03543f] text-white font-extrabold rounded-xl transition text-sm flex items-center justify-center shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <CheckCircle className="w-4 h-4 mr-2" />

@@ -9,7 +9,7 @@ import Question from '../models/Question';
 import User from '../models/User';
 import { googleDriveService } from '../services/googleDriveService';
 import { AuthRequest } from '../middleware/authMiddleware';
-import { getIO } from '../sockets/proctorSocket';
+import { getIO, markAttemptAsSubmitted, isAttemptMarkedSubmitted } from '../sockets/proctorSocket';
 
 export const startAttempt = async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
@@ -198,6 +198,9 @@ export const saveAnswer = async (req: AuthRequest, res: Response, next: NextFunc
 export const submitAttempt = async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     const { attemptId } = req.params;
+    if (attemptId) {
+      markAttemptAsSubmitted(String(attemptId));
+    }
     const candidateId = req.user?.userId;
     if (!candidateId) {
       return res.status(401).json({ success: false, message: 'Unauthorized' });
@@ -533,7 +536,11 @@ export const recordViolation = async (req: AuthRequest, res: Response, next: Nex
     const finalCandidateId = candidateId || attempt.candidateId;
 
     // Do not record violations once the exam is submitted, completed, or terminated
-    if (['SUBMITTED', 'AUTO_SUBMITTED', 'FORCE_SUBMITTED', 'COMPLETED', 'TERMINATED', 'INVALIDATED'].includes(attempt.status)) {
+    if (
+      isAttemptMarkedSubmitted(String(attemptId)) ||
+      ['SUBMITTED', 'AUTO_SUBMITTED', 'FORCE_SUBMITTED', 'COMPLETED', 'TERMINATED', 'INVALIDATED'].includes(attempt.status) || 
+      attempt.submittedAt
+    ) {
       return res.status(200).json({ success: false, message: 'Exam attempt finalized. Violation detection is closed.' });
     }
 

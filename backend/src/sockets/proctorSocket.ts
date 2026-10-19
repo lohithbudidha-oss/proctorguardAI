@@ -19,6 +19,19 @@ interface AuthenticatedSocket extends Socket {
 let ioInstance: Server | null = null;
 export const getIO = (): Server | null => ioInstance;
 
+// Track attempts that candidate has clicked confirm & submit on, to prevent false violations
+const submittedAttempts = new Set<string>();
+
+export const markAttemptAsSubmitted = (attemptId: string) => {
+  if (attemptId) {
+    submittedAttempts.add(String(attemptId));
+  }
+};
+
+export const isAttemptMarkedSubmitted = (attemptId: string): boolean => {
+  return submittedAttempts.has(String(attemptId));
+};
+
 export const setupSockets = (io: Server) => {
   ioInstance = io;
   // Authentication middleware for sockets
@@ -59,6 +72,19 @@ export const setupSockets = (io: Server) => {
       socket.join(`candidate_${userId}`);
     }
 
+    // Candidate submitting or submitted event
+    socket.on('attempt:submitting', (data: { attemptId: string }) => {
+      if (data?.attemptId) {
+        submittedAttempts.add(String(data.attemptId));
+      }
+    });
+
+    socket.on('attempt:submitted', (data: { attemptId: string }) => {
+      if (data?.attemptId) {
+        submittedAttempts.add(String(data.attemptId));
+      }
+    });
+
     // Candidate emitting heartbeat
     socket.on('candidate:heartbeat', async (data) => {
       if (userRole !== Role.CANDIDATE) return;
@@ -83,10 +109,13 @@ export const setupSockets = (io: Server) => {
     // Receiving violation from candidate AI client
     socket.on('violation:created', async (data) => {
       if (userRole !== Role.CANDIDATE) return;
+      if (data?.attemptId && submittedAttempts.has(String(data.attemptId))) {
+        return; // Violation rules are not applicable after candidate clicks confirm & submit
+      }
       
       try {
         const attempt = await Attempt.findOne({ _id: data.attemptId });
-        if (!attempt || ['SUBMITTED', 'AUTO_SUBMITTED', 'FORCE_SUBMITTED', 'COMPLETED', 'TERMINATED', 'INVALIDATED'].includes(attempt.status)) {
+        if (!attempt || ['SUBMITTED', 'AUTO_SUBMITTED', 'FORCE_SUBMITTED', 'COMPLETED', 'TERMINATED', 'INVALIDATED'].includes(attempt.status) || attempt.submittedAt) {
           return;
         }
 
@@ -184,10 +213,11 @@ export const setupSockets = (io: Server) => {
     // Forward instant snapshots to proctors and link to latest violation if available
     socket.on('evidence:snapshot', async (data) => {
       if (userRole !== Role.CANDIDATE) return;
+      if (data?.attemptId && submittedAttempts.has(String(data.attemptId))) return;
       
       try {
         const attempt = await Attempt.findOne({ _id: data.attemptId });
-        if (!attempt || ['SUBMITTED', 'AUTO_SUBMITTED', 'FORCE_SUBMITTED', 'COMPLETED', 'TERMINATED', 'INVALIDATED'].includes(attempt.status)) return;
+        if (!attempt || ['SUBMITTED', 'AUTO_SUBMITTED', 'FORCE_SUBMITTED', 'COMPLETED', 'TERMINATED', 'INVALIDATED'].includes(attempt.status) || attempt.submittedAt) return;
 
         const img = data.image || data.screenshot || data.snapshotImage || '';
 
@@ -356,7 +386,12 @@ export const setupSockets = (io: Server) => {
           });
 
           if (activeAttempt) {
-            if (activeAttempt.submittedAt) {
+            if (activeAttempt.submittedAt || submittedAttempts.has(String(activeAttempt._id))) {
+              return; // Candidate has submitted the examination - no violations applicable
+            }
+            // Check fresh database state in case attempt was just submitted
+            const fresh = await Attempt.findById(activeAttempt._id);
+            if (!fresh || fresh.submittedAt || ['SUBMITTED', 'AUTO_SUBMITTED', 'FORCE_SUBMITTED', 'COMPLETED', 'TERMINATED', 'INVALIDATED'].includes(fresh.status) || submittedAttempts.has(String(activeAttempt._id))) {
               return;
             }
             const now = new Date();
