@@ -233,7 +233,7 @@ export default function ResultsVerificationPage() {
   }, [driveData, driveSearchQuery, driveCategoryFilter]);
 
   return (
-    <div className="min-h-screen bg-slate-50 flex flex-col py-10 px-8">
+    <div className="min-h-screen bg-white flex flex-col py-10 px-8">
       <div className="max-w-7xl mx-auto w-full">
         {/* Top Header & Navigation */}
         <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-4 mb-8">
@@ -289,9 +289,9 @@ export default function ResultsVerificationPage() {
             </Link>
             <Link 
               href="/admin/helpdesk" 
-              className="px-3 py-1.5 bg-purple-50 text-purple-700 border border-purple-200 font-semibold rounded-lg hover:bg-purple-100 transition shadow-2xs text-xs flex items-center h-8.5 shrink-0 whitespace-nowrap"
+              className="px-3 py-1.5 bg-blue-50 text-blue-700 border border-blue-200 font-semibold rounded-lg hover:bg-blue-100 transition shadow-2xs text-xs flex items-center h-8.5 shrink-0 whitespace-nowrap"
             >
-              <LifeBuoy className="w-3.5 h-3.5 mr-1.5 text-purple-600" /> Help Desk
+              <LifeBuoy className="w-3.5 h-3.5 mr-1.5 text-blue-600" /> Help Desk
             </Link>
             <button 
               type="button"
@@ -306,7 +306,7 @@ export default function ResultsVerificationPage() {
               }`}
               title="Refresh latest verification and integrity records"
             >
-              <RefreshCw className={`w-3.5 h-3.5 mr-1.5 ${refreshing || loading ? 'animate-spin text-blue-600' : refreshSuccess ? 'text-emerald-600' : 'text-slate-500'}`} />
+              <RefreshCw className={`w-3.5 h-3.5 mr-1.5 ${refreshing || loading ? 'animate-spin text-blue-600' : refreshSuccess ? 'text-emerald-700' : 'text-slate-500'}`} />
               {refreshing ? 'Refreshing...' : refreshSuccess ? refreshSuccess : refreshError ? 'Refresh Failed' : 'Refresh'}
             </button>
           </div>
@@ -365,7 +365,7 @@ export default function ResultsVerificationPage() {
             <div className="p-12 text-center text-slate-500 font-medium animate-pulse">Loading results...</div>
           ) : results.length === 0 ? (
             <div className="p-16 flex flex-col items-center text-center">
-              <CheckCircle2 className="w-16 h-16 text-emerald-400 mb-4" />
+              <CheckCircle2 className="w-16 h-16 text-emerald-700 mb-4" />
               <h3 className="text-xl font-bold text-slate-700 mb-2">No Results Found</h3>
               <p className="text-slate-500">No candidates have completed exams yet.</p>
             </div>
@@ -404,7 +404,7 @@ export default function ResultsVerificationPage() {
                       </td>
                       <td className="p-4 align-middle text-center">
                         <div className="inline-flex flex-col items-center justify-center">
-                          <span className={`font-bold ${r.pass ? 'text-emerald-600' : 'text-rose-600'}`}>
+                          <span className={`font-bold ${r.pass ? 'text-emerald-700' : 'text-rose-600'}`}>
                             {r.percentage.toFixed(1)}%
                           </span>
                           <div className="text-xs text-slate-500">{r.obtainedMarks}/{r.totalMarks} Marks</div>
@@ -425,7 +425,7 @@ export default function ResultsVerificationPage() {
                       <td className="p-4 align-middle text-center">
                         <div className="inline-flex items-center justify-center">
                           <span className={`text-xs font-bold px-3 py-1 rounded-full border ${
-                            r.status === 'APPROVED' ? 'bg-emerald-100 text-emerald-700 border-emerald-200' :
+                            r.status === 'APPROVED' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
                             r.status === 'REJECTED' ? 'bg-rose-100 text-rose-700 border-rose-200' :
                             'bg-amber-100 text-amber-700 border-amber-200'
                           }`}>
@@ -488,7 +488,7 @@ export default function ResultsVerificationPage() {
                     </h2>
                     <span className={`text-xs font-bold px-2.5 py-0.5 rounded-full border ${
                       selectedAnswersData.result?.pass
-                        ? 'bg-emerald-100 text-emerald-800 border-emerald-200'
+                        ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
                         : 'bg-rose-100 text-rose-800 border-rose-200'
                     }`}>
                       {selectedAnswersData.result?.pass ? 'PASSED' : 'FAILED'} ({(selectedAnswersData.result?.percentage ?? 0).toFixed(1)}%)
@@ -757,7 +757,7 @@ export default function ResultsVerificationPage() {
               <div className="flex items-center space-x-2">
                 <span className="text-xs text-slate-500 font-medium">Verification Status:</span>
                 <span className={`text-xs font-bold px-2.5 py-0.5 rounded-full border ${
-                  selectedAnswersData.result?.status === 'APPROVED' ? 'bg-emerald-100 text-emerald-800 border-emerald-200' :
+                  selectedAnswersData.result?.status === 'APPROVED' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
                   selectedAnswersData.result?.status === 'REJECTED' ? 'bg-rose-100 text-rose-800 border-rose-200' :
                   'bg-amber-100 text-amber-800 border-amber-200'
                 }`}>
@@ -770,7 +770,7 @@ export default function ResultsVerificationPage() {
                   <>
                     <button
                       onClick={() => verifyResult(selectedAnswersData.result?._id || selectedAnswersData.result?.id, 'APPROVED')}
-                      className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold transition flex items-center shadow-xs cursor-pointer"
+                      className="px-3.5 py-1.5 bg-emerald-700 hover:bg-emerald-800 text-white rounded-lg text-xs font-bold transition flex items-center shadow-xs cursor-pointer"
                     >
                       <Check className="w-3.5 h-3.5 mr-1" /> Approve
                     </button>
@@ -800,9 +800,9 @@ export default function ResultsVerificationPage() {
           <div className="bg-white rounded-2xl shadow-2xl max-w-5xl w-full max-h-[92vh] flex flex-col border border-slate-100 overflow-hidden">
             
             {/* Modal Header */}
-            <div className="p-5 border-b border-slate-100 bg-gradient-to-r from-blue-50/80 via-indigo-50/40 to-white flex items-center justify-between">
+            <div className="p-5 border-b border-slate-100 bg-blue-50/50 flex items-center justify-between">
               <div className="flex items-center space-x-3.5">
-                <div className="w-11 h-11 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-600 text-white flex items-center justify-center shadow-md shadow-blue-500/20">
+                <div className="w-11 h-11 rounded-xl bg-blue-600 text-white flex items-center justify-center shadow-md shadow-blue-500/20">
                   <HardDrive className="w-6 h-6" />
                 </div>
                 <div>
@@ -810,8 +810,8 @@ export default function ResultsVerificationPage() {
                     <h2 className="text-xl font-bold text-slate-800">
                       Google Drive Cloud Vault & Stored Information
                     </h2>
-                    <span className="px-2 py-0.5 bg-emerald-100 text-emerald-800 rounded text-xs font-semibold flex items-center">
-                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 mr-1.5 animate-pulse"></span>
+                    <span className="px-2 py-0.5 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded text-xs font-semibold flex items-center">
+                      <span className="w-1.5 h-1.5 rounded-full bg-[#047857] mr-1.5 animate-pulse"></span>
                       Cloud Synced
                     </span>
                   </div>
@@ -920,7 +920,7 @@ export default function ResultsVerificationPage() {
                     {driveData?.summary?.submissions ?? (driveData?.files?.filter((f: any) => f.category === 'Submissions').length || 0)}
                   </div>
                 </div>
-                <div className="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center">
+                <div className="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-700 flex items-center justify-center">
                   <FileCheck className="w-4 h-4" />
                 </div>
               </div>
@@ -940,12 +940,12 @@ export default function ResultsVerificationPage() {
               <div className="bg-white p-3 rounded-xl border border-slate-200/80 shadow-xs flex items-center justify-between">
                 <div>
                   <div className="text-slate-500 font-medium">Cloud Vault Status</div>
-                  <div className="text-xs font-bold text-emerald-600 mt-1 flex items-center">
-                    <Cloud className="w-3.5 h-3.5 mr-1 text-emerald-500" />
+                  <div className="text-xs font-bold text-emerald-700 mt-1 flex items-center">
+                    <Cloud className="w-3.5 h-3.5 mr-1 text-emerald-700" />
                     Online & Linked
                   </div>
                 </div>
-                <div className="w-8 h-8 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center">
+                <div className="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center">
                   <FolderOpen className="w-4 h-4" />
                 </div>
               </div>
@@ -1042,7 +1042,7 @@ export default function ResultsVerificationPage() {
                                 {file.name}
                               </span>
                               <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${
-                                isSubmission ? 'bg-indigo-50 text-indigo-700' : 'bg-rose-50 text-rose-700'
+                                isSubmission ? 'bg-blue-50 text-blue-700' : 'bg-rose-50 text-rose-700'
                               }`}>
                                 {file.category}
                               </span>
@@ -1135,7 +1135,7 @@ export default function ResultsVerificationPage() {
             {/* Modal Footer */}
             <div className="p-3.5 border-t border-slate-100 bg-white flex items-center justify-between">
               <div className="text-xs text-slate-500 flex items-center">
-                <span className="w-2 h-2 rounded-full bg-emerald-500 mr-2"></span>
+                <span className="w-2 h-2 rounded-full bg-[#047857] mr-2"></span>
                 <span>All exam submissions and violation snapshots are backed up to Google Drive Folder: <strong>1P_3yKzFloiMrF8Pe1XFl9Lh-nqvPTit1</strong></span>
               </div>
               <button

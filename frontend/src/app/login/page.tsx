@@ -115,14 +115,9 @@ function LoginContent() {
   };
 
   return (
-    <div className="min-h-screen flex bg-[#0B0F19]">
+    <div className="min-h-screen flex bg-white">
       {/* Left Side - Branding & Features */}
-      <div className="hidden lg:flex lg:w-1/2 relative overflow-hidden flex-col justify-between p-12">
-        <div className="absolute inset-0 bg-gradient-to-br from-[#0f172a] via-[#1e293b] to-[#0f172a] z-0" />
-        {/* Animated Background Elements */}
-        <div className="absolute top-0 right-0 -mr-20 -mt-20 w-96 h-96 rounded-full bg-blue-600/10 blur-3xl animate-pulse" />
-        <div className="absolute bottom-0 left-0 -ml-20 -mb-20 w-80 h-80 rounded-full bg-indigo-600/10 blur-3xl animate-pulse delay-1000" />
-        
+      <div className="hidden lg:flex lg:w-1/2 relative overflow-hidden flex-col justify-between p-12 bg-blue-600 text-white">
         <div className="relative z-10">
           <Link href="/" className="inline-block hover:opacity-95 transition-opacity">
             <BrandLogo size="lg" variant="light" />
@@ -132,33 +127,33 @@ function LoginContent() {
         <div className="relative z-10 max-w-lg mt-12">
           <h1 className="text-5xl font-extrabold text-white leading-tight mb-6">
             Secure, Intelligent <br/>
-            <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-indigo-400">
+            <span className="text-white">
               Remote Proctoring
             </span>
           </h1>
-          <p className="text-lg text-slate-400 mb-12 leading-relaxed">
+          <p className="text-lg text-blue-100 mb-12 leading-relaxed">
             State-of-the-art examination integrity platform trusted by enterprises worldwide. Verify identities, monitor behavior, and protect your assessments with advanced AI.
           </p>
 
           <div className="space-y-4">
-            <div className="flex items-center space-x-4 text-slate-300 bg-slate-800/40 p-4 rounded-xl border border-slate-700/50 backdrop-blur-sm">
-              <div className="bg-slate-800 p-2 rounded-lg text-blue-400"><Fingerprint className="w-6 h-6"/></div>
+            <div className="flex items-center space-x-4 text-white bg-blue-700/60 p-4 rounded-xl border border-blue-400/30">
+              <div className="bg-blue-800 p-2 rounded-lg text-white"><Fingerprint className="w-6 h-6"/></div>
               <div>
                 <h3 className="font-semibold text-white">Biometric Verification</h3>
-                <p className="text-sm text-slate-400">Military-grade identity matching</p>
+                <p className="text-sm text-blue-100">Military-grade identity matching</p>
               </div>
             </div>
-            <div className="flex items-center space-x-4 text-slate-300 bg-slate-800/40 p-4 rounded-xl border border-slate-700/50 backdrop-blur-sm">
-              <div className="bg-slate-800 p-2 rounded-lg text-indigo-400"><Activity className="w-6 h-6"/></div>
+            <div className="flex items-center space-x-4 text-white bg-blue-700/60 p-4 rounded-xl border border-blue-400/30">
+              <div className="bg-blue-800 p-2 rounded-lg text-white"><Activity className="w-6 h-6"/></div>
               <div>
                 <h3 className="font-semibold text-white">Live Monitoring Engine</h3>
-                <p className="text-sm text-slate-400">Real-time behavior analysis and alerts</p>
+                <p className="text-sm text-blue-100">Real-time behavior analysis and alerts</p>
               </div>
             </div>
           </div>
         </div>
 
-        <div className="relative z-10 text-sm text-slate-500 font-medium">
+        <div className="relative z-10 text-sm text-blue-100 font-medium">
           &copy; 2026 ProctorGuardAI Technologies. All rights reserved.
         </div>
       </div>
@@ -203,7 +198,7 @@ function LoginContent() {
 
           {searchParams.get('registered') === 'true' && (
             <div className="bg-emerald-50 border border-emerald-200 text-emerald-800 px-4 py-3.5 rounded-xl text-sm font-medium mb-6 flex items-start space-x-2.5 shadow-xs animate-in fade-in">
-              <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5" />
+              <CheckCircle2 className="w-5 h-5 text-emerald-700 shrink-0 mt-0.5" />
               <div>
                 <p className="font-bold text-emerald-900">Registration Submitted Successfully!</p>
                 <p className="text-xs text-emerald-700 mt-0.5">
@@ -215,7 +210,7 @@ function LoginContent() {
 
           {searchParams.get('ticketSubmitted') === 'true' && (
             <div className="bg-emerald-50 border border-emerald-200 text-emerald-800 px-4 py-3.5 rounded-xl text-sm font-medium mb-6 flex items-start space-x-2.5 shadow-xs animate-in fade-in">
-              <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5" />
+              <CheckCircle2 className="w-5 h-5 text-emerald-700 shrink-0 mt-0.5" />
               <div>
                 <p className="font-bold text-emerald-900">Support Inquiry Received!</p>
                 <p className="text-xs text-emerald-700 mt-0.5">

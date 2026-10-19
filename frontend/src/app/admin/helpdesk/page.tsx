@@ -233,7 +233,7 @@ export default function AdminHelpDeskPage() {
     switch (category) {
       case 'TECHNICAL': return 'bg-rose-50 text-rose-700 border-rose-200';
       case 'EXAM_ACCESS': return 'bg-amber-50 text-amber-700 border-amber-200';
-      case 'ORGANIZATION': return 'bg-purple-50 text-purple-700 border-purple-200';
+      case 'ORGANIZATION': return 'bg-blue-50 text-blue-700 border-blue-200';
       case 'OTHER': return 'bg-blue-50 text-blue-700 border-blue-200';
       default: return 'bg-slate-50 text-slate-700 border-slate-200';
     }
@@ -258,7 +258,7 @@ export default function AdminHelpDeskPage() {
       case 'RESOLVED':
         return (
           <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-extrabold bg-emerald-50 text-emerald-700 border border-emerald-200">
-            <CheckCircle2 className="w-3 h-3 mr-1 text-emerald-600" />
+            <CheckCircle2 className="w-3 h-3 mr-1 text-emerald-700" />
             RESOLVED
           </span>
         );
@@ -289,7 +289,7 @@ export default function AdminHelpDeskPage() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 font-sans text-slate-800">
+    <div className="min-h-screen bg-white font-sans text-slate-800">
       <div className="max-w-7xl mx-auto px-6 py-12">
         {/* Navigation & Header */}
         <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-4 mb-8">
@@ -350,10 +350,10 @@ export default function AdminHelpDeskPage() {
         {toastMessage && (
           <div className="mb-6 p-4 bg-emerald-50 border border-emerald-200 rounded-xl flex items-center justify-between shadow-2xs animate-fadeIn">
             <div className="flex items-center text-emerald-800 text-sm font-semibold">
-              <CheckCircle2 className="w-5 h-5 mr-2 text-emerald-600 shrink-0" />
+              <CheckCircle2 className="w-5 h-5 mr-2 text-emerald-700 shrink-0" />
               <span>{toastMessage}</span>
             </div>
-            <button onClick={() => setToastMessage(null)} className="text-emerald-600 hover:text-emerald-800">
+            <button onClick={() => setToastMessage(null)} className="text-emerald-700 hover:text-emerald-900">
               <X className="w-4 h-4" />
             </button>
           </div>
@@ -372,7 +372,7 @@ export default function AdminHelpDeskPage() {
             <p className="text-[11px] text-slate-400 mt-1">Submitted from Contact Support Desk</p>
           </div>
 
-          <div className="bg-white border border-amber-200/80 rounded-2xl p-5 shadow-2xs bg-gradient-to-br from-white to-amber-50/20">
+          <div className="bg-white border border-amber-200/80 rounded-2xl p-5 shadow-2xs">
             <div className="flex items-center justify-between">
               <span className="text-xs font-bold uppercase tracking-wider text-amber-700">Open Tickets</span>
               <div className="p-2 bg-amber-50 text-amber-600 rounded-xl">
@@ -397,12 +397,12 @@ export default function AdminHelpDeskPage() {
           <div className="bg-white border border-emerald-200/80 rounded-2xl p-5 shadow-2xs">
             <div className="flex items-center justify-between">
               <span className="text-xs font-bold uppercase tracking-wider text-emerald-700">Resolved</span>
-              <div className="p-2 bg-emerald-50 text-emerald-600 rounded-xl">
+              <div className="p-2 bg-emerald-50 text-emerald-700 rounded-xl">
                 <CheckCircle2 className="w-4 h-4" />
               </div>
             </div>
             <div className="text-3xl font-black text-emerald-900 mt-2">{stats.resolved}</div>
-            <p className="text-[11px] text-emerald-600 mt-1">Successfully resolved</p>
+            <p className="text-[11px] text-emerald-700 mt-1">Successfully resolved</p>
           </div>
         </div>
 
@@ -672,9 +672,9 @@ export default function AdminHelpDeskPage() {
                   <button
                     type="button"
                     onClick={() => handleUpdateStatus(activeTicket._id, 'RESOLVED')}
-                    className="px-3 py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 rounded-xl text-xs font-bold transition flex items-center cursor-pointer"
+                    className="px-3 py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 rounded-xl text-xs font-bold transition flex items-center cursor-pointer"
                   >
-                    <Check className="w-3.5 h-3.5 mr-1 text-emerald-600" />
+                    <Check className="w-3.5 h-3.5 mr-1 text-emerald-700" />
                     Mark Resolved
                   </button>
                   <button

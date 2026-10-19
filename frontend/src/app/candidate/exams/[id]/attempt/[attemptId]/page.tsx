@@ -1786,7 +1786,7 @@ function AttemptContent() {
                 let bgColor = 'bg-slate-700 text-slate-300';
                 if (isCurrent) bgColor = 'bg-blue-600 text-white ring-2 ring-blue-400 ring-offset-2 ring-offset-slate-800';
                 else if (isMarked) bgColor = 'bg-amber-500 text-white';
-                else if (isAnswered) bgColor = 'bg-emerald-500 text-white';
+                else if (isAnswered) bgColor = 'bg-[#047857] text-white';
 
                 return (
                   <button 
@@ -1800,7 +1800,7 @@ function AttemptContent() {
               })}
             </div>
             <div className="mt-6 space-y-2 text-xs text-slate-400">
-              <div className="flex items-center space-x-2"><div className="w-3 h-3 bg-emerald-500 rounded-sm"></div><span>Answered ({answeredCount})</span></div>
+              <div className="flex items-center space-x-2"><div className="w-3 h-3 bg-[#047857] rounded-sm"></div><span>Answered ({answeredCount})</span></div>
               <div className="flex items-center space-x-2"><div className="w-3 h-3 bg-amber-500 rounded-sm"></div><span>Marked for Review ({reviewCount})</span></div>
               <div className="flex items-center space-x-2"><div className="w-3 h-3 bg-slate-700 rounded-sm"></div><span>Unanswered ({unansweredCount})</span></div>
             </div>
@@ -1912,7 +1912,7 @@ function AttemptContent() {
               <button 
                 onClick={() => setShowReviewCatalogModal(true)}
                 disabled={timeRemaining <= 0 || examStatus === 'SUBMITTED' || examStatus === 'TERMINATED'}
-                className="px-8 py-2.5 bg-emerald-600 text-white hover:bg-emerald-700 font-bold rounded-lg shadow-sm flex items-center transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+                className="px-8 py-2.5 bg-[#047857] text-white hover:bg-[#03543f] font-bold rounded-lg shadow-sm flex items-center transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm"
               >
                 <Send className="w-4 h-4 mr-2" /> 
                 {examStatus === 'SUBMITTED' ? 'Submitting...' : 'Submit Exam'}
@@ -1962,7 +1962,7 @@ function AttemptContent() {
                 </div>
                 <div className="bg-emerald-50/70 border border-emerald-200 p-3.5 rounded-xl">
                   <span className="text-[11px] font-bold text-emerald-700 uppercase tracking-wider block flex items-center">
-                    <CheckCircle2 className="w-3.5 h-3.5 mr-1 text-emerald-600" /> Answered
+                    <CheckCircle2 className="w-3.5 h-3.5 mr-1 text-emerald-700" /> Answered
                   </span>
                   <span className="text-2xl font-black text-emerald-900 mt-1 block">{answeredCount}</span>
                 </div>
@@ -1988,7 +1988,7 @@ function AttemptContent() {
                 </div>
                 <div className="w-full bg-slate-100 rounded-full h-2.5 overflow-hidden">
                   <div 
-                    className="bg-emerald-500 h-2.5 rounded-full transition-all duration-300"
+                    className="bg-[#047857] h-2.5 rounded-full transition-all duration-300"
                     style={{ width: `${questions.length > 0 ? (answeredCount / questions.length) * 100 : 0}%` }}
                   />
                 </div>
@@ -2007,7 +2007,7 @@ function AttemptContent() {
                 </div>
               ) : (
                 <div className="bg-emerald-50 border border-emerald-200 p-4 rounded-xl flex items-start space-x-3 text-emerald-900 text-sm">
-                  <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5" />
+                  <CheckCircle2 className="w-5 h-5 text-emerald-700 shrink-0 mt-0.5" />
                   <div>
                     <p className="font-bold">All questions answered!</p>
                     <p className="text-xs text-emerald-700 mt-0.5">
@@ -2024,7 +2024,7 @@ function AttemptContent() {
                     Question Catalog (Click tile to jump to question)
                   </h3>
                   <div className="flex items-center space-x-3 text-[11px] font-medium text-slate-500">
-                    <span className="flex items-center"><span className="w-2.5 h-2.5 rounded bg-emerald-500 mr-1"></span> Answered</span>
+                    <span className="flex items-center"><span className="w-2.5 h-2.5 rounded bg-[#047857] mr-1"></span> Answered</span>
                     <span className="flex items-center"><span className="w-2.5 h-2.5 rounded bg-amber-400 mr-1"></span> Marked</span>
                     <span className="flex items-center"><span className="w-2.5 h-2.5 rounded bg-slate-200 mr-1"></span> Unanswered</span>
                   </div>
@@ -2089,7 +2089,7 @@ function AttemptContent() {
               <button
                 onClick={() => submitExam('Exam submitted successfully.', false, false)}
                 disabled={examStatus === 'SUBMITTED' || examStatus === 'TERMINATED'}
-                className="w-full sm:w-auto px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold rounded-xl transition text-sm flex items-center justify-center shadow-md shadow-emerald-600/20 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="w-full sm:w-auto px-6 py-2.5 bg-[#047857] hover:bg-[#03543f] text-white font-extrabold rounded-xl transition text-sm flex items-center justify-center shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <CheckCircle className="w-4 h-4 mr-2" />
                 {examStatus === 'SUBMITTED' ? 'Submitting...' : 'Confirm & Submit Exam'}
@@ -2278,12 +2278,12 @@ function AttemptContent() {
                 <div className="w-20 h-20 bg-amber-100 text-amber-600 rounded-3xl flex items-center justify-center shadow-lg shadow-amber-500/20 animate-pulse">
                   <Clock className="w-10 h-10" />
                 </div>
-                <div className="absolute -bottom-1 -right-1 w-7 h-7 bg-emerald-500 text-white rounded-full flex items-center justify-center ring-4 ring-white shadow-xs">
+                <div className="absolute -bottom-1 -right-1 w-7 h-7 bg-[#047857] text-white rounded-full flex items-center justify-center ring-4 ring-white shadow-xs">
                   <CheckCircle2 className="w-4 h-4" />
                 </div>
               </div>
             ) : (
-              <div className="w-20 h-20 bg-emerald-100 text-emerald-600 rounded-3xl flex items-center justify-center shadow-lg shadow-emerald-500/20 mb-6">
+              <div className="w-20 h-20 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-3xl flex items-center justify-center mb-6">
                 <CheckCircle className="w-10 h-10" />
               </div>
             )}

@@ -55,7 +55,7 @@ function RegistrationForm() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
+    <div className="min-h-screen bg-white flex items-center justify-center p-4">
       <div className="max-w-md w-full bg-white p-8 rounded-2xl shadow-xl border border-slate-200">
         <h1 className="text-2xl font-bold text-slate-800 mb-2">Exam Registration</h1>
         <p className="text-slate-500 mb-6">Enter your details to create your candidate profile and start the exam.</p>
@@ -82,7 +82,7 @@ function RegistrationForm() {
             <div className="flex justify-between items-center mb-1">
               <label className="block text-sm font-medium text-slate-700">Email Address (@gmail.com only)</label>
               {formData.email && emailValidation.isValid && (
-                <span className="text-[11px] font-bold text-emerald-600 flex items-center">
+                <span className="text-[11px] font-bold text-emerald-700 flex items-center">
                   <CheckCircle2 className="w-3 h-3 mr-1" /> Valid @gmail.com
                 </span>
               )}
@@ -95,7 +95,7 @@ function RegistrationForm() {
                   emailTouched && !emailValidation.isValid
                     ? 'border-rose-400 bg-rose-50/20 focus:ring-rose-500/20 focus:border-rose-500'
                     : formData.email && emailValidation.isValid
-                      ? 'border-emerald-400 bg-emerald-50/20 focus:ring-emerald-500/20 focus:border-emerald-500'
+                      ? 'border-emerald-500 bg-emerald-50/20 focus:ring-emerald-600/20 focus:border-emerald-600'
                       : 'border-slate-200 focus:ring-blue-500/20 focus:border-blue-500'
                 }`}
                 value={formData.email} 

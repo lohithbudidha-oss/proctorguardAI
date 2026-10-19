@@ -58,7 +58,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   // While checking authorization, render a clean light backdrop (NEVER flash the admin dashboard)
   if (isAuthorized !== true) {
     return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+      <div className="min-h-screen bg-white flex items-center justify-center">
         <div className="flex flex-col items-center">
           <div className="w-9 h-9 border-3 border-blue-600/20 border-t-blue-600 rounded-full animate-spin mb-3" />
           <p className="text-slate-500 text-xs font-bold tracking-wider uppercase">Authenticating Admin Access...</p>

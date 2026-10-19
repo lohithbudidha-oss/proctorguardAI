@@ -395,7 +395,7 @@ export default function ViolationQueuePage() {
       case 'FORCE_SUBMITTED':
         return 'bg-amber-50 text-amber-700 border-amber-200';
       case 'IN_PROGRESS':
-        return 'bg-purple-50 text-purple-700 border-purple-200';
+        return 'bg-blue-50 text-blue-700 border-blue-200';
       case 'LOCKED':
       case 'PAUSED':
         return 'bg-orange-50 text-orange-700 border-orange-200';
@@ -953,7 +953,7 @@ export default function ViolationQueuePage() {
   }, [activeCandidateGroup, selectedExamKey, selectedAttemptId, activeCandidateUniqueExams]);
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-800 flex flex-col font-sans selection:bg-rose-500/20">
+    <div className="min-h-screen bg-white text-slate-800 flex flex-col font-sans selection:bg-rose-500/20">
       {/* Realtime Alert Toast */}
       {activeRealtimeAlert && (
         <div className="fixed top-5 right-5 z-[90] max-w-md bg-white border border-rose-200 text-slate-900 p-4 rounded-xl shadow-2xl animate-in slide-in-from-top duration-300 flex items-start space-x-3">
@@ -1026,13 +1026,13 @@ export default function ViolationQueuePage() {
               href="/admin/reports" 
               className="px-3 py-1.5 bg-slate-50 text-slate-700 border border-slate-200 font-semibold rounded-lg hover:bg-slate-100 transition shadow-2xs text-xs flex items-center h-8.5 shrink-0 whitespace-nowrap"
             >
-              <CheckCircle2 className="w-3.5 h-3.5 mr-1.5 text-emerald-600" /> Integrity
+              <CheckCircle2 className="w-3.5 h-3.5 mr-1.5 text-emerald-700" /> Integrity
             </Link>
             <Link 
               href="/admin/helpdesk" 
-              className="px-3 py-1.5 bg-purple-50 text-purple-700 border border-purple-200 font-semibold rounded-lg hover:bg-purple-100 transition shadow-2xs text-xs flex items-center h-8.5 shrink-0 whitespace-nowrap"
+              className="px-3 py-1.5 bg-blue-50 text-blue-700 border border-blue-200 font-semibold rounded-lg hover:bg-blue-100 transition shadow-2xs text-xs flex items-center h-8.5 shrink-0 whitespace-nowrap"
             >
-              <LifeBuoy className="w-3.5 h-3.5 mr-1.5 text-purple-600" /> Help Desk
+              <LifeBuoy className="w-3.5 h-3.5 mr-1.5 text-blue-600" /> Help Desk
             </Link>
             <button 
               type="button"
@@ -1047,7 +1047,7 @@ export default function ViolationQueuePage() {
               }`}
               title="Refresh latest violation queue records from the server"
             >
-              <RefreshCw className={`w-3.5 h-3.5 mr-1.5 ${refreshing ? 'animate-spin text-blue-600' : refreshSuccess ? 'text-emerald-600' : 'text-slate-500'}`} />
+              <RefreshCw className={`w-3.5 h-3.5 mr-1.5 ${refreshing ? 'animate-spin text-blue-600' : refreshSuccess ? 'text-emerald-700' : 'text-slate-500'}`} />
               {refreshing ? 'Refreshing...' : refreshSuccess ? refreshSuccess : refreshError ? refreshError : 'Refresh Queue'}
             </button>
           </div>
@@ -1084,12 +1084,12 @@ export default function ViolationQueuePage() {
             <p className="text-xs text-slate-500 mt-1">Severe proctoring policy breaches</p>
           </div>
 
-          <div className="bg-white border border-indigo-200 rounded-2xl p-5 shadow-xs">
+          <div className="bg-white border border-blue-200 rounded-2xl p-5 shadow-xs">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-bold uppercase tracking-wider text-indigo-700">Screenshot Proofs</span>
-              <Camera className="w-5 h-5 text-indigo-500" />
+              <span className="text-xs font-bold uppercase tracking-wider text-blue-700">Screenshot Proofs</span>
+              <Camera className="w-5 h-5 text-blue-600" />
             </div>
-            <div className="text-3xl font-black text-indigo-600 mt-2">{proofCount}</div>
+            <div className="text-3xl font-black text-blue-600 mt-2">{proofCount}</div>
             <p className="text-xs text-slate-500 mt-1">Captured image evidence snapshots</p>
           </div>
         </div>
@@ -1147,7 +1147,7 @@ export default function ViolationQueuePage() {
             </div>
           ) : filteredGroups.length === 0 ? (
             <div className="p-20 flex flex-col items-center text-center">
-              <ShieldCheck className="w-16 h-16 text-emerald-500 mb-4 opacity-90" />
+              <ShieldCheck className="w-16 h-16 text-emerald-700 mb-4 opacity-90" />
               <h3 className="text-xl font-bold text-slate-800 mb-2">No Flagged Candidates Found</h3>
               <p className="text-slate-500 text-sm max-w-sm">
                 {searchQuery || severityFilter !== 'ALL'
@@ -1377,7 +1377,7 @@ export default function ViolationQueuePage() {
                                   />
                                 </div>
                                 <div>
-                                  <span className="inline-flex items-center text-[11px] font-bold text-indigo-700 whitespace-nowrap">
+                                  <span className="inline-flex items-center text-[11px] font-bold text-blue-700 whitespace-nowrap">
                                     <Camera className="w-3 h-3 mr-1" />
                                     {group.proofCount} {group.proofCount === 1 ? 'Proof' : 'Proofs'}
                                   </span>
@@ -1503,8 +1503,8 @@ export default function ViolationQueuePage() {
                   <AlertTriangle className="w-3.5 h-3.5 mr-1 text-amber-500" />
                   {activeCandidateGroup.highCount} High
                 </span>
-                <span className="flex items-center text-indigo-700">
-                  <Camera className="w-3.5 h-3.5 mr-1 text-indigo-500" />
+                <span className="flex items-center text-blue-700">
+                  <Camera className="w-3.5 h-3.5 mr-1 text-blue-600" />
                   {activeCandidateGroup.proofCount} Proof Snapshots
                 </span>
               </div>
@@ -1635,7 +1635,7 @@ export default function ViolationQueuePage() {
                         )}
 
                         {ue.proofCount > 0 ? (
-                          <span className="text-indigo-600 text-[10px] font-bold flex items-center">
+                          <span className="text-blue-600 text-[10px] font-bold flex items-center">
                             <Camera className="w-3 h-3 mr-0.5" />
                             {ue.proofCount} Proofs
                           </span>
@@ -1776,7 +1776,7 @@ export default function ViolationQueuePage() {
                     </>
                   ) : selectedExam?.attemptStatus === 'IN_PROGRESS' ? (
                     <>
-                      <div className="w-14 h-14 rounded-2xl bg-purple-50 text-purple-600 flex items-center justify-center mb-3 border border-purple-200 shadow-2xs">
+                      <div className="w-14 h-14 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center mb-3 border border-blue-200 shadow-2xs">
                         <Activity className="w-8 h-8" />
                       </div>
                       <h4 className="text-base font-black text-slate-900">
@@ -1788,7 +1788,7 @@ export default function ViolationQueuePage() {
                     </>
                   ) : (
                     <>
-                      <div className="w-14 h-14 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center mb-3 border border-emerald-200 shadow-2xs">
+                      <div className="w-14 h-14 rounded-2xl bg-emerald-50 text-emerald-700 flex items-center justify-center mb-3 border border-emerald-200 shadow-2xs">
                         <ShieldCheck className="w-8 h-8" />
                       </div>
                       <h4 className="text-base font-black text-slate-900">
@@ -1901,17 +1901,17 @@ export default function ViolationQueuePage() {
                           ) : (v as any).hasScreenshot ? (
                             <div 
                               onClick={() => handleOpenProof(v)}
-                              className="relative group/thumb cursor-pointer w-full h-44 rounded-xl overflow-hidden border border-indigo-200 hover:border-indigo-500 shadow-sm bg-indigo-50/50 hover:bg-indigo-50 transition-all flex flex-col items-center justify-center p-4 text-center"
+                              className="relative group/thumb cursor-pointer w-full h-44 rounded-xl overflow-hidden border border-blue-200 hover:border-blue-500 shadow-sm bg-blue-50/50 hover:bg-blue-50 transition-all flex flex-col items-center justify-center p-4 text-center"
                               title="Click to load captured evidence proof snapshot"
                             >
-                              <div className="w-10 h-10 rounded-xl bg-indigo-100 text-indigo-700 flex items-center justify-center mb-2 shadow-xs group-hover/thumb:scale-110 transition-transform">
+                              <div className="w-10 h-10 rounded-xl bg-blue-100 text-blue-700 flex items-center justify-center mb-2 shadow-xs group-hover/thumb:scale-110 transition-transform">
                                 <Camera className="w-5 h-5" />
                               </div>
-                              <span className="font-extrabold text-indigo-700 text-xs">
+                              <span className="font-extrabold text-blue-700 text-xs">
                                 {loadingProofId === v._id ? 'Loading Snapshot Evidence...' : 'Snapshot Proof Recorded'}
                               </span>
                               <span className="text-[11px] text-slate-500 mt-1 flex items-center">
-                                <Eye className="w-3 h-3 mr-1 text-indigo-600" /> Click to view captured proof
+                                <Eye className="w-3 h-3 mr-1 text-blue-600" /> Click to view captured proof
                               </span>
                             </div>
                           ) : (

@@ -291,7 +291,7 @@ export default function AdminResultsPage() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-800 flex flex-col font-sans selection:bg-blue-500/20">
+    <div className="min-h-screen bg-white text-slate-800 flex flex-col font-sans selection:bg-blue-500/20">
       {/* Top Bar Header */}
       <header className="bg-white/85 border-b border-slate-200/80 backdrop-blur-md z-30 sticky top-0 shadow-2xs">
         <div className="max-w-7xl mx-auto w-full px-6 py-5 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
@@ -317,7 +317,6 @@ export default function AdminResultsPage() {
             </div>
           </div>
 
-          {/* Right: Navigation Links & Action */}
           {/* Right: Navigation Links & Actions */}
           <div className="flex items-center gap-2 shrink-0 flex-nowrap overflow-x-auto max-w-full pb-1 xl:pb-0">
             <Link 
@@ -348,13 +347,13 @@ export default function AdminResultsPage() {
               href="/admin/reports" 
               className="px-3 py-1.5 bg-slate-50 text-slate-700 border border-slate-200 font-semibold rounded-lg hover:bg-slate-100 transition shadow-2xs text-xs flex items-center h-8.5 shrink-0 whitespace-nowrap"
             >
-              <CheckCircle2 className="w-3.5 h-3.5 mr-1.5 text-emerald-600" /> Integrity
+              <CheckCircle2 className="w-3.5 h-3.5 mr-1.5 text-emerald-700" /> Integrity
             </Link>
             <Link 
               href="/admin/helpdesk" 
-              className="px-3 py-1.5 bg-purple-50 text-purple-700 border border-purple-200 font-semibold rounded-lg hover:bg-purple-100 transition shadow-2xs text-xs flex items-center h-8.5 shrink-0 whitespace-nowrap"
+              className="px-3 py-1.5 bg-blue-50 text-blue-700 border border-blue-200 font-semibold rounded-lg hover:bg-blue-100 transition shadow-2xs text-xs flex items-center h-8.5 shrink-0 whitespace-nowrap"
             >
-              <LifeBuoy className="w-3.5 h-3.5 mr-1.5 text-purple-600" /> Help Desk
+              <LifeBuoy className="w-3.5 h-3.5 mr-1.5 text-blue-600" /> Help Desk
             </Link>
             <button 
               type="button"
@@ -369,7 +368,7 @@ export default function AdminResultsPage() {
               }`}
               title="Refresh latest results from server"
             >
-              <RefreshCw className={`w-3.5 h-3.5 mr-1.5 ${refreshing || loading ? 'animate-spin text-blue-600' : refreshSuccess ? 'text-emerald-600' : 'text-slate-500'}`} />
+              <RefreshCw className={`w-3.5 h-3.5 mr-1.5 ${refreshing || loading ? 'animate-spin text-blue-600' : refreshSuccess ? 'text-emerald-700' : 'text-slate-500'}`} />
               {refreshing ? 'Refreshing...' : refreshSuccess ? refreshSuccess : refreshError ? 'Refresh Failed' : 'Refresh Results'}
             </button>
           </div>
@@ -387,8 +386,8 @@ export default function AdminResultsPage() {
           </div>
 
           <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs">
-            <p className="text-xs font-bold text-emerald-600 uppercase tracking-wider mb-1">Passed Candidates</p>
-            <p className="text-2xl font-black text-emerald-600">{stats.passed}</p>
+            <p className="text-xs font-bold text-emerald-700 uppercase tracking-wider mb-1">Passed Candidates</p>
+            <p className="text-2xl font-black text-emerald-700">{stats.passed}</p>
             <span className="text-[11px] text-slate-400 font-medium">
               {stats.total > 0 ? `${Math.round((stats.passed / stats.total) * 100)}% pass rate` : '0%'}
             </span>
@@ -401,8 +400,8 @@ export default function AdminResultsPage() {
           </div>
 
           <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs">
-            <p className="text-xs font-bold text-indigo-600 uppercase tracking-wider mb-1">Approved Results</p>
-            <p className="text-2xl font-black text-indigo-600">{stats.approved}</p>
+            <p className="text-xs font-bold text-emerald-700 uppercase tracking-wider mb-1">Approved Results</p>
+            <p className="text-2xl font-black text-emerald-700">{stats.approved}</p>
             <span className="text-[11px] text-slate-400 font-medium">Verified by admin</span>
           </div>
 
@@ -556,7 +555,7 @@ export default function AdminResultsPage() {
                       {/* Score & Percentage */}
                       <td className="py-4 px-4 align-middle text-center">
                         <div className="inline-flex flex-col items-center justify-center">
-                          <span className={`text-base font-black ${res.pass ? 'text-emerald-600' : 'text-rose-600'}`}>
+                          <span className={`text-base font-black ${res.pass ? 'text-emerald-700' : 'text-rose-600'}`}>
                             {Math.round(res.percentage)}%
                           </span>
                           <span className="text-xs text-slate-500 font-semibold">
@@ -564,7 +563,7 @@ export default function AdminResultsPage() {
                           </span>
                           <div className="w-20 bg-slate-100 rounded-full h-1.5 mt-1 overflow-hidden">
                             <div 
-                              className={`h-full rounded-full ${res.pass ? 'bg-emerald-500' : 'bg-rose-500'}`}
+                              className={`h-full rounded-full ${res.pass ? 'bg-[#047857]' : 'bg-rose-500'}`}
                               style={{ width: `${Math.min(100, Math.max(0, res.percentage))}%` }}
                             />
                           </div>
@@ -608,7 +607,7 @@ export default function AdminResultsPage() {
                             </Link>
                           ) : (
                             <span className="inline-flex items-center space-x-1 px-2.5 py-1 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-lg text-xs font-semibold">
-                              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-700" />
                               <span>Clean (0)</span>
                             </span>
                           )}
@@ -652,7 +651,7 @@ export default function AdminResultsPage() {
                           <button
                             onClick={() => handleAllowRewrite(res.examId?._id, res.candidateId?._id, res.candidateId?.name)}
                             disabled={rewritingId === `${res.examId?._id}-${res.candidateId?._id}`}
-                            className="px-2.5 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-lg text-xs font-bold transition-colors border border-indigo-200 cursor-pointer flex items-center disabled:opacity-50"
+                            className="px-2.5 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-lg text-xs font-bold transition-colors border border-blue-200 cursor-pointer flex items-center disabled:opacity-50"
                             title="Authorize candidate to re-write this examination"
                           >
                             <RefreshCw className={`w-3.5 h-3.5 mr-1 ${rewritingId === `${res.examId?._id}-${res.candidateId?._id}` ? 'animate-spin' : ''}`} />
@@ -663,7 +662,7 @@ export default function AdminResultsPage() {
                             <button
                               onClick={() => handleVerifyStatus(res._id, 'APPROVED')}
                               disabled={updatingId === res._id}
-                              className="px-2.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold shadow-xs transition-colors cursor-pointer flex items-center disabled:opacity-50"
+                              className="px-2.5 py-1.5 bg-emerald-700 hover:bg-emerald-800 text-white rounded-lg text-xs font-bold shadow-xs transition-colors cursor-pointer flex items-center disabled:opacity-50"
                               title="Approve this exam result"
                             >
                               <Check className="w-3.5 h-3.5 mr-1" /> Approve
@@ -698,7 +697,7 @@ export default function AdminResultsPage() {
             {/* Modal Header */}
             <div className="px-6 py-5 border-b border-slate-200 flex items-center justify-between bg-slate-50/50">
               <div className="flex items-center space-x-3">
-                <div className={`p-2.5 rounded-xl ${selectedResultModal.pass ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600'}`}>
+                <div className={`p-2.5 rounded-xl ${selectedResultModal.pass ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-600'}`}>
                   <Award className="w-6 h-6" />
                 </div>
                 <div>
@@ -721,25 +720,25 @@ export default function AdminResultsPage() {
             {/* Modal Body */}
             <div className="p-6 overflow-y-auto space-y-6 text-sm">
               {/* Score Highlight Header */}
-              <div className="bg-gradient-to-br from-slate-900 to-slate-800 text-white p-6 rounded-2xl flex items-center justify-between shadow-sm">
+              <div className="bg-blue-600 text-white p-6 rounded-2xl flex items-center justify-between shadow-sm">
                 <div>
-                  <p className="text-xs font-bold text-slate-300 uppercase tracking-wider mb-1">Final Result</p>
+                  <p className="text-xs font-bold text-blue-200 uppercase tracking-wider mb-1">Final Result</p>
                   <div className="flex items-baseline space-x-3">
                     <span className="text-4xl font-black">{Math.round(selectedResultModal.percentage)}%</span>
-                    <span className="text-slate-300 font-bold">
+                    <span className="text-blue-100 font-bold">
                       {selectedResultModal.obtainedMarks} / {selectedResultModal.totalMarks} Marks
                     </span>
                   </div>
                   <span className={`inline-block mt-2 px-3 py-1 rounded-full text-xs font-black uppercase tracking-wider ${
-                    selectedResultModal.pass ? 'bg-emerald-500 text-white' : 'bg-rose-500 text-white'
+                    selectedResultModal.pass ? 'bg-[#047857] text-white' : 'bg-rose-500 text-white'
                   }`}>
                     {selectedResultModal.pass ? 'Qualified / PASS' : 'Disqualified / FAIL'}
                   </span>
                 </div>
-                <div className="text-right space-y-1 text-xs text-slate-300">
-                  <p><span className="text-slate-400">Total Questions:</span> {selectedResultModal.totalQuestions}</p>
-                  <p><span className="text-slate-400">Time Taken:</span> {formatSeconds(selectedResultModal.timeTaken)}</p>
-                  <p><span className="text-slate-400">Review Status:</span> <span className="font-bold text-white">{selectedResultModal.status}</span></p>
+                <div className="text-right space-y-1 text-xs text-blue-100">
+                  <p><span className="text-blue-200">Total Questions:</span> {selectedResultModal.totalQuestions}</p>
+                  <p><span className="text-blue-200">Time Taken:</span> {formatSeconds(selectedResultModal.timeTaken)}</p>
+                  <p><span className="text-blue-200">Review Status:</span> <span className="font-bold text-white">{selectedResultModal.status}</span></p>
                 </div>
               </div>
 
@@ -784,13 +783,13 @@ export default function AdminResultsPage() {
                 <div className="grid grid-cols-2 gap-4 text-xs">
                   <div>
                     <span className="text-slate-500">Violations Captured:</span>
-                    <span className={`ml-2 font-bold ${selectedResultModal.violations > 0 ? 'text-rose-600' : 'text-emerald-600'}`}>
+                    <span className={`ml-2 font-bold ${selectedResultModal.violations > 0 ? 'text-rose-600' : 'text-emerald-700'}`}>
                       {selectedResultModal.violations} Infractions
                     </span>
                   </div>
                   <div>
                     <span className="text-slate-500">Risk Assessment:</span>
-                    <span className={`ml-2 font-bold ${selectedResultModal.riskScore >= 40 ? 'text-rose-600' : selectedResultModal.riskScore > 0 ? 'text-amber-600' : 'text-emerald-600'}`}>
+                    <span className={`ml-2 font-bold ${selectedResultModal.riskScore >= 40 ? 'text-rose-600' : selectedResultModal.riskScore > 0 ? 'text-amber-600' : 'text-emerald-700'}`}>
                       {selectedResultModal.riskScore} Risk Index
                     </span>
                   </div>
@@ -809,7 +808,7 @@ export default function AdminResultsPage() {
                 <button
                   onClick={() => handleAllowRewrite(selectedResultModal.examId?._id, selectedResultModal.candidateId?._id, selectedResultModal.candidateId?.name)}
                   disabled={rewritingId === `${selectedResultModal.examId?._id}-${selectedResultModal.candidateId?._id}`}
-                  className="px-4 py-2.5 bg-indigo-50 text-indigo-700 border border-indigo-200 rounded-xl text-xs font-bold hover:bg-indigo-100 transition flex items-center cursor-pointer disabled:opacity-50"
+                  className="px-4 py-2.5 bg-blue-50 text-blue-700 border border-blue-200 rounded-xl text-xs font-bold hover:bg-blue-100 transition flex items-center cursor-pointer disabled:opacity-50"
                   title="Authorize candidate to re-write this examination"
                 >
                   <RefreshCw className={`w-4 h-4 mr-1.5 ${rewritingId === `${selectedResultModal.examId?._id}-${selectedResultModal.candidateId?._id}` ? 'animate-spin' : ''}`} />
@@ -819,7 +818,7 @@ export default function AdminResultsPage() {
                 <button
                   onClick={() => handleVerifyStatus(selectedResultModal._id, 'APPROVED')}
                   disabled={updatingId === selectedResultModal._id}
-                  className="px-4 py-2.5 bg-emerald-600 text-white rounded-xl text-xs font-bold hover:bg-emerald-700 transition flex items-center shadow-xs"
+                  className="px-4 py-2.5 bg-emerald-700 text-white rounded-xl text-xs font-bold hover:bg-emerald-800 transition flex items-center shadow-xs"
                 >
                   <Check className="w-4 h-4 mr-1.5" /> Approve Grade
                 </button>

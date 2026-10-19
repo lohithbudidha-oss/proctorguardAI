@@ -574,8 +574,8 @@ export default function CandidateExamRecordsPage() {
     if (norm === 'AUTO_SUBMITTED') {
       return {
         label: 'AUTO SUBMITTED',
-        className: 'bg-indigo-50 text-indigo-700 border-indigo-200',
-        dotColor: 'bg-indigo-500'
+        className: 'bg-blue-50 text-blue-700 border-blue-200',
+        dotColor: 'bg-blue-500'
       };
     }
     if (norm === 'SUBMITTED' || norm === 'COMPLETED') {
@@ -746,29 +746,29 @@ export default function CandidateExamRecordsPage() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-800 flex font-sans selection:bg-blue-500/20">
+    <div className="min-h-screen bg-white text-slate-800 flex font-sans selection:bg-blue-500/20">
       {/* Sidebar - Sticky at left corner, navigating along with page scroll */}
-      <aside className="w-64 bg-white border-r border-slate-200 flex flex-col hidden md:flex shadow-sm z-30 sticky top-0 h-screen shrink-0">
-        <div className="p-6 border-b border-slate-100 shrink-0">
+      <aside className="w-64 bg-blue-600 text-white border-r border-blue-700 flex flex-col hidden md:flex shadow-sm z-30 sticky top-0 h-screen shrink-0">
+        <div className="p-6 border-b border-blue-500/30 shrink-0">
           <Link href="/admin/monitoring" className="hover:opacity-95 transition-opacity">
-            <BrandLogo size="md" variant="dark" />
+            <BrandLogo size="md" variant="light" />
           </Link>
         </div>
 
         <div className="p-4 space-y-1.5 flex-1 overflow-y-auto">
-          <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-3 px-3">Operations</p>
+          <p className="text-[11px] font-bold text-blue-200 uppercase tracking-wider mb-3 px-3">Operations</p>
           
           {/* Active Navigation: Exam Candidates */}
-          <div className="bg-blue-50 text-blue-700 px-4 py-3 rounded-xl font-semibold border border-blue-200 flex items-center transition-all shadow-sm">
+          <div className="bg-white text-blue-600 px-4 py-3 rounded-xl font-bold border border-white flex items-center transition-all shadow-sm">
             <Users className="w-5 h-5 mr-3 text-blue-600" /> Exam Candidates
           </div>
 
           <Link 
             href="/admin/candidates?filter=pending" 
-            className="text-slate-600 px-4 py-3 rounded-xl font-medium hover:bg-slate-100 hover:text-slate-900 cursor-pointer transition-all flex items-center justify-between"
+            className="text-blue-100 hover:text-white hover:bg-blue-700/60 px-4 py-3 rounded-xl font-medium cursor-pointer transition-all flex items-center justify-between"
           >
             <div className="flex items-center">
-              <UserCheck className="w-5 h-5 mr-3 text-slate-400" /> Candidate Approvals
+              <UserCheck className="w-5 h-5 mr-3 text-blue-200" /> Candidate Approvals
             </div>
             {pendingApprovalsCount > 0 && (
               <span className="bg-amber-500 text-white text-[11px] font-bold px-2 py-0.5 rounded-full shadow-2xs">
@@ -779,38 +779,38 @@ export default function CandidateExamRecordsPage() {
 
           <Link 
             href="/admin/exams" 
-            className="text-slate-600 px-4 py-3 rounded-xl font-medium hover:bg-slate-100 hover:text-slate-900 cursor-pointer transition-all flex items-center"
+            className="text-blue-100 hover:text-white hover:bg-blue-700/60 px-4 py-3 rounded-xl font-medium cursor-pointer transition-all flex items-center"
           >
-            <FileText className="w-5 h-5 mr-3 text-slate-400" /> Exam Management
+            <FileText className="w-5 h-5 mr-3 text-blue-200" /> Exam Management
           </Link>
 
           <Link 
             href="/admin/violations" 
-            className="text-slate-600 px-4 py-3 rounded-xl font-medium hover:bg-slate-100 hover:text-slate-900 cursor-pointer transition-all flex items-center"
+            className="text-blue-100 hover:text-white hover:bg-blue-700/60 px-4 py-3 rounded-xl font-medium cursor-pointer transition-all flex items-center"
           >
-            <AlertTriangle className="w-5 h-5 mr-3 text-slate-400" /> Violation Queue
+            <AlertTriangle className="w-5 h-5 mr-3 text-blue-200" /> Violation Queue
           </Link>
 
           <Link 
             href="/admin/results" 
-            className="text-slate-600 px-4 py-3 rounded-xl font-medium hover:bg-slate-100 hover:text-slate-900 cursor-pointer transition-all flex items-center"
+            className="text-blue-100 hover:text-white hover:bg-blue-700/60 px-4 py-3 rounded-xl font-medium cursor-pointer transition-all flex items-center"
           >
-            <BarChart3 className="w-5 h-5 mr-3 text-slate-400" /> Results
+            <BarChart3 className="w-5 h-5 mr-3 text-blue-200" /> Results
           </Link>
 
           <Link 
             href="/admin/reports" 
-            className="text-slate-600 px-4 py-3 rounded-xl font-medium hover:bg-slate-100 hover:text-slate-900 cursor-pointer transition-all flex items-center"
+            className="text-blue-100 hover:text-white hover:bg-blue-700/60 px-4 py-3 rounded-xl font-medium cursor-pointer transition-all flex items-center"
           >
-            <CheckCircle2 className="w-5 h-5 mr-3 text-slate-400" /> Integrity Reports
+            <CheckCircle2 className="w-5 h-5 mr-3 text-blue-200" /> Integrity Reports
           </Link>
 
           <Link 
             href="/admin/helpdesk" 
-            className="text-slate-600 px-4 py-3 rounded-xl font-medium hover:bg-slate-100 hover:text-slate-900 cursor-pointer transition-all flex items-center justify-between"
+            className="text-blue-100 hover:text-white hover:bg-blue-700/60 px-4 py-3 rounded-xl font-medium cursor-pointer transition-all flex items-center justify-between"
           >
             <div className="flex items-center">
-              <LifeBuoy className="w-5 h-5 mr-3 text-slate-400" /> Help Desk
+              <LifeBuoy className="w-5 h-5 mr-3 text-blue-200" /> Help Desk
             </div>
             {openTicketsCount > 0 && (
               <span className="bg-amber-500 text-white text-[11px] font-bold px-2 py-0.5 rounded-full shadow-2xs">
@@ -823,10 +823,6 @@ export default function CandidateExamRecordsPage() {
 
       {/* Main Content */}
       <div className="flex-1 flex flex-col min-w-0 relative overflow-hidden">
-        {/* Soft Background Accents */}
-        <div className="absolute top-[-20%] left-[-10%] w-[50%] h-[50%] bg-blue-100/40 blur-[120px] rounded-full pointer-events-none" />
-        <div className="absolute bottom-[-20%] right-[-10%] w-[50%] h-[50%] bg-indigo-100/30 blur-[120px] rounded-full pointer-events-none" />
-
         {/* Top Header */}
         <header className="bg-white/85 backdrop-blur-md border-b border-slate-200/80 px-8 py-5 z-10 sticky top-0 shadow-2xs">
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
@@ -1351,10 +1347,10 @@ export default function CandidateExamRecordsPage() {
                                   });
                                 }
                               }}
-                              className="bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 px-2.5 py-1 rounded-lg font-bold text-xs flex items-center shrink-0 transition shadow-2xs whitespace-nowrap cursor-pointer hover:border-indigo-300"
+                              className="bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 px-2.5 py-1 rounded-lg font-bold text-xs flex items-center shrink-0 transition shadow-2xs whitespace-nowrap cursor-pointer hover:border-blue-300"
                               title="Click to view violation proof screenshot and incident details"
                             >
-                              <Camera className="w-3.5 h-3.5 mr-1 shrink-0 text-indigo-600" />
+                              <Camera className="w-3.5 h-3.5 mr-1 shrink-0 text-blue-600" />
                               <span>Proof</span>
                             </button>
                           )}
@@ -1687,18 +1683,18 @@ export default function CandidateExamRecordsPage() {
 
               {/* Authorize Re-write Action for Completed / Submitted Sessions */}
               {isCompletedStatus(selectedCandidate.status) && selectedCandidate.examId && (
-                <div className="bg-indigo-50/70 rounded-2xl p-4 border border-indigo-200/80 shadow-2xs">
-                  <span className="text-xs font-extrabold uppercase tracking-wider text-indigo-950 block mb-1.5 flex items-center">
-                    <Sparkles className="w-3.5 h-3.5 mr-1.5 text-indigo-600 shrink-0" />
+                <div className="bg-blue-50/80 rounded-2xl p-4 border border-blue-200/80 shadow-2xs">
+                  <span className="text-xs font-extrabold uppercase tracking-wider text-blue-950 block mb-1.5 flex items-center">
+                    <Sparkles className="w-3.5 h-3.5 mr-1.5 text-blue-600 shrink-0" />
                     Authorize Examination Re-write
                   </span>
-                  <p className="text-xs text-indigo-900/80 leading-relaxed mb-3 font-medium">
+                  <p className="text-xs text-blue-900/80 leading-relaxed mb-3 font-medium">
                     Permit this candidate to re-take this examination. Prior answers, violations, and performance telemetry will remain safely recorded.
                   </p>
                   <button
                     onClick={() => handleAllowRewrite(selectedCandidate.examId, selectedCandidate.id, selectedCandidate.name)}
                     disabled={rewritingCandidateId === selectedCandidate.id}
-                    className="w-full flex items-center justify-center p-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition shadow-xs cursor-pointer disabled:opacity-50"
+                    className="w-full flex items-center justify-center p-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition shadow-xs cursor-pointer disabled:opacity-50"
                   >
                     <RefreshCw className={`w-3.5 h-3.5 mr-1.5 ${rewritingCandidateId === selectedCandidate.id ? 'animate-spin' : ''}`} />
                     <span>Authorize Examination Re-write</span>

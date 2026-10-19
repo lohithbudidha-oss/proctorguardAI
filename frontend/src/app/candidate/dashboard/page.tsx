@@ -337,7 +337,7 @@ export default function CandidateDashboard() {
   };
 
   if (loading && exams.length === 0) return (
-    <div className="min-h-screen bg-[#F8FAFC] flex flex-col font-sans">
+    <div className="min-h-screen bg-white flex flex-col font-sans">
       <header className="bg-white/80 backdrop-blur-xl border-b border-slate-200 sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-6 h-20 flex justify-between items-center">
           <BrandLogo size="md" variant="dark" />
@@ -358,7 +358,7 @@ export default function CandidateDashboard() {
   );
 
   return (
-    <div className="min-h-screen bg-[#F8FAFC] flex flex-col font-sans selection:bg-blue-200">
+    <div className="min-h-screen bg-white flex flex-col font-sans selection:bg-blue-200">
       {/* Enterprise Header */}
       <header className="bg-white/80 backdrop-blur-xl border-b border-slate-200 sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-6 h-20 flex justify-between items-center">
@@ -429,7 +429,7 @@ export default function CandidateDashboard() {
                   <div className="max-h-80 overflow-y-auto divide-y divide-slate-100">
                     {notifications.length === 0 ? (
                       <div className="p-8 text-center text-slate-500 text-sm flex flex-col items-center justify-center">
-                        <CheckCircle2 className="w-8 h-8 text-emerald-500 mb-2 stroke-[1.5]" />
+                        <CheckCircle2 className="w-8 h-8 text-emerald-700 mb-2 stroke-[1.5]" />
                         <p className="font-semibold text-slate-700">All caught up!</p>
                         <p className="text-xs text-slate-400 mt-0.5">You have no new notifications.</p>
                       </div>
@@ -489,7 +489,7 @@ export default function CandidateDashboard() {
         {showTicketSubmittedAlert && (
           <div className="bg-emerald-50 border border-emerald-200 text-emerald-800 p-4 rounded-2xl text-sm font-medium mb-8 flex items-center justify-between shadow-xs animate-in fade-in duration-200">
             <div className="flex items-center space-x-3.5">
-              <div className="p-2 bg-emerald-600 text-white rounded-xl shadow-xs shrink-0">
+              <div className="p-2 bg-emerald-700 text-white rounded-xl shadow-xs shrink-0">
                 <CheckCircle2 className="w-5 h-5" />
               </div>
               <div>
@@ -514,7 +514,7 @@ export default function CandidateDashboard() {
             <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight">Welcome back!</h1>
             {exams.some(e => e.canRewrite) ? (
               <p className="text-slate-500 mt-2 text-lg">
-                You have an <span className="font-bold text-indigo-600">authorized examination re-write</span> available. You can re-take the assessment or review your previous result below.
+                You have an <span className="font-bold text-blue-600">authorized examination re-write</span> available. You can re-take the assessment or review your previous result below.
               </p>
             ) : exams.filter(e => e.status === 'AVAILABLE' || e.status === 'IN_PROGRESS').length === 0 ? (
               <p className="text-slate-500 mt-2 text-lg">
@@ -557,7 +557,7 @@ export default function CandidateDashboard() {
               <span>Contact Us</span>
             </Link>
             <div className="bg-white px-4 py-2 rounded-xl border border-slate-200 shadow-xs flex items-center space-x-2 shrink-0">
-              <ShieldCheck className="w-4 h-4 text-emerald-500" />
+              <ShieldCheck className="w-4 h-4 text-emerald-700" />
               <span className="text-xs font-semibold text-slate-700">Security active</span>
             </div>
           </div>
@@ -579,7 +579,7 @@ export default function CandidateDashboard() {
                 key={exam.id} 
                 className={`bg-white rounded-2xl border transition-all duration-300 flex flex-col group ${
                   canRewrite
-                    ? 'border-indigo-300 ring-2 ring-indigo-500/20 shadow-[0_8px_30px_rgba(99,102,241,0.12)] hover:-translate-y-1 hover:shadow-[0_15px_40px_rgba(99,102,241,0.18)] bg-gradient-to-b from-indigo-50/20 to-white'
+                    ? 'border-blue-300 ring-2 ring-blue-500/20 shadow-md hover:-translate-y-1 hover:shadow-lg bg-blue-50/20'
                     : isAvailable 
                     ? 'border-blue-200 shadow-[0_8px_30px_rgba(37,99,235,0.08)] hover:-translate-y-1 hover:shadow-[0_15px_40px_rgba(37,99,235,0.12)]' 
                     : isInProgress
@@ -593,24 +593,24 @@ export default function CandidateDashboard() {
                   <div className="flex justify-between items-start mb-6">
                     <div className={`p-3 rounded-xl ${
                       canRewrite
-                        ? 'bg-indigo-600 shadow-lg shadow-indigo-600/25 ring-2 ring-indigo-200'
+                        ? 'bg-blue-600 shadow-lg shadow-blue-600/25 ring-2 ring-blue-200'
                         : isAvailable 
                         ? 'bg-blue-600 shadow-lg shadow-blue-600/20' 
                         : isInProgress 
                         ? 'bg-amber-600 shadow-lg shadow-amber-600/20' 
                         : isApproved 
-                        ? 'bg-emerald-600 shadow-lg shadow-emerald-600/20' 
+                        ? 'bg-emerald-700 shadow-lg shadow-emerald-700/20' 
                         : 'bg-amber-500 shadow-lg shadow-amber-500/20'
                     }`}>
                       <FileText className="w-6 h-6 text-white" />
                     </div>
                     {canRewrite ? (
-                      <span className="px-3 py-1.5 bg-indigo-50 text-indigo-700 border border-indigo-200 text-xs font-bold uppercase tracking-wider rounded-lg flex items-center shadow-xs">
-                        <Sparkles className="w-3.5 h-3.5 mr-1.5 text-indigo-600 animate-pulse shrink-0" /> Re-write Available
+                      <span className="px-3 py-1.5 bg-blue-50 text-blue-700 border border-blue-200 text-xs font-bold uppercase tracking-wider rounded-lg flex items-center shadow-xs">
+                        <Sparkles className="w-3.5 h-3.5 mr-1.5 text-blue-600 animate-pulse shrink-0" /> Re-write Available
                       </span>
                     ) : isAvailable ? (
                       <span className="px-3 py-1.5 bg-emerald-50 text-emerald-700 border border-emerald-200 text-xs font-bold uppercase tracking-wider rounded-lg flex items-center">
-                        <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full mr-2 animate-pulse"></span> Available Now
+                        <span className="w-1.5 h-1.5 bg-[#047857] rounded-full mr-2 animate-pulse"></span> Available Now
                       </span>
                     ) : isInProgress ? (
                       <span className="px-3 py-1.5 bg-amber-50 text-amber-700 border border-amber-200 text-xs font-bold uppercase tracking-wider rounded-lg flex items-center">
@@ -622,7 +622,7 @@ export default function CandidateDashboard() {
                       </span>
                     ) : isApproved ? (
                       <span className="px-3 py-1.5 bg-emerald-50 text-emerald-700 border border-emerald-200 text-xs font-bold uppercase tracking-wider rounded-lg flex items-center">
-                        <CheckCircle2 className="w-3.5 h-3.5 mr-1.5 text-emerald-600 shrink-0" /> Verified & Approved
+                        <CheckCircle2 className="w-3.5 h-3.5 mr-1.5 text-emerald-700 shrink-0" /> Verified & Approved
                       </span>
                     ) : isRejected ? (
                       <span className="px-3 py-1.5 bg-rose-50 text-rose-700 border border-rose-200 text-xs font-bold uppercase tracking-wider rounded-lg flex items-center">
@@ -643,8 +643,8 @@ export default function CandidateDashboard() {
                   
                   <div className="space-y-3 mt-4">
                     {canRewrite && (
-                      <div className="flex items-center text-xs font-semibold text-indigo-700 bg-indigo-50/80 px-3 py-2 rounded-lg border border-indigo-200/80">
-                        <Sparkles className="w-3.5 h-3.5 mr-2 text-indigo-600 shrink-0" />
+                      <div className="flex items-center text-xs font-semibold text-blue-700 bg-blue-50/80 px-3 py-2 rounded-lg border border-blue-200/80">
+                        <Sparkles className="w-3.5 h-3.5 mr-2 text-blue-600 shrink-0" />
                         <span>Admin authorized re-write for this assessment</span>
                       </div>
                     )}
@@ -652,10 +652,10 @@ export default function CandidateDashboard() {
                       <Clock className={`w-4 h-4 mr-3 ${isCompleted ? 'text-slate-400' : 'text-blue-500'}`} /> {exam.duration} Minutes Duration
                     </div>
                     <div className="flex items-center text-sm font-medium text-slate-600 bg-slate-50 px-3 py-2 rounded-lg border border-slate-100">
-                      <CheckCircle2 className={`w-4 h-4 mr-3 ${isCompleted ? 'text-emerald-500' : 'text-blue-500'}`} /> AI-Proctored Session
+                      <CheckCircle2 className={`w-4 h-4 mr-3 ${isCompleted ? 'text-emerald-700' : 'text-blue-500'}`} /> AI-Proctored Session
                     </div>
                     <div className="flex items-center text-sm font-medium text-slate-600 bg-slate-50 px-3 py-2 rounded-lg border border-slate-100">
-                      <Calendar className={`w-4 h-4 mr-3 ${isCompleted ? 'text-slate-400' : 'text-indigo-500'}`} /> {new Date(exam.scheduledFor).toLocaleDateString()}
+                      <Calendar className={`w-4 h-4 mr-3 ${isCompleted ? 'text-slate-400' : 'text-blue-600'}`} /> {new Date(exam.scheduledFor).toLocaleDateString()}
                     </div>
                   </div>
                 </div>
@@ -665,7 +665,7 @@ export default function CandidateDashboard() {
                     <div className="space-y-2">
                       <Link 
                         href={`/candidate/exams/${exam.id}/system-check`}
-                        className="flex items-center justify-center w-full py-3.5 rounded-xl font-bold bg-indigo-600 hover:bg-indigo-700 text-white shadow-md hover:shadow-lg hover:shadow-indigo-600/25 transition-all text-sm group cursor-pointer"
+                        className="flex items-center justify-center w-full py-3.5 rounded-xl font-bold bg-blue-600 hover:bg-blue-700 text-white shadow-md hover:shadow-lg hover:shadow-blue-600/25 transition-all text-sm group cursor-pointer"
                       >
                         <span>Rewrite Examination</span>
                         <ArrowRight className="w-4 h-4 ml-2 group-hover:translate-x-1 transition-transform" />
@@ -673,7 +673,7 @@ export default function CandidateDashboard() {
                       {exam.attemptId && (
                         <Link 
                           href={`/candidate/exams/${exam.id}/result/${exam.attemptId}`}
-                          className="flex items-center justify-center w-full py-2.5 rounded-xl font-bold bg-white hover:bg-slate-50 text-slate-700 hover:text-indigo-700 border border-slate-200 text-xs transition-colors cursor-pointer shadow-2xs"
+                          className="flex items-center justify-center w-full py-2.5 rounded-xl font-bold bg-white hover:bg-slate-50 text-slate-700 hover:text-blue-700 border border-slate-200 text-xs transition-colors cursor-pointer shadow-2xs"
                         >
                           View Previous Result
                         </Link>
@@ -800,8 +800,8 @@ export default function CandidateDashboard() {
         <div className="fixed inset-0 z-[150] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-in fade-in duration-200">
           <div className="bg-white rounded-3xl border border-slate-200 shadow-2xl max-w-xl w-full p-6 sm:p-8 transform transition-all animate-in zoom-in-95 duration-200 relative overflow-hidden">
             
-            {/* Top decorative gradient bar */}
-            <div className="absolute top-0 left-0 right-0 h-2 bg-gradient-to-r from-emerald-500 via-teal-500 to-blue-600" />
+            {/* Top decorative bar */}
+            <div className="absolute top-0 left-0 right-0 h-2 bg-blue-600" />
 
             {/* Close Button */}
             <button
@@ -814,11 +814,11 @@ export default function CandidateDashboard() {
 
             {/* Header with celebratory icon */}
             <div className="text-center mb-6">
-              <div className="w-16 h-16 rounded-2xl bg-emerald-100 text-emerald-600 flex items-center justify-center mx-auto mb-3.5 shadow-lg shadow-emerald-500/20 ring-4 ring-emerald-50 animate-bounce duration-1000">
+              <div className="w-16 h-16 rounded-2xl bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center justify-center mx-auto mb-3.5 ring-4 ring-emerald-50 animate-bounce duration-1000">
                 <CheckCircle2 className="w-9 h-9 stroke-[2.2]" />
               </div>
-              <div className="inline-flex items-center space-x-1.5 px-3 py-1 bg-emerald-50 border border-emerald-200 rounded-full text-emerald-800 text-xs font-black uppercase tracking-wider mb-2">
-                <Sparkles className="w-3.5 h-3.5 text-emerald-600" />
+              <div className="inline-flex items-center space-x-1.5 px-3 py-1 bg-emerald-50 border border-emerald-200 rounded-full text-emerald-700 text-xs font-black uppercase tracking-wider mb-2">
+                <Sparkles className="w-3.5 h-3.5 text-emerald-700" />
                 <span>Exam Submitted Successfully</span>
               </div>
               <h2 className="text-2xl font-black text-slate-900 tracking-tight">
@@ -845,7 +845,7 @@ export default function CandidateDashboard() {
               {/* Where to check results? */}
               <div className="p-4 rounded-2xl bg-emerald-50/80 border border-emerald-200/90 text-left">
                 <div className="flex items-center space-x-2 text-emerald-950 font-extrabold text-sm mb-1.5">
-                  <CheckCircle className="w-4 h-4 text-emerald-600 shrink-0" />
+                  <CheckCircle className="w-4 h-4 text-emerald-700 shrink-0" />
                   <h4>Where to check your results?</h4>
                 </div>
                 <div className="text-xs text-emerald-900/90 space-y-1.5 leading-relaxed font-medium">
@@ -857,7 +857,7 @@ export default function CandidateDashboard() {
                       <strong>While under review:</strong> The exam card will show <span className="inline-block px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 border border-amber-300 font-bold text-[10px]">Pending Verification</span>.
                     </li>
                     <li>
-                      <strong>Once approved:</strong> A green <span className="inline-block px-2 py-0.5 rounded bg-emerald-600 text-white font-bold text-[10px]">View Results</span> button will appear!
+                      <strong>Once approved:</strong> A green <span className="inline-block px-2 py-0.5 rounded bg-emerald-700 text-white font-bold text-[10px]">View Results</span> button will appear!
                     </li>
                     <li>
                       <strong>What you will see:</strong> Clicking &quot;View Results&quot; shows the full question paper with the official verified correct answers, your selected options, and marks scored.

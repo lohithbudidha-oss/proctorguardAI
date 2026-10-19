@@ -193,7 +193,7 @@ export default function SupportPage() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 flex flex-col font-sans">
+    <div className="min-h-screen bg-white flex flex-col font-sans">
       <PublicNavbar activePage="support" />
 
       {/* Hero Section */}
@@ -227,7 +227,7 @@ export default function SupportPage() {
             </div>
 
             <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-2xs">
-              <div className="w-10 h-10 bg-emerald-50 text-emerald-600 rounded-xl flex items-center justify-center mb-4">
+              <div className="w-10 h-10 bg-emerald-50 text-emerald-700 rounded-xl flex items-center justify-center mb-4">
                 <Monitor className="w-5 h-5" />
               </div>
               <h3 className="font-extrabold text-slate-900 text-base mb-1.5">Screen Sharing & Display</h3>
@@ -237,7 +237,7 @@ export default function SupportPage() {
             </div>
 
             <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-2xs">
-              <div className="w-10 h-10 bg-purple-50 text-purple-600 rounded-xl flex items-center justify-center mb-4">
+              <div className="w-10 h-10 bg-blue-50 text-blue-600 rounded-xl flex items-center justify-center mb-4">
                 <Wifi className="w-5 h-5" />
               </div>
               <h3 className="font-extrabold text-slate-900 text-base mb-1.5">Network & Disconnects</h3>
@@ -298,14 +298,14 @@ export default function SupportPage() {
 
                 {formSubmitted ? (
                   <div className="p-6 bg-emerald-50 border border-emerald-200 rounded-2xl text-center animate-in fade-in zoom-in-95 duration-200">
-                    <CheckCircle2 className="w-12 h-12 text-emerald-600 mx-auto mb-3" />
+                    <CheckCircle2 className="w-12 h-12 text-emerald-700 mx-auto mb-3" />
                     <h4 className="font-extrabold text-emerald-900 text-base">Inquiry Submitted Successfully!</h4>
                     <p className="text-xs text-emerald-700 mt-1 max-w-sm mx-auto leading-relaxed">
                       Our proctoring support desk has received your response. We will contact you at <span className="font-bold underline">{formData.email}</span>.
                     </p>
                     <div className="mt-5 pt-3.5 border-t border-emerald-200/80 flex flex-col items-center justify-center gap-2">
                       <p className="text-[11px] text-emerald-800 font-semibold flex items-center">
-                        <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin text-emerald-600" />
+                        <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin text-emerald-700" />
                         Navigating to Candidate Dashboard...
                       </p>
                       <button

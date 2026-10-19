@@ -48,7 +48,7 @@ export default function OrganizationsPage() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 flex flex-col font-sans">
+    <div className="min-h-screen bg-white flex flex-col font-sans">
       <PublicNavbar activePage="organizations" />
 
       {/* Hero Section */}
@@ -95,8 +95,8 @@ export default function OrganizationsPage() {
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
               {/* Higher Education */}
-              <div className="bg-slate-50 rounded-2xl p-7 border border-slate-200 hover:border-blue-300 transition-all shadow-2xs">
-                <div className="w-12 h-12 bg-blue-100 text-blue-600 rounded-xl flex items-center justify-center mb-5">
+              <div className="bg-white rounded-2xl p-7 border border-slate-200 hover:border-blue-300 transition-all shadow-2xs">
+                <div className="w-12 h-12 bg-blue-50 text-blue-600 rounded-xl flex items-center justify-center mb-5">
                   <GraduationCap className="w-6 h-6" />
                 </div>
                 <h3 className="text-xl font-bold text-slate-900 mb-2">Colleges & Universities</h3>
@@ -111,8 +111,8 @@ export default function OrganizationsPage() {
               </div>
 
               {/* Recruitment */}
-              <div className="bg-slate-50 rounded-2xl p-7 border border-slate-200 hover:border-blue-300 transition-all shadow-2xs">
-                <div className="w-12 h-12 bg-emerald-100 text-emerald-600 rounded-xl flex items-center justify-center mb-5">
+              <div className="bg-white rounded-2xl p-7 border border-slate-200 hover:border-emerald-300 transition-all shadow-2xs">
+                <div className="w-12 h-12 bg-emerald-50 text-emerald-700 rounded-xl flex items-center justify-center mb-5">
                   <Briefcase className="w-6 h-6" />
                 </div>
                 <h3 className="text-xl font-bold text-slate-900 mb-2">Corporate Hiring & Talent</h3>
@@ -120,15 +120,15 @@ export default function OrganizationsPage() {
                   Screen software engineers and knowledge workers accurately. Eliminate unauthorized external AI tab browsing, second monitors, and candidate impersonation during pre-employment assessments.
                 </p>
                 <ul className="text-xs text-slate-700 space-y-2 font-medium">
-                  <li className="flex items-center"><CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 mr-2 shrink-0" /> Fullscreen browser enforcement</li>
-                  <li className="flex items-center"><CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 mr-2 shrink-0" /> Live screen broadcast capture</li>
-                  <li className="flex items-center"><CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 mr-2 shrink-0" /> Automated scoring & instant analytics</li>
+                  <li className="flex items-center"><CheckCircle2 className="w-3.5 h-3.5 text-emerald-700 mr-2 shrink-0" /> Fullscreen browser enforcement</li>
+                  <li className="flex items-center"><CheckCircle2 className="w-3.5 h-3.5 text-emerald-700 mr-2 shrink-0" /> Live screen broadcast capture</li>
+                  <li className="flex items-center"><CheckCircle2 className="w-3.5 h-3.5 text-emerald-700 mr-2 shrink-0" /> Automated scoring & instant analytics</li>
                 </ul>
               </div>
 
               {/* Certification Bodies */}
-              <div className="bg-slate-50 rounded-2xl p-7 border border-slate-200 hover:border-blue-300 transition-all shadow-2xs">
-                <div className="w-12 h-12 bg-indigo-100 text-indigo-600 rounded-xl flex items-center justify-center mb-5">
+              <div className="bg-white rounded-2xl p-7 border border-slate-200 hover:border-blue-300 transition-all shadow-2xs">
+                <div className="w-12 h-12 bg-blue-50 text-blue-600 rounded-xl flex items-center justify-center mb-5">
                   <Award className="w-6 h-6" />
                 </div>
                 <h3 className="text-xl font-bold text-slate-900 mb-2">Certification Authorities</h3>
@@ -136,9 +136,9 @@ export default function OrganizationsPage() {
                   Protect credential values and accreditation standards with tamper-evident audit trails, permanent cloud snapshots, and verifiable candidate integrity records.
                 </p>
                 <ul className="text-xs text-slate-700 space-y-2 font-medium">
-                  <li className="flex items-center"><CheckCircle2 className="w-3.5 h-3.5 text-indigo-600 mr-2 shrink-0" /> Google Drive evidence archiving</li>
-                  <li className="flex items-center"><CheckCircle2 className="w-3.5 h-3.5 text-indigo-600 mr-2 shrink-0" /> Reviewable violation queue</li>
-                  <li className="flex items-center"><CheckCircle2 className="w-3.5 h-3.5 text-indigo-600 mr-2 shrink-0" /> Result approval & reject verification</li>
+                  <li className="flex items-center"><CheckCircle2 className="w-3.5 h-3.5 text-blue-600 mr-2 shrink-0" /> Google Drive evidence archiving</li>
+                  <li className="flex items-center"><CheckCircle2 className="w-3.5 h-3.5 text-blue-600 mr-2 shrink-0" /> Reviewable violation queue</li>
+                  <li className="flex items-center"><CheckCircle2 className="w-3.5 h-3.5 text-blue-600 mr-2 shrink-0" /> Result approval & reject verification</li>
                 </ul>
               </div>
             </div>
@@ -166,7 +166,7 @@ export default function OrganizationsPage() {
             </div>
 
             <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-xs flex items-start space-x-4">
-              <div className="p-3 bg-amber-50 text-amber-600 rounded-xl shrink-0">
+              <div className="p-3 bg-blue-50 text-blue-600 rounded-xl shrink-0">
                 <HardDrive className="w-6 h-6" />
               </div>
               <div>
@@ -178,7 +178,7 @@ export default function OrganizationsPage() {
             </div>
 
             <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-xs flex items-start space-x-4">
-              <div className="p-3 bg-emerald-50 text-emerald-600 rounded-xl shrink-0">
+              <div className="p-3 bg-emerald-50 text-emerald-700 rounded-xl shrink-0">
                 <BarChart3 className="w-6 h-6" />
               </div>
               <div>
@@ -190,7 +190,7 @@ export default function OrganizationsPage() {
             </div>
 
             <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-xs flex items-start space-x-4">
-              <div className="p-3 bg-rose-50 text-rose-600 rounded-xl shrink-0">
+              <div className="p-3 bg-blue-50 text-blue-600 rounded-xl shrink-0">
                 <ShieldCheck className="w-6 h-6" />
               </div>
               <div>

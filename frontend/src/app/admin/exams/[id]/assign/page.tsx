@@ -241,7 +241,7 @@ function CandidateAssignmentContent() {
   if (loading) return <div className="p-10 text-center font-bold">Loading...</div>;
 
   return (
-    <div className="min-h-screen bg-slate-50 py-10 px-6 font-sans">
+    <div className="min-h-screen bg-white py-10 px-6 font-sans">
       <div className="max-w-6xl mx-auto">
         <Link href="/admin/exams" className="text-blue-600 font-bold flex items-center mb-6 hover:underline text-sm group">
           <ArrowLeft className="w-4 h-4 mr-2 group-hover:-translate-x-1 transition-transform" /> Back to Exams
@@ -405,7 +405,7 @@ function CandidateAssignmentContent() {
                           />
                         ) : (
                           <div className="w-4 h-4 rounded bg-slate-200 flex items-center justify-center shrink-0">
-                            <CheckCircle className="w-3 h-3 text-emerald-600" />
+                            <CheckCircle className="w-3 h-3 text-emerald-700" />
                           </div>
                         )}
 
@@ -422,8 +422,8 @@ function CandidateAssignmentContent() {
 
                       <div className="shrink-0 ml-3">
                         {assigned ? (
-                          <span className="flex items-center text-xs font-bold text-emerald-600 bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-200">
-                            <CheckCircle className="w-3.5 h-3.5 mr-1 text-emerald-600" /> Assigned
+                          <span className="flex items-center text-xs font-bold text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-200">
+                            <CheckCircle className="w-3.5 h-3.5 mr-1 text-emerald-700" /> Assigned
                           </span>
                         ) : (
                           <button 
@@ -444,9 +444,9 @@ function CandidateAssignmentContent() {
 
           {/* Assigned Candidates */}
           <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden flex flex-col">
-            <div className="p-4 border-b border-slate-200 bg-emerald-50 font-bold text-emerald-800 flex justify-between items-center">
+            <div className="p-4 border-b border-slate-200 bg-emerald-50 font-bold text-emerald-700 flex justify-between items-center">
               <span>Assigned to Exam</span>
-              <span className="text-xs bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full font-bold">
+              <span className="text-xs bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full font-bold">
                 {candidates.length}
               </span>
             </div>

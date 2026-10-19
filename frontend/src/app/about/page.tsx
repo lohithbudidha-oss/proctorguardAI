@@ -6,7 +6,7 @@ import PublicFooter from '@/components/PublicFooter';
 
 export default function AboutPage() {
   return (
-    <div className="min-h-screen bg-slate-50 flex flex-col font-sans">
+    <div className="min-h-screen bg-white flex flex-col font-sans">
       <PublicNavbar activePage="about" />
       
       <main className="flex-1 py-16 px-6 sm:px-12 max-w-4xl mx-auto w-full">
@@ -37,7 +37,7 @@ export default function AboutPage() {
           </div>
 
           <div className="bg-white p-7 rounded-2xl border border-slate-200 shadow-xs flex items-start space-x-5">
-            <div className="w-12 h-12 bg-emerald-50 text-emerald-600 rounded-xl flex items-center justify-center shrink-0 mt-1">
+            <div className="w-12 h-12 bg-emerald-50 text-emerald-700 rounded-xl flex items-center justify-center shrink-0 mt-1">
               <Eye className="w-6 h-6" />
             </div>
             <div>
@@ -49,7 +49,7 @@ export default function AboutPage() {
           </div>
 
           <div className="bg-white p-7 rounded-2xl border border-slate-200 shadow-xs flex items-start space-x-5">
-            <div className="w-12 h-12 bg-indigo-50 text-indigo-600 rounded-xl flex items-center justify-center shrink-0 mt-1">
+            <div className="w-12 h-12 bg-blue-50 text-blue-600 rounded-xl flex items-center justify-center shrink-0 mt-1">
               <MonitorPlay className="w-6 h-6" />
             </div>
             <div>

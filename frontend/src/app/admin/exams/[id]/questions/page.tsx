@@ -256,7 +256,7 @@ function QuestionBuilderContent() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-10 font-sans text-slate-600">
+      <div className="min-h-screen bg-white flex flex-col items-center justify-center p-10 font-sans text-slate-600">
         <div className="w-9 h-9 border-3 border-blue-600/30 border-t-blue-600 rounded-full animate-spin mb-3" />
         <p className="font-bold text-slate-800 text-sm">Loading Exam Builder...</p>
       </div>
@@ -264,7 +264,7 @@ function QuestionBuilderContent() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 py-10 px-6 font-sans text-slate-800">
+    <div className="min-h-screen bg-white py-10 px-6 font-sans text-slate-800">
       <div className="max-w-5xl mx-auto">
         {/* Navigation Link */}
         <Link href="/admin/exams" className="text-blue-600 font-bold flex items-center mb-6 hover:underline text-sm group">
@@ -275,10 +275,10 @@ function QuestionBuilderContent() {
         {toastMessage && (
           <div className="mb-6 p-4 bg-emerald-50 border border-emerald-200 rounded-xl flex items-center justify-between shadow-2xs animate-fadeIn">
             <div className="flex items-center text-emerald-800 text-sm font-semibold">
-              <CheckCircle2 className="w-5 h-5 mr-2 text-emerald-600 shrink-0" />
+              <CheckCircle2 className="w-5 h-5 mr-2 text-emerald-700 shrink-0" />
               <span>{toastMessage}</span>
             </div>
-            <button onClick={() => setToastMessage(null)} className="text-emerald-600 hover:text-emerald-800">
+            <button onClick={() => setToastMessage(null)} className="text-emerald-700 hover:text-emerald-900">
               <X className="w-4 h-4" />
             </button>
           </div>
@@ -377,7 +377,7 @@ function QuestionBuilderContent() {
                     <label className="block text-xs font-bold text-slate-700 mb-1 flex items-center justify-between">
                       <span>Option {opt.id}</span>
                       {editingQuestion.correctAnswer === opt.id && (
-                        <span className="text-[10px] font-extrabold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
+                        <span className="text-[10px] font-extrabold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
                           Correct Option
                         </span>
                       )}
@@ -386,7 +386,7 @@ function QuestionBuilderContent() {
                       type="text"
                       className={`w-full rounded-xl p-2.5 border text-sm outline-none transition ${
                         editingQuestion.correctAnswer === opt.id 
-                          ? 'border-emerald-400 bg-emerald-50/20 focus:ring-2 focus:ring-emerald-500' 
+                          ? 'border-emerald-600 bg-emerald-50/20 focus:ring-2 focus:ring-emerald-700' 
                           : 'border-slate-300 bg-white focus:ring-2 focus:ring-amber-500'
                       }`}
                       placeholder={`Enter text for option ${opt.id}...`}
@@ -570,7 +570,7 @@ function QuestionBuilderContent() {
                   type="button"
                   disabled={isSubmittingNew}
                   onClick={handleAddQuestion} 
-                  className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl transition flex items-center text-xs shadow-xs cursor-pointer disabled:opacity-50"
+                  className="px-5 py-2 bg-emerald-700 hover:bg-emerald-800 text-white font-bold rounded-xl transition flex items-center text-xs shadow-xs cursor-pointer disabled:opacity-50"
                 >
                   <Save className="w-3.5 h-3.5 mr-1.5" /> 
                   {isSubmittingNew ? 'Saving Question...' : 'Save Question'}
@@ -640,20 +640,20 @@ function QuestionBuilderContent() {
                       key={opt.id} 
                       className={`p-3.5 rounded-xl border text-sm font-medium transition flex items-center justify-between ${
                         isCorrect 
-                          ? 'border-emerald-400 bg-emerald-50 text-emerald-900 shadow-2xs font-semibold' 
+                          ? 'border-emerald-600 bg-emerald-50 text-emerald-900 shadow-2xs font-semibold' 
                           : 'border-slate-200 bg-slate-50/60 text-slate-700'
                       }`}
                     >
                       <div className="flex items-center">
                         <span className={`w-5 h-5 rounded-md flex items-center justify-center font-bold text-xs mr-2.5 shrink-0 ${
-                          isCorrect ? 'bg-emerald-600 text-white' : 'bg-slate-200 text-slate-600'
+                          isCorrect ? 'bg-emerald-700 text-white' : 'bg-slate-200 text-slate-600'
                         }`}>
                           {opt.id}
                         </span> 
                         <span>{opt.text}</span>
                       </div>
                       {isCorrect && (
-                        <Check className="w-4 h-4 text-emerald-600 shrink-0 ml-2" />
+                        <Check className="w-4 h-4 text-emerald-700 shrink-0 ml-2" />
                       )}
                     </div>
                   );

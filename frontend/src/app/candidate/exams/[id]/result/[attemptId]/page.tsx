@@ -203,7 +203,7 @@ function CandidateResultContent() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-slate-50 text-slate-600 font-sans">
+      <div className="min-h-screen flex flex-col items-center justify-center bg-white text-slate-600 font-sans">
         <div className="w-10 h-10 border-4 border-blue-600/30 border-t-blue-600 rounded-full animate-spin mb-4" />
         <p className="font-bold text-lg text-slate-800">Loading your examination results...</p>
         <p className="text-xs text-slate-400 mt-1">Preparing question and response evaluation breakdown.</p>
@@ -213,7 +213,7 @@ function CandidateResultContent() {
 
   if (!result) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-slate-50 p-6 text-center font-sans">
+      <div className="min-h-screen flex flex-col items-center justify-center bg-white p-6 text-center font-sans">
         <XCircle className="w-16 h-16 text-rose-500 mb-4" />
         <h2 className="text-2xl font-bold text-slate-800">Result Not Found</h2>
         <p className="text-slate-500 text-sm mt-1 max-w-md">The requested examination result could not be retrieved or is still pending evaluation.</p>
@@ -228,7 +228,7 @@ function CandidateResultContent() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-100 flex flex-col items-center py-12 px-4 sm:px-6 font-sans">
+    <div className="min-h-screen bg-white flex flex-col items-center py-12 px-4 sm:px-6 font-sans">
       <div className="max-w-5xl w-full">
         {/* Back Link */}
         <button 
@@ -240,7 +240,7 @@ function CandidateResultContent() {
 
         {/* Master Result Card */}
         <div className="bg-white rounded-2xl shadow-xl overflow-hidden border border-slate-200 mb-10">
-          <div className={`p-8 text-white ${result.pass ? 'bg-gradient-to-r from-emerald-600 to-teal-700' : 'bg-gradient-to-r from-rose-600 to-red-700'}`}>
+          <div className={`p-8 text-white ${result.pass ? 'bg-[#047857]' : 'bg-rose-600'}`}>
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
               <div>
                 <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider bg-white/20 text-white mb-2 backdrop-blur-xs">
@@ -266,7 +266,7 @@ function CandidateResultContent() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
               {/* Score Card */}
               <div className="bg-slate-50 p-6 rounded-2xl border border-slate-200 flex flex-col items-center justify-center text-center shadow-2xs">
-                <div className={`p-3 rounded-full mb-3 ${result.pass ? 'bg-emerald-100 text-emerald-600' : 'bg-rose-100 text-rose-600'}`}>
+                <div className={`p-3 rounded-full mb-3 ${result.pass ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-rose-50 text-rose-700 border border-rose-200'}`}>
                   <Award className="w-8 h-8" />
                 </div>
                 <p className="text-slate-500 font-bold uppercase tracking-wider text-xs mb-1">Final Score Percentage</p>
@@ -280,7 +280,7 @@ function CandidateResultContent() {
 
               {/* Stats Grid */}
               <div className="grid grid-cols-2 gap-3.5">
-                <div className="bg-emerald-50 border border-emerald-200/80 p-4 rounded-xl flex flex-col items-center justify-center text-emerald-800 shadow-2xs">
+                <div className="bg-emerald-50 border border-emerald-200 p-4 rounded-xl flex flex-col items-center justify-center text-emerald-700 shadow-2xs">
                   <span className="text-3xl font-black text-emerald-700">{result.correct ?? 0}</span>
                   <span className="text-xs font-extrabold uppercase mt-1 flex items-center">
                     <Check className="w-3.5 h-3.5 mr-1" /> Correct
@@ -311,7 +311,7 @@ function CandidateResultContent() {
             <div className="border-t border-slate-200 pt-6">
               <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 p-4 rounded-xl bg-slate-50 border border-slate-200">
                 <div className="flex items-center space-x-3">
-                  <div className="p-2 bg-indigo-100 text-indigo-700 rounded-lg">
+                  <div className="p-2 bg-blue-50 text-blue-700 rounded-lg border border-blue-200">
                     <ShieldAlert className="w-5 h-5" />
                   </div>
                   <div>
@@ -321,10 +321,10 @@ function CandidateResultContent() {
                 </div>
                 <div className="flex items-center space-x-3 shrink-0">
                   <span className="text-xs font-bold text-slate-600">
-                    Risk: <strong className={result.riskScore > 30 ? 'text-rose-600' : 'text-emerald-600'}>{result.riskScore || 0}/100</strong>
+                    Risk: <strong className={result.riskScore > 30 ? 'text-rose-600' : 'text-emerald-700'}>{result.riskScore || 0}/100</strong>
                   </span>
                   <span className="text-xs font-bold text-slate-600">
-                    Violations: <strong className={result.violations > 0 ? 'text-rose-600' : 'text-emerald-600'}>{result.violations || 0}</strong>
+                    Violations: <strong className={result.violations > 0 ? 'text-rose-600' : 'text-emerald-700'}>{result.violations || 0}</strong>
                   </span>
                 </div>
               </div>
@@ -335,26 +335,26 @@ function CandidateResultContent() {
         {/* OFFICIAL EXAMINATION QUESTION PAPER & RESULT EVALUATION */}
         <div className="bg-white rounded-2xl shadow-xl border border-slate-200 overflow-hidden mb-12">
           {/* Section Header */}
-          <div className="p-6 sm:p-8 border-b border-slate-200 bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 text-white flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div className="p-6 sm:p-8 border-b border-slate-200 bg-blue-600 text-white flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div>
-              <div className="flex items-center space-x-2 text-blue-400 font-bold text-xs uppercase tracking-wider mb-1">
+              <div className="flex items-center space-x-2 text-blue-200 font-bold text-xs uppercase tracking-wider mb-1">
                 <FileText className="w-4 h-4" />
                 <span>Official Question Paper & Evaluation Key</span>
               </div>
               <h2 className="text-2xl font-black tracking-tight">Question & Answer Evaluation</h2>
-              <p className="text-slate-300 text-xs mt-1">
+              <p className="text-blue-100 text-xs mt-1">
                 Review your submitted choices alongside the verified correct answers and detailed score breakdown.
               </p>
             </div>
 
             {/* Filters */}
-            <div className="flex flex-wrap items-center gap-1.5 bg-slate-800/80 p-1.5 rounded-xl border border-slate-700/80 text-xs font-bold">
+            <div className="flex flex-wrap items-center gap-1.5 bg-blue-700/80 p-1.5 rounded-xl border border-blue-500/80 text-xs font-bold">
               <button
                 onClick={() => setQuestionFilter('ALL')}
                 className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer ${
                   questionFilter === 'ALL'
-                    ? 'bg-blue-600 text-white shadow-xs'
-                    : 'text-slate-300 hover:text-white'
+                    ? 'bg-white text-blue-700 shadow-xs'
+                    : 'text-blue-100 hover:text-white'
                 }`}
               >
                 All ({stats.total})
@@ -363,8 +363,8 @@ function CandidateResultContent() {
                 onClick={() => setQuestionFilter('CORRECT')}
                 className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer ${
                   questionFilter === 'CORRECT'
-                    ? 'bg-emerald-600 text-white shadow-xs'
-                    : 'text-emerald-400 hover:text-emerald-300'
+                    ? 'bg-[#047857] text-white shadow-xs'
+                    : 'text-emerald-200 hover:text-white'
                 }`}
               >
                 Correct ({stats.correctCount})
@@ -406,7 +406,7 @@ function CandidateResultContent() {
                       href={`#question-${a.questionNumber}`}
                       className={`w-7 h-7 rounded-lg text-xs font-extrabold flex items-center justify-center transition-transform hover:scale-105 border ${
                         isCurCorrect
-                          ? 'bg-emerald-100 text-emerald-800 border-emerald-300'
+                          ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
                           : isCurUnanswered
                           ? 'bg-slate-200 text-slate-700 border-slate-300'
                           : 'bg-rose-100 text-rose-800 border-rose-300'
@@ -468,13 +468,13 @@ function CandidateResultContent() {
                           isUnanswered
                             ? 'bg-slate-100 text-slate-700 border-slate-300'
                             : isCorrect
-                            ? 'bg-emerald-100 text-emerald-800 border-emerald-300'
+                            ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
                             : 'bg-rose-100 text-rose-800 border-rose-300'
                         }`}>
                           {isUnanswered ? (
                             <>Not Attempted</>
                           ) : isCorrect ? (
-                            <><Check className="w-3.5 h-3.5 mr-1 text-emerald-600 stroke-[3]" /> Correct</>
+                            <><Check className="w-3.5 h-3.5 mr-1 text-emerald-700 stroke-[3]" /> Correct</>
                           ) : (
                             <><X className="w-3.5 h-3.5 mr-1 text-rose-600 stroke-[3]" /> Incorrect</>
                           )}
@@ -503,9 +503,9 @@ function CandidateResultContent() {
 
                           if (isSelectedByCandidate && isCorrectOption) {
                             // Candidate chose correctly!
-                            cardClasses = 'bg-emerald-50/80 border-emerald-500 text-emerald-950 font-semibold ring-2 ring-emerald-500/20 shadow-xs';
-                            circleClasses = 'bg-emerald-600 text-white border-emerald-600 font-bold';
-                            radioColor = 'border-emerald-600 bg-emerald-600 text-white';
+                            cardClasses = 'bg-emerald-50/80 border-emerald-600 text-emerald-950 font-semibold ring-2 ring-emerald-600/20 shadow-xs';
+                            circleClasses = 'bg-[#047857] text-white border-[#047857] font-bold';
+                            radioColor = 'border-[#047857] bg-[#047857] text-white';
                           } else if (isSelectedByCandidate && !isCorrectOption) {
                             // Candidate chose wrong!
                             cardClasses = 'bg-rose-50/80 border-rose-500 text-rose-950 font-semibold ring-2 ring-rose-500/20 shadow-xs';
@@ -513,9 +513,9 @@ function CandidateResultContent() {
                             radioColor = 'border-rose-600 bg-rose-600 text-white';
                           } else if (!isSelectedByCandidate && isCorrectOption) {
                             // Correct answer that candidate did not choose
-                            cardClasses = 'bg-emerald-50/40 border-emerald-400 text-emerald-900 border-dashed ring-1 ring-emerald-400/30';
-                            circleClasses = 'bg-emerald-100 text-emerald-800 border-emerald-400 font-bold';
-                            radioColor = 'border-emerald-400';
+                            cardClasses = 'bg-emerald-50/40 border-emerald-600 text-emerald-900 border-dashed ring-1 ring-emerald-600/30';
+                            circleClasses = 'bg-emerald-50 text-emerald-700 border-emerald-300 font-bold';
+                            radioColor = 'border-emerald-600';
                           }
 
                           return (
@@ -534,7 +534,7 @@ function CandidateResultContent() {
                                   {isSelectedByCandidate ? (
                                     <div className="w-1.5 h-1.5 rounded-full bg-white" />
                                   ) : isCorrectOption ? (
-                                    <div className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                                    <div className="w-1.5 h-1.5 rounded-full bg-[#047857]" />
                                   ) : null}
                                 </div>
 
@@ -547,7 +547,7 @@ function CandidateResultContent() {
                                 {isSelectedByCandidate && (
                                   <span className={`inline-flex items-center px-3 py-1 rounded-md text-xs font-black uppercase tracking-wider shadow-2xs ${
                                     isCorrectOption
-                                      ? 'bg-emerald-600 text-white'
+                                      ? 'bg-[#047857] text-white'
                                       : 'bg-rose-600 text-white'
                                   }`}>
                                     {isCorrectOption ? (
@@ -559,8 +559,8 @@ function CandidateResultContent() {
                                 )}
 
                                 {!isSelectedByCandidate && isCorrectOption && (
-                                  <span className="inline-flex items-center px-3 py-1 rounded-md text-xs font-black uppercase tracking-wider bg-emerald-100 text-emerald-800 border border-emerald-300">
-                                    <CheckCircle2 className="w-3.5 h-3.5 mr-1 text-emerald-600" /> Correct Answer
+                                  <span className="inline-flex items-center px-3 py-1 rounded-md text-xs font-black uppercase tracking-wider bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                    <CheckCircle2 className="w-3.5 h-3.5 mr-1 text-emerald-700" /> Correct Answer
                                   </span>
                                 )}
                               </div>

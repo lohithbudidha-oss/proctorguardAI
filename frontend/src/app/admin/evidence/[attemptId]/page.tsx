@@ -33,14 +33,14 @@ function EvidenceContent() {
   }, [attemptId]);
 
   return (
-    <div className="p-8 bg-slate-50 min-h-screen">
+    <div className="p-8 bg-white min-h-screen">
       <div className="max-w-6xl mx-auto">
         <button onClick={() => router.back()} className="flex items-center text-blue-600 mb-6 font-bold hover:underline">
           <ArrowLeft className="w-4 h-4 mr-2" /> Back to Candidates
         </button>
 
         <h1 className="text-3xl font-black text-slate-800 mb-8 flex items-center">
-          <Shield className="w-8 h-8 mr-3 text-purple-600" /> Evidence Review
+          <Shield className="w-8 h-8 mr-3 text-blue-600" /> Evidence Review
         </h1>
 
         {error && (

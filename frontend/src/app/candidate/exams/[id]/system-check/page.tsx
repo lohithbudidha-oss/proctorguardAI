@@ -150,7 +150,7 @@ function SystemCheckContent() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-6">
+    <div className="min-h-screen bg-white flex flex-col items-center justify-center p-6">
       <div className="max-w-2xl w-full bg-white rounded-xl shadow-xl p-8 border border-slate-100">
         <Link href="/candidate/dashboard" className="text-blue-600 font-bold flex items-center mb-6 hover:underline">
           <ArrowLeft className="w-4 h-4 mr-2" /> Back to Dashboard
@@ -187,7 +187,7 @@ function SystemCheckContent() {
                 </button>
               )}
               {checks.camera.status === 'PENDING' && <Loader2 className="w-6 h-6 text-blue-500 animate-spin" />}
-              {checks.camera.status === 'PASS' && <CheckCircle2 className="w-6 h-6 text-green-500" />}
+              {checks.camera.status === 'PASS' && <CheckCircle2 className="w-6 h-6 text-emerald-700" />}
               {checks.camera.status === 'FAIL' && <XCircle className="w-6 h-6 text-red-500" />}
             </div>
           </div>
@@ -212,7 +212,7 @@ function SystemCheckContent() {
                 </button>
               )}
               {checks.screen.status === 'PENDING' && <div className="w-6 h-6" />}
-              {checks.screen.status === 'PASS' && <CheckCircle2 className="w-6 h-6 text-green-500" />}
+              {checks.screen.status === 'PASS' && <CheckCircle2 className="w-6 h-6 text-emerald-700" />}
               {checks.screen.status === 'FAIL' && <XCircle className="w-6 h-6 text-red-500" />}
             </div>
           </div>
@@ -279,7 +279,7 @@ function CheckItem({ icon, title, check }: { icon: React.ReactNode, title: strin
       </div>
       <div>
         {check.status === 'PENDING' && <Loader2 className="w-6 h-6 text-blue-500 animate-spin" />}
-        {check.status === 'PASS' && <CheckCircle2 className="w-6 h-6 text-green-500" />}
+        {check.status === 'PASS' && <CheckCircle2 className="w-6 h-6 text-emerald-700" />}
         {check.status === 'FAIL' && <XCircle className="w-6 h-6 text-red-500" />}
       </div>
     </div>

@@ -95,14 +95,9 @@ export default function RegisterPage() {
   };
 
   return (
-    <div className="min-h-screen flex bg-[#0B0F19]">
+    <div className="min-h-screen flex bg-white">
       {/* Left Side - Branding & Features */}
-      <div className="hidden lg:flex lg:w-1/2 relative overflow-hidden flex-col justify-between p-12">
-        <div className="absolute inset-0 bg-gradient-to-br from-[#0f172a] via-[#1e293b] to-[#0f172a] z-0" />
-        {/* Animated Background Elements */}
-        <div className="absolute top-0 left-0 -ml-20 -mt-20 w-96 h-96 rounded-full bg-blue-600/10 blur-3xl animate-pulse" />
-        <div className="absolute bottom-0 right-0 -mr-20 -mb-20 w-80 h-80 rounded-full bg-indigo-600/10 blur-3xl animate-pulse delay-1000" />
-        
+      <div className="hidden lg:flex lg:w-1/2 relative overflow-hidden flex-col justify-between p-12 bg-blue-600 text-white">
         <div className="relative z-10">
           <Link href="/" className="inline-block hover:opacity-95 transition-opacity">
             <BrandLogo size="lg" variant="light" />
@@ -112,33 +107,33 @@ export default function RegisterPage() {
         <div className="relative z-10 max-w-lg mt-12">
           <h1 className="text-5xl font-extrabold text-white leading-tight mb-6">
             Join the Next-Gen <br/>
-            <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-indigo-400">
+            <span className="text-white">
               Candidate Platform
             </span>
           </h1>
-          <p className="text-lg text-slate-400 mb-12 leading-relaxed">
+          <p className="text-lg text-blue-100 mb-12 leading-relaxed">
             Create your profile to access secure assessments, manage your certifications, and prove your skills in a trusted environment.
           </p>
 
           <div className="space-y-6">
-            <div className="flex items-center space-x-4 text-slate-300 bg-slate-800/40 p-4 rounded-xl border border-slate-700/50 backdrop-blur-sm">
-              <div className="bg-slate-800 p-2 rounded-lg text-blue-400"><BookOpen className="w-6 h-6"/></div>
+            <div className="flex items-center space-x-4 text-white bg-blue-700/60 p-4 rounded-xl border border-blue-400/30">
+              <div className="bg-blue-800 p-2 rounded-lg text-white"><BookOpen className="w-6 h-6"/></div>
               <div>
                 <h3 className="font-semibold text-white">Seamless Testing</h3>
-                <p className="text-sm text-slate-400">Modern, distraction-free examination interface</p>
+                <p className="text-sm text-blue-100">Modern, distraction-free examination interface</p>
               </div>
             </div>
-            <div className="flex items-center space-x-4 text-slate-300 bg-slate-800/40 p-4 rounded-xl border border-slate-700/50 backdrop-blur-sm">
-              <div className="bg-slate-800 p-2 rounded-lg text-indigo-400"><ShieldCheck className="w-6 h-6"/></div>
+            <div className="flex items-center space-x-4 text-white bg-blue-700/60 p-4 rounded-xl border border-blue-400/30">
+              <div className="bg-blue-800 p-2 rounded-lg text-white"><ShieldCheck className="w-6 h-6"/></div>
               <div>
                 <h3 className="font-semibold text-white">Data Privacy</h3>
-                <p className="text-sm text-slate-400">Your biometric and testing data is fully encrypted</p>
+                <p className="text-sm text-blue-100">Your biometric and testing data is fully encrypted</p>
               </div>
             </div>
           </div>
         </div>
 
-        <div className="relative z-10 text-sm text-slate-500 font-medium">
+        <div className="relative z-10 text-sm text-blue-100 font-medium">
           &copy; 2026 ProctorGuardAI Technologies. All rights reserved.
         </div>
       </div>
@@ -184,7 +179,7 @@ export default function RegisterPage() {
               <div className="flex justify-between items-center">
                 <label className="text-sm font-semibold text-slate-700">Email Address (@gmail.com only)</label>
                 {email && emailValidation.isValid && (
-                  <span className="text-[11px] font-bold text-emerald-600 flex items-center">
+                  <span className="text-[11px] font-bold text-emerald-700 flex items-center">
                     <CheckCircle2 className="w-3 h-3 mr-1" /> Valid @gmail.com
                   </span>
                 )}
@@ -195,7 +190,7 @@ export default function RegisterPage() {
                     emailTouched && !emailValidation.isValid
                       ? 'text-rose-500'
                       : email && emailValidation.isValid
-                        ? 'text-emerald-500'
+                        ? 'text-emerald-700'
                         : 'text-slate-400 group-focus-within:text-blue-500'
                   }`} />
                 </div>
@@ -215,7 +210,7 @@ export default function RegisterPage() {
                     emailTouched && !emailValidation.isValid
                       ? 'border-rose-400 bg-rose-50/20 focus:border-rose-500 focus:ring-rose-500/20'
                       : email && emailValidation.isValid
-                        ? 'border-emerald-400 bg-emerald-50/20 focus:border-emerald-500 focus:ring-emerald-500/20'
+                        ? 'border-emerald-500 bg-emerald-50/20 focus:border-emerald-600 focus:ring-emerald-600/20'
                         : 'border-slate-200 bg-slate-50 hover:bg-slate-100 focus:bg-white focus:ring-blue-500/20 focus:border-blue-500'
                   }`}
                   placeholder="candidate@gmail.com"
@@ -227,7 +222,7 @@ export default function RegisterPage() {
                   </div>
                 )}
                 {email && emailValidation.isValid && (
-                  <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none text-emerald-500">
+                  <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none text-emerald-700">
                     <CheckCircle2 className="h-5 w-5" />
                   </div>
                 )}
@@ -238,7 +233,7 @@ export default function RegisterPage() {
                   {emailValidation.message}
                 </p>
               ) : email && emailValidation.isValid ? (
-                <p className="text-xs text-emerald-600 font-semibold flex items-center pt-1 animate-in fade-in">
+                <p className="text-xs text-emerald-700 font-semibold flex items-center pt-1 animate-in fade-in">
                   <CheckCircle2 className="w-3.5 h-3.5 mr-1 shrink-0" />
                   Valid @gmail.com address
                 </p>

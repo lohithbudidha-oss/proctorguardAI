@@ -221,19 +221,19 @@ function WaitingRoomContent() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-6">
+    <div className="min-h-screen bg-white flex flex-col items-center justify-center p-6">
       <div className="max-w-4xl w-full mb-4">
         <Link href="/candidate/dashboard" className="text-blue-600 font-bold flex items-center hover:underline">
           <ArrowLeft className="w-4 h-4 mr-2" /> Back to Dashboard
         </Link>
       </div>
       <div className="max-w-4xl w-full bg-white rounded-xl shadow-xl overflow-hidden border border-slate-200">
-        <div className="bg-slate-900 p-8 text-white flex flex-col items-center justify-center">
-          <div className="bg-blue-600 p-3.5 rounded-2xl flex items-center justify-center shadow-lg mb-4">
+        <div className="bg-blue-600 p-8 text-white flex flex-col items-center justify-center">
+          <div className="bg-white/10 p-3.5 rounded-2xl flex items-center justify-center shadow-lg mb-4">
             <ShieldCheck className="w-10 h-10 text-white" />
           </div>
           <h1 className="text-3xl font-bold mb-2">Examination Waiting Room</h1>
-          <p className="text-slate-300 text-center max-w-lg">
+          <p className="text-blue-100 text-center max-w-lg">
             You are in the secure waiting area. Your environment is being monitored. Please wait until the start time.
           </p>
         </div>
@@ -255,7 +255,7 @@ function WaitingRoomContent() {
 
             <div className="bg-slate-100 px-6 py-4 rounded-lg text-center min-w-[200px] border border-slate-200 shadow-inner">
               <p className="text-sm text-slate-500 font-semibold mb-1 uppercase tracking-wider">Starts In</p>
-              <p className={`text-4xl font-mono font-bold ${canStart ? 'text-green-600' : 'text-slate-800'}`}>
+              <p className={`text-4xl font-mono font-bold ${canStart ? 'text-emerald-700' : 'text-slate-800'}`}>
                 {countdown || '00:00:00'}
               </p>
             </div>
@@ -296,7 +296,7 @@ function WaitingRoomContent() {
                   <button
                     onClick={verifyDevices}
                     disabled={verifying}
-                    className="px-5 py-2.5 bg-slate-900 text-white rounded-lg hover:bg-slate-800 transition font-semibold text-sm shadow-sm flex items-center cursor-pointer disabled:opacity-50"
+                    className="px-5 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition font-semibold text-sm shadow-sm flex items-center cursor-pointer disabled:opacity-50"
                   >
                     {verifying ? (
                       <>
@@ -325,7 +325,7 @@ function WaitingRoomContent() {
                 </>
               ) : (
                 <div className="w-full flex flex-col items-center">
-                  <div className="w-32 h-32 rounded-full overflow-hidden border-4 border-emerald-500 mb-3 shadow-lg bg-black relative">
+                  <div className="w-32 h-32 rounded-full overflow-hidden border-4 border-[#047857] mb-3 shadow-lg bg-black relative">
                     <video
                       ref={setVideoRef}
                       autoPlay
@@ -340,8 +340,8 @@ function WaitingRoomContent() {
                       style={{ transform: 'scaleX(-1)' }}
                     />
                   </div>
-                  <p className="text-emerald-600 font-bold text-sm flex items-center mb-2">
-                    <ShieldAlert className="w-4 h-4 mr-1 text-emerald-500" /> Surveillance Active
+                  <p className="text-emerald-700 font-bold text-sm flex items-center mb-2">
+                    <ShieldAlert className="w-4 h-4 mr-1 text-emerald-700" /> Surveillance Active
                   </p>
                   <button
                     onClick={verifyDevices}

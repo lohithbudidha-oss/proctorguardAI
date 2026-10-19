@@ -177,7 +177,7 @@ function CandidatesContent() {
   }, [candidates, searchQuery, statusFilter]);
 
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div className="min-h-screen bg-white">
       <div className="max-w-7xl mx-auto px-6 py-12">
         {/* Navigation & Header */}
         <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-4 mb-8">
@@ -216,7 +216,7 @@ function CandidatesContent() {
               href="/admin/results" 
               className="px-3 py-1.5 bg-blue-50 text-blue-700 border border-blue-200 font-semibold rounded-lg hover:bg-blue-100 transition shadow-2xs text-xs flex items-center h-8.5 shrink-0 whitespace-nowrap"
             >
-              <BarChart3 className="w-3.5 h-3.5 mr-1.5" /> Results
+              <BarChart3 className="w-3.5 h-3.5 mr-1.5 text-blue-600" /> Results
             </Link>
             <Link 
               href="/admin/violations" 
@@ -228,13 +228,13 @@ function CandidatesContent() {
               href="/admin/reports" 
               className="px-3 py-1.5 bg-slate-50 text-slate-700 border border-slate-200 font-semibold rounded-lg hover:bg-slate-100 transition shadow-2xs text-xs flex items-center h-8.5 shrink-0 whitespace-nowrap"
             >
-              <CheckCircle2 className="w-3.5 h-3.5 mr-1.5 text-emerald-600" /> Integrity Reports
+              <CheckCircle2 className="w-3.5 h-3.5 mr-1.5 text-emerald-700" /> Integrity Reports
             </Link>
             <Link 
               href="/admin/helpdesk" 
-              className="px-3 py-1.5 bg-purple-50 text-purple-700 border border-purple-200 font-semibold rounded-lg hover:bg-purple-100 transition shadow-2xs text-xs flex items-center h-8.5 shrink-0 whitespace-nowrap"
+              className="px-3 py-1.5 bg-blue-50 text-blue-700 border border-blue-200 font-semibold rounded-lg hover:bg-blue-100 transition shadow-2xs text-xs flex items-center h-8.5 shrink-0 whitespace-nowrap"
             >
-              <LifeBuoy className="w-3.5 h-3.5 mr-1.5 text-purple-600" /> Help Desk
+              <LifeBuoy className="w-3.5 h-3.5 mr-1.5 text-blue-600" /> Help Desk
             </Link>
           </div>
         </div>
@@ -243,12 +243,12 @@ function CandidatesContent() {
         {approvalToast && (
           <div className="mb-6 p-4 bg-emerald-50 border border-emerald-200 rounded-xl flex items-center justify-between animate-fadeIn shadow-xs">
             <div className="flex items-center text-emerald-800 text-sm font-semibold">
-              <CheckCircle2 className="w-5 h-5 mr-2 text-emerald-600 shrink-0" />
+              <CheckCircle2 className="w-5 h-5 mr-2 text-emerald-700 shrink-0" />
               <span>{approvalToast}</span>
             </div>
             <button 
               onClick={() => setApprovalToast(null)} 
-              className="text-emerald-500 hover:text-emerald-700 p-1 rounded-md"
+              className="text-emerald-700 hover:text-emerald-900 p-1 rounded-md"
             >
               <X className="w-4 h-4" />
             </button>
@@ -292,7 +292,7 @@ function CandidatesContent() {
               onClick={() => setStatusFilter('APPROVED')}
               className={`px-3.5 py-1.5 rounded-lg transition-all ${
                 statusFilter === 'APPROVED' 
-                  ? 'bg-white text-emerald-800 shadow-xs font-bold' 
+                  ? 'bg-white text-emerald-700 shadow-xs font-bold' 
                   : 'text-slate-600 hover:text-slate-900'
               }`}
             >
@@ -347,7 +347,7 @@ function CandidatesContent() {
                       <td className="px-6 py-4 align-middle text-left">
                         <div className="flex items-center">
                           <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold mr-3 shrink-0 shadow-2xs ${
-                            isApproved ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'
+                            isApproved ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-amber-100 text-amber-700'
                           }`}>
                             {candidate.name ? candidate.name.charAt(0).toUpperCase() : 'C'}
                           </div>
@@ -373,7 +373,7 @@ function CandidatesContent() {
                       <td className="px-6 py-4 align-middle text-center">
                         <div className="inline-flex items-center justify-center">
                           <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wide
-                            ${isApproved ? 'bg-emerald-100 text-emerald-700 border border-emerald-200' : 
+                            ${isApproved ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 
                               isPending ? 'bg-amber-100 text-amber-700 border border-amber-200' : 
                               'bg-slate-100 text-slate-600 border border-slate-200'}`}>
                             {isApproved && <CheckCircle2 className="w-3.5 h-3.5 mr-1" />}
@@ -388,13 +388,13 @@ function CandidatesContent() {
                             <button
                               onClick={() => handleApprove(candidate._id as string, candidate.name)}
                               disabled={approvingId === candidate._id}
-                              className="inline-flex items-center px-3 py-1.5 bg-emerald-600 text-white text-xs font-bold rounded-lg hover:bg-emerald-700 active:scale-95 transition shadow-2xs cursor-pointer disabled:opacity-50"
+                              className="inline-flex items-center px-3 py-1.5 bg-emerald-700 text-white text-xs font-bold rounded-lg hover:bg-emerald-800 active:scale-95 transition shadow-2xs cursor-pointer disabled:opacity-50"
                             >
                               <UserCheck className="w-3.5 h-3.5 mr-1" />
                               {approvingId === candidate._id ? 'Approving...' : 'Approve'}
                             </button>
                           ) : (
-                            <span className="inline-flex items-center text-xs text-emerald-600 font-semibold bg-emerald-50 px-2.5 py-1 rounded-md border border-emerald-200">
+                            <span className="inline-flex items-center text-xs text-emerald-700 font-semibold bg-emerald-50 px-2.5 py-1 rounded-md border border-emerald-200">
                               <CheckCircle2 className="w-3.5 h-3.5 mr-1" /> Verified
                             </span>
                           )}
@@ -455,7 +455,7 @@ function CandidatesContent() {
 export default function CandidatesPage() {
   return (
     <Suspense fallback={
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+      <div className="min-h-screen bg-white flex items-center justify-center">
         <div className="w-8 h-8 border-3 border-blue-600/30 border-t-blue-600 rounded-full animate-spin" />
       </div>
     }>
