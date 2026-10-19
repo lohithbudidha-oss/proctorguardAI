@@ -2,13 +2,13 @@ import app from '../src/app';
 import mongoose from 'mongoose';
 import { Request, Response } from 'express';
 
-const MONGODB_URI = process.env.MONGODB_URI || (process.env.NODE_ENV === 'production'
+const MONGODB_URI = process.env.MONGODB_URI || process.env.MONGODB_URL || (process.env.NODE_ENV === 'production'
   ? undefined
   : 'mongodb://localhost:27017/aptitude_portal');
 
 async function connectToDatabase() {
   if (mongoose.connection.readyState === 1) return;
-  if (!MONGODB_URI) throw new Error('MONGODB_URI is required in production');
+  if (!MONGODB_URI) throw new Error('MONGODB_URI or MONGODB_URL is required in production');
 
   if (mongoose.connection.readyState === 2) {
     await mongoose.connection.asPromise();
@@ -20,7 +20,7 @@ async function connectToDatabase() {
 
 export default async function handler(req: Request, res: Response) {
   const pathname = (req.url || '').split('?')[0];
-  if (req.method === 'OPTIONS' || pathname === '/health' || pathname === '/api/health') {
+  if (req.method === 'OPTIONS' || pathname === '/' || pathname === '' || pathname === '/health' || pathname === '/api/health') {
     return app(req, res);
   }
 

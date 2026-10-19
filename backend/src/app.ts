@@ -58,10 +58,20 @@ app.use('/api/', limiter);
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
-// Health Check (both /health and /api/health for frontend keepalive & status checks)
+// Health Check and Root Status
 const healthHandler = (req: Request, res: Response) => {
-  res.status(200).json({ status: 'ok', timestamp: new Date().toISOString() });
+  res.status(200).json({ status: 'ok', service: 'flair-backend', timestamp: new Date().toISOString() });
 };
+app.get('/', (req: Request, res: Response) => {
+  res.status(200).json({
+    name: 'Flair Online Examination & Proctoring Platform API',
+    status: 'online',
+    version: '1.0.0',
+    documentation: 'https://flair-oqvv.vercel.app',
+    health: '/api/health',
+    timestamp: new Date().toISOString()
+  });
+});
 app.get('/health', healthHandler);
 app.get('/api/health', healthHandler);
 

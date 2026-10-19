@@ -36,7 +36,7 @@ const io = new Server(server, {
 setupSockets(io);
 
 // Database connection
-const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/aptitude_portal';
+const MONGODB_URI = process.env.MONGODB_URI || process.env.MONGODB_URL || 'mongodb://localhost:27017/aptitude_portal';
 
 mongoose.connect(MONGODB_URI)
   .then(() => {
