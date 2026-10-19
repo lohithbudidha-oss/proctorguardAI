@@ -19,7 +19,7 @@ app.use(compression());
 app.use(helmet({
   crossOriginResourcePolicy: { policy: 'cross-origin' }
 }));
-app.use(cors({ origin: process.env.CORS_ORIGIN ? process.env.CORS_ORIGIN.split(',') : ['http://localhost:3000', 'https://flair.flyhii.in', 'https://proctorguard-ai.vercel.app'] }));
+app.use(cors({ origin: '*' }));
 
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
