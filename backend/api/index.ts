@@ -19,11 +19,17 @@ async function connectToDatabase() {
 }
 
 export default async function handler(req: Request, res: Response) {
+  const pathname = (req.url || '').split('?')[0];
+  if (req.method === 'OPTIONS' || pathname === '/health' || pathname === '/api/health') {
+    return app(req, res);
+  }
+
   try {
     await connectToDatabase();
     return app(req, res);
   } catch (error) {
     console.error('Vercel MongoDB connection failed:', error);
+    res.setHeader('Access-Control-Allow-Origin', '*');
     return res.status(503).json({
       success: false,
       error: {
