@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const DEFAULT_API_URL = 'https://proctorguardai.onrender.com/api';
+const DEFAULT_API_URL = 'https://flair-sigma-red.vercel.app/api';
 
 // Resolve appropriate API URL with high-speed local development & seamless cloud fallback
 export const getBaseURL = (): string => {

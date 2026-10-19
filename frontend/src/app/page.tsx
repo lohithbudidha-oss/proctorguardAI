@@ -3,6 +3,7 @@
 import React from 'react';
 import Link from 'next/link';
 import { ShieldCheck, UserCheck, MonitorPlay } from 'lucide-react';
+import { getBaseURL } from '@/lib/api';
 
 import PublicNavbar from '@/components/PublicNavbar';
 import PublicFooter from '@/components/PublicFooter';
@@ -11,8 +12,7 @@ export default function LandingPage() {
   // Background wake-up ping to ensure backend is fully warm and awake before user logs in
   React.useEffect(() => {
     try {
-      const liveUrl = process.env.NEXT_PUBLIC_API_URL || 'https://proctorguardai.onrender.com/api';
-      fetch(`${liveUrl}/health`, { method: 'GET' }).catch(() => {});
+      fetch(`${getBaseURL()}/health`, { method: 'GET' }).catch(() => {});
     } catch {}
   }, []);
 
