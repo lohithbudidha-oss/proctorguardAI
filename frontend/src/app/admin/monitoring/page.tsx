@@ -103,6 +103,7 @@ export default function CandidateExamRecordsPage() {
     candidateEmail?: string;
     examName?: string;
     severity?: string;
+    driveUrl?: string;
   } | null>(null);
   const [loading, setLoading] = useState(() => {
     if (typeof window !== 'undefined') {
@@ -243,16 +244,18 @@ export default function CandidateExamRecordsPage() {
 
   const handleOpenViolationProof = async (v: any) => {
     const existingImg = v.screenshot || v.snapshotImage;
-    if (existingImg) {
+    const existingDrive = v.driveUrl || v.driveFolderUrl;
+    if (existingImg || existingDrive) {
       setSelectedProofModal({
-        image: existingImg,
+        image: existingImg || '',
         type: v.type,
         time: new Date(v.detectedAt || v.timestamp || new Date().toISOString()).toLocaleString(),
         desc: v.description,
         candidateName: selectedCandidate?.name,
         candidateEmail: selectedCandidate?.email,
         examName: selectedCandidate?.examName,
-        severity: v.severity
+        severity: v.severity,
+        driveUrl: existingDrive
       });
       return;
     }
@@ -266,21 +269,38 @@ export default function CandidateExamRecordsPage() {
     setLoadingProofId(vId);
     try {
       const res = await api.get(`/admin/violations/${vId}/proof`);
-      const img = res.data?.proof?.screenshot || res.data?.proof?.snapshotImage || '';
-      if (!img) {
+      let img = res.data?.screenshot || res.data?.snapshotImage || res.data?.image || res.data?.proof?.screenshot || res.data?.proof?.snapshotImage || '';
+      const driveUrl = res.data?.driveUrl || res.data?.proof?.driveUrl || v.driveUrl || v.driveFolderUrl || '';
+
+      // Check client-side cached evidence as fallback
+      if (!img && typeof window !== 'undefined') {
+        try {
+          const cachedEvidence: any[] = JSON.parse(localStorage.getItem('pg_violation_evidence') || '[]');
+          const match = cachedEvidence.find((c: any) => 
+            (c.id === vId || c._id === vId) || 
+            (selectedCandidate?.attemptId && (c.attemptId === selectedCandidate.attemptId || c.attemptId?._id === selectedCandidate.attemptId) && c.type === v.type) ||
+            (c.type === v.type)
+          );
+          if (match?.screenshot) img = match.screenshot;
+        } catch (e) {}
+      }
+
+      if (!img && !driveUrl) {
         alert('No screenshot proof image recorded for this incident.');
         return;
       }
+
       v.screenshot = img;
       v.snapshotImage = img;
-      v.hasScreenshot = true;
+      v.driveUrl = driveUrl;
+      v.hasScreenshot = Boolean(img || driveUrl);
 
       setSelectedCandidate(prev => {
         if (!prev) return null;
         return {
           ...prev,
           violations: (prev.violations || []).map(item => 
-            (item.id === vId || item._id === vId) ? { ...item, screenshot: img, snapshotImage: img, hasScreenshot: true } : item
+            (item.id === vId || item._id === vId) ? { ...item, screenshot: img, snapshotImage: img, driveUrl, hasScreenshot: true } : item
           )
         };
       });
@@ -293,7 +313,8 @@ export default function CandidateExamRecordsPage() {
         candidateName: selectedCandidate?.name,
         candidateEmail: selectedCandidate?.email,
         examName: selectedCandidate?.examName,
-        severity: v.severity
+        severity: v.severity,
+        driveUrl
       });
     } catch (err: any) {
       alert(err?.response?.data?.message || 'Failed to load proof image');
@@ -1749,15 +1770,45 @@ export default function CandidateExamRecordsPage() {
               {/* Modal Body Along With Incident Description */}
               <div className="p-6 bg-slate-50/50 flex flex-col space-y-4">
                 <div className="w-full relative rounded-2xl overflow-hidden border border-slate-200 bg-slate-950 shadow-inner">
-                  <img 
-                    src={selectedProofModal.image} 
-                    alt="Violation Evidence" 
-                    className="w-full max-h-[440px] object-contain mx-auto" 
-                  />
+                  {selectedProofModal.image ? (
+                    <img 
+                      src={selectedProofModal.image} 
+                      alt="Violation Evidence" 
+                      className="w-full max-h-[440px] object-contain mx-auto" 
+                    />
+                  ) : selectedProofModal.driveUrl ? (
+                    <div className="py-16 px-6 text-center text-white flex flex-col items-center justify-center">
+                      <Camera className="w-12 h-12 text-blue-400 mb-3" />
+                      <p className="text-sm font-bold">Screenshot Evidence Archived in Google Drive</p>
+                      <a 
+                        href={selectedProofModal.driveUrl} 
+                        target="_blank" 
+                        rel="noreferrer"
+                        className="mt-4 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold inline-flex items-center shadow-sm cursor-pointer"
+                      >
+                        <ExternalLink className="w-3.5 h-3.5 mr-1.5" /> View on Google Drive
+                      </a>
+                    </div>
+                  ) : (
+                    <div className="py-12 px-6 text-center text-slate-400">
+                      <Camera className="w-10 h-10 mx-auto mb-2 text-slate-500" />
+                      <p className="text-xs">No screenshot image recorded</p>
+                    </div>
+                  )}
                   <div className="absolute top-3 left-3 bg-rose-600/90 text-white text-[11px] font-extrabold px-2.5 py-1 rounded-md shadow-lg uppercase tracking-wider flex items-center">
                     <ShieldAlert className="w-3.5 h-3.5 mr-1.5" />
                     Surveillance Snapshot
                   </div>
+                  {selectedProofModal.driveUrl && selectedProofModal.image && (
+                    <a
+                      href={selectedProofModal.driveUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="absolute top-3 right-3 bg-slate-900/80 hover:bg-slate-900 text-white text-[11px] font-bold px-2.5 py-1 rounded-md shadow uppercase tracking-wider flex items-center backdrop-blur-xs transition"
+                    >
+                      <ExternalLink className="w-3 h-3 mr-1" /> Google Drive
+                    </a>
+                  )}
                 </div>
 
                 {/* Violation Description & Candidate Action Callout (Directly along with image) */}

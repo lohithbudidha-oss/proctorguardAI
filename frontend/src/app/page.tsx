@@ -15,7 +15,7 @@ export default function LandingPage() {
   React.useEffect(() => {
     try {
       const liveUrl = process.env.NEXT_PUBLIC_API_URL || 'https://proctorguardai.onrender.com/api';
-      fetch(`${liveUrl}/health`, { method: 'GET', mode: 'no-cors' }).catch(() => {});
+      fetch(`${liveUrl}/health`, { method: 'GET' }).catch(() => {});
     } catch {}
   }, []);
 

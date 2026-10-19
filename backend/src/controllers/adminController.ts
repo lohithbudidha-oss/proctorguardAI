@@ -499,10 +499,18 @@ export const getViolationProof = async (req: Request, res: Response, next: NextF
     const { id } = req.params;
     const v = await ViolationEvent.findById(id).select('screenshot snapshotImage driveUrl driveFolderUrl').lean();
     if (!v) return res.status(404).json({ success: false, message: 'Violation record not found' });
+    const img = v.screenshot || (v as any).snapshotImage || '';
+    const drive = v.driveUrl || (v as any).driveFolderUrl || '';
     res.status(200).json({
       success: true,
-      screenshot: v.screenshot || (v as any).snapshotImage || '',
-      driveUrl: v.driveUrl || (v as any).driveFolderUrl || ''
+      screenshot: img,
+      snapshotImage: img,
+      driveUrl: drive,
+      proof: {
+        screenshot: img,
+        snapshotImage: img,
+        driveUrl: drive
+      }
     });
   } catch (err) {
     next(err);
