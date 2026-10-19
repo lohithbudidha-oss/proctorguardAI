@@ -776,11 +776,11 @@ export default function CandidateExamRecordsPage() {
     <div className="min-h-screen bg-white text-slate-800 flex font-sans selection:bg-blue-500/20">
       {/* Sidebar - Fixed at left edge, stretching 100% full height top to bottom */}
       <aside className="w-64 bg-blue-600 text-white border-r border-blue-700 flex flex-col hidden md:flex shadow-sm z-30 fixed inset-y-0 left-0 shrink-0">
-        <div className="p-6 border-b border-blue-500/30 shrink-0 space-y-3">
+        <div className="p-5 border-b border-blue-500/30 shrink-0 space-y-3">
           <Link href="/admin/monitoring" className="hover:opacity-95 transition-opacity block">
             <BrandLogo size="md" variant="light" />
           </Link>
-          <FlyhiiBranding variant="light" size="sm" />
+          <FlyhiiBranding variant="light" size="sm" className="w-full justify-center" />
         </div>
 
         <div className="p-4 space-y-1.5 flex-1 overflow-y-auto">
@@ -857,7 +857,7 @@ export default function CandidateExamRecordsPage() {
             {/* Title & Subtitle */}
             <div className="min-w-0">
               <div className="md:hidden mb-2.5">
-                <FlyhiiBranding variant="dark" size="sm" />
+                <FlyhiiBranding variant="dark" size="md" />
               </div>
               <div className="flex items-center space-x-3">
                 <div className="p-2 bg-blue-50 text-blue-600 rounded-xl border border-blue-100 shadow-2xs">
@@ -875,9 +875,9 @@ export default function CandidateExamRecordsPage() {
             </div>
 
             {/* Top-Right: Admin Profile & Sign Out (Styled like Candidate Portal) */}
-            <div className="flex items-center space-x-3 shrink-0 self-start md:self-center">
-              <FlyhiiBranding variant="dark" size="sm" className="hidden sm:inline-flex" />
-              <span className="hidden sm:inline-block h-6 w-px bg-slate-200" />
+            <div className="flex items-center space-x-3.5 shrink-0 self-start md:self-center">
+              <FlyhiiBranding variant="dark" size="md" className="hidden sm:inline-flex" />
+              <span className="hidden sm:inline-block h-8 w-px bg-slate-200" />
               <div className="flex items-center space-x-2.5">
                 <div className="w-9 h-9 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center font-bold text-xs border border-blue-200 shrink-0 shadow-2xs">
                   {adminProfile?.name ? (

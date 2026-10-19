@@ -123,7 +123,7 @@ function LoginContent() {
           <Link href="/" className="inline-block hover:opacity-95 transition-opacity">
             <BrandLogo size="lg" variant="light" />
           </Link>
-          <FlyhiiBranding variant="light" size="sm" />
+          <FlyhiiBranding variant="light" size="md" />
         </div>
 
         <div className="relative z-10 max-w-lg mt-12">
@@ -177,7 +177,7 @@ function LoginContent() {
             <Link href="/" className="inline-block hover:opacity-95 transition-opacity">
               <BrandLogo size="lg" variant="dark" />
             </Link>
-            <FlyhiiBranding variant="dark" size="sm" />
+            <FlyhiiBranding variant="dark" size="md" />
           </div>
 
           <div className="flex items-center justify-between flex-wrap gap-2 mb-3">
@@ -192,7 +192,7 @@ function LoginContent() {
                 <span>Candidate Portal</span>
               </div>
             )}
-            <FlyhiiBranding variant="dark" size="sm" className="hidden lg:inline-flex" />
+            <FlyhiiBranding variant="dark" size="md" className="hidden lg:inline-flex" />
           </div>
 
           <h2 className="text-3xl font-bold text-slate-900 mb-2">
