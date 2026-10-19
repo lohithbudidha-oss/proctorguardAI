@@ -56,7 +56,7 @@ export default function SupportPage() {
   const faqs = [
     {
       q: 'How does the AI webcam & environment proctoring work?',
-      a: 'ProctorGuardAI uses computer vision algorithms directly in the browser and cloud. It continuously checks for candidate face presence, detects if multiple people enter the camera view, identifies if the candidate looks away repeatedly, and ensures no unauthorized auxiliary monitors are active.'
+      a: 'Flair uses computer vision algorithms directly in the browser and cloud. It continuously checks for candidate face presence, detects if multiple people enter the camera view, identifies if the candidate looks away repeatedly, and ensures no unauthorized auxiliary monitors are active.'
     },
     {
       q: 'What should I do if my webcam or microphone is not detected?',

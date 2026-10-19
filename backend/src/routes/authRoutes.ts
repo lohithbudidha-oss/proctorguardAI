@@ -59,7 +59,7 @@ router.get('/google/callback', async (req, res) => {
       <!DOCTYPE html>
       <html>
         <head>
-          <title>Google Drive Connected - ProctorGuard AI</title>
+          <title>Google Drive Connected - Flair</title>
           <meta name="viewport" content="width=device-width, initial-scale=1.0">
         </head>
         <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #0f172a; color: #f8fafc; display: flex; align-items: center; justify-content: center; min-height: 100vh; margin: 0; padding: 20px;">
@@ -67,7 +67,7 @@ router.get('/google/callback', async (req, res) => {
             <div style="width: 64px; height: 64px; background: #064e3b; color: #34d399; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 20px auto; font-size: 32px; font-weight: bold; border: 2px solid #059669;">✓</div>
             <h2 style="color: #ffffff; margin: 0 0 10px 0; font-size: 22px; font-weight: 800;">Google Drive Connected!</h2>
             <p style="color: #94a3b8; font-size: 14px; line-height: 1.6; margin: 0 0 24px 0;">
-              ProctorGuard AI is now authorized with Google Drive. All candidate violation proofs, surveillance snapshots, and exam answer sheets will automatically sync to folder <strong style="color:#60a5fa; font-family:monospace;">1P_3yKzFloiMrF8Pe1XFl9Lh-nqvPTit1</strong>.
+              Flair is now authorized with Google Drive. All candidate violation proofs, surveillance snapshots, and exam answer sheets will automatically sync to folder <strong style="color:#60a5fa; font-family:monospace;">1P_3yKzFloiMrF8Pe1XFl9Lh-nqvPTit1</strong>.
             </p>
             <div style="display: flex; gap: 12px; justify-content: center;">
               <a href="http://localhost:3000/admin/violations" style="display: inline-block; padding: 12px 24px; background: #2563eb; color: white; border-radius: 10px; font-weight: bold; text-decoration: none; font-size: 14px;">View Violation Queue</a>

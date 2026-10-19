@@ -16,10 +16,10 @@ export default function AboutPage() {
             <span>Integrity Architecture</span>
           </div>
           <h1 className="text-4xl sm:text-5xl font-extrabold text-slate-900 tracking-tight mb-4">
-            How ProctorGuardAI Works
+            How Flair Works
           </h1>
           <p className="text-lg text-slate-600 max-w-2xl mx-auto leading-relaxed">
-            ProctorGuardAI is a next-generation remote proctoring platform designed to ensure fair, cheat-resistant examinations using real-time browser security, computer vision, and secure evidence storage.
+            Flair is a next-generation remote proctoring platform designed to ensure fair, cheat-resistant examinations using real-time browser security, computer vision, and secure evidence storage.
           </p>
         </div>
 

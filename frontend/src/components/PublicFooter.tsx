@@ -11,7 +11,7 @@ export default function PublicFooter() {
             <BrandLogo size="sm" variant="dark" />
           </Link>
           <span className="text-slate-300 hidden sm:inline">|</span>
-          <p>© 2026 ProctorGuardAI Platforms. All rights reserved.</p>
+          <p>© 2026 Flair Platforms. All rights reserved.</p>
         </div>
         <div className="space-x-4">
           <Link href="/" className="hover:text-blue-600 transition-colors">Home</Link>

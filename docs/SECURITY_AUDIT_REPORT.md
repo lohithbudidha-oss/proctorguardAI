@@ -1,6 +1,6 @@
 # Security Audit Report
 ## Overview
-Comprehensive review of the ProctorGuard AI source codebase.
+Comprehensive review of the Flair source codebase.
 
 ## Findings
 1. Account Takeover (Critical) - Fixed.

@@ -973,7 +973,7 @@ export default function CandidateExamRecordsPage() {
                     {adminProfile?.name || 'Admin User'}
                   </p>
                   <p className="text-[11px] text-slate-500 font-medium truncate max-w-[180px]">
-                    {adminProfile?.email || 'admin@proctorguard.local'}
+                    {adminProfile?.email || 'admin@flair.local'}
                   </p>
                 </div>
               </div>

@@ -134,7 +134,7 @@ export default function RegisterPage() {
         </div>
 
         <div className="relative z-10 text-sm text-blue-100 font-medium">
-          &copy; 2026 ProctorGuardAI Technologies. All rights reserved.
+          &copy; 2026 Flair Technologies. All rights reserved.
         </div>
       </div>
 

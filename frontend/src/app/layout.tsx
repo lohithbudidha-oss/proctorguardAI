@@ -17,7 +17,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "ProctorGuard AI — Secure Remote Proctoring Platform",
+  title: "Flair — Secure Remote Proctoring Platform",
   description: "Enterprise-grade online proctoring and examination integrity platform powered by AI.",
 };
 

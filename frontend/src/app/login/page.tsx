@@ -65,12 +65,12 @@ function LoginContent() {
     }
 
     if (isAdminLogin) {
-      if (normalized !== 'admin@proctorguard.local') {
+      if (normalized !== 'admin@flair.local' && normalized !== 'admin@proctorguard.local') {
         setError('Admin Portal accepts authorized administrator credentials only. Candidate credentials cannot be used here.');
         return;
       }
     } else {
-      if (normalized === 'admin@proctorguard.local') {
+      if (normalized === 'admin@flair.local' || normalized === 'admin@proctorguard.local') {
         setError('Administrator credentials cannot be used for candidate login. Please use the Administrator Sign In portal.');
         return;
       }
@@ -156,7 +156,7 @@ function LoginContent() {
         </div>
 
         <div className="relative z-10 text-sm text-blue-100 font-medium">
-          &copy; 2026 ProctorGuardAI Technologies. All rights reserved.
+          &copy; 2026 Flair Technologies. All rights reserved.
         </div>
       </div>
 

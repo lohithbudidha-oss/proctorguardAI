@@ -1844,7 +1844,7 @@ function AttemptContent() {
             <ShieldCheck className="w-5 h-5 text-white" />
           </div>
           <div className="flex items-baseline space-x-2">
-            <span className="text-lg font-bold tracking-tight text-white">ProctorGuardAI</span>
+            <span className="text-lg font-bold tracking-tight text-white">Flair</span>
             <span className="text-xs text-slate-400 hidden sm:inline font-medium">| Secure Examination Mode</span>
           </div>
         </div>

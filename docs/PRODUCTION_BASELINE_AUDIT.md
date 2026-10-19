@@ -1,4 +1,4 @@
-# ProctorGuard AI - Production Baseline Audit
+# Flair - Production Baseline Audit
 
 ## 1. Current Architecture
 - **Frontend:** Next.js (App Router), React, Tailwind CSS, Axios for API calls, Socket.io-client.

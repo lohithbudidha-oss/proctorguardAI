@@ -551,7 +551,7 @@ export default function AdminHelpDeskPage() {
                     </select>
 
                     <a
-                      href={`mailto:${ticket.email}?subject=Regarding Your Support Ticket [${ticket._id.substring(ticket._id.length - 6)}] - ProctorGuardAI Support&body=Hello ${encodeURIComponent(ticket.name)},%0D%0A%0D%0AWe are writing back regarding your support inquiry on ${encodeURIComponent(getCategoryLabel(ticket.category))}:%0D%0A"${encodeURIComponent(ticket.message)}"%0D%0A%0D%0A`}
+                      href={`mailto:${ticket.email}?subject=Regarding Your Support Ticket [${ticket._id.substring(ticket._id.length - 6)}] - Flair Support&body=Hello ${encodeURIComponent(ticket.name)},%0D%0A%0D%0AWe are writing back regarding your support inquiry on ${encodeURIComponent(getCategoryLabel(ticket.category))}:%0D%0A"${encodeURIComponent(ticket.message)}"%0D%0A%0D%0A`}
                       className="px-3 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded-lg text-xs font-bold flex items-center transition shadow-2xs cursor-pointer"
                       title="Direct email reply via candidate mail client"
                     >

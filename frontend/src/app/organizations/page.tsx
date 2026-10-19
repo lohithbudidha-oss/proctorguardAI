@@ -65,7 +65,7 @@ export default function OrganizationsPage() {
           </h1>
 
           <p className="text-lg sm:text-xl text-slate-600 max-w-3xl mx-auto leading-relaxed mb-10">
-            Scale high-stakes online examinations with confidence. ProctorGuardAI empowers organizations to conduct fair, cheat-resistant examinations with automated AI supervision, live proctor dashboards, and auditable proof archiving.
+            Scale high-stakes online examinations with confidence. Flair empowers organizations to conduct fair, cheat-resistant examinations with automated AI supervision, live proctor dashboards, and auditable proof archiving.
           </p>
 
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
@@ -90,7 +90,7 @@ export default function OrganizationsPage() {
           <div className="max-w-6xl mx-auto px-6 sm:px-12">
             <div className="text-center mb-14">
               <h2 className="text-3xl font-extrabold text-slate-900 tracking-tight">Built for Mission-Critical Testing</h2>
-              <p className="text-slate-500 mt-2 text-base">Explore how different institutions utilize ProctorGuardAI to maintain assessment credibility.</p>
+              <p className="text-slate-500 mt-2 text-base">Explore how different institutions utilize Flair to maintain assessment credibility.</p>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-8">

@@ -5,7 +5,7 @@ import Exam, { ExamStatus, ResultVisibility } from '../models/Exam';
 import Question, { QuestionType, Difficulty } from '../models/Question';
 import Assignment, { AssignmentStatus } from '../models/Assignment';
 
-const MONGO_URI = process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017/proctorguard';
+const MONGO_URI = process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017/flair';
 
 const seedDemo = async () => {
   try {
@@ -14,7 +14,7 @@ const seedDemo = async () => {
     console.log('Connected.');
 
     console.log('Cleaning up existing demo data...');
-    await User.deleteMany({ email: { $in: ['admin@proctorguard.local', 'candidate1@proctorguard.local', 'candidate2@proctorguard.local'] } });
+    await User.deleteMany({ email: { $in: ['admin@flair.local', 'admin@proctorguard.local', 'candidate1@flair.local', 'candidate2@flair.local', 'candidate1@proctorguard.local', 'candidate2@proctorguard.local'] } });
     const demoExams = await Exam.find({ title: 'Aptitude & Logical Reasoning Assessment' });
     for (const ex of demoExams) {
       await Question.deleteMany({ examId: ex._id });
@@ -26,7 +26,7 @@ const seedDemo = async () => {
     const adminPass = await bcrypt.hash('admin123', 10);
     const admin = new User({
       name: 'Admin User',
-      email: 'admin@proctorguard.local',
+      email: 'admin@flair.local',
       passwordHash: adminPass,
       role: Role.ADMIN,
       isEmailVerified: true
@@ -37,7 +37,7 @@ const seedDemo = async () => {
     const candPass = await bcrypt.hash('candidate123', 10);
     const cand1 = new User({
       name: 'Candidate One',
-      email: 'candidate1@proctorguard.local',
+      email: 'candidate1@flair.local',
       passwordHash: candPass,
       role: Role.CANDIDATE,
       status: CandidateStatus.APPROVED,
@@ -47,7 +47,7 @@ const seedDemo = async () => {
 
     const cand2 = new User({
       name: 'Candidate Two',
-      email: 'candidate2@proctorguard.local',
+      email: 'candidate2@flair.local',
       passwordHash: candPass,
       role: Role.CANDIDATE,
       status: CandidateStatus.APPROVED,
@@ -213,8 +213,8 @@ const seedDemo = async () => {
     await assign2.save();
 
     console.log('Seed completed successfully!');
-    console.log('Admin Email: admin@proctorguard.local / admin123');
-    console.log('Candidate 1 Email: candidate1@proctorguard.local / candidate123');
+    console.log('Admin Email: admin@flair.local / admin123');
+    console.log('Candidate 1 Email: candidate1@flair.local / candidate123');
     process.exit(0);
   } catch (err) {
     console.error('Seed error:', err);

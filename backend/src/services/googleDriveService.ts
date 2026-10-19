@@ -649,7 +649,7 @@ export class GoogleDriveService {
   <div class="card">
     <div class="header">
       <div>
-        <h1 class="title">ProctorGuard AI - Examination & Answers Report</h1>
+        <h1 class="title">Flair - Examination & Answers Report</h1>
         <p style="margin: 4px 0 0 0; color: #64748b; font-size: 14px;">Exam: <strong>${examination.title}</strong> | Candidate: <strong>${candidate.name}</strong> (${candidate.email || 'N/A'})</p>
       </div>
       <div class="badge">${passStatus} (${evaluation.percentage.toFixed(1)}%)</div>

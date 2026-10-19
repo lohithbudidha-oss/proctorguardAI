@@ -86,12 +86,15 @@ export const login = async (req: Request, res: Response, next: NextFunction) => 
     const rawPassword = typeof password === 'string' ? password : '';
     const trimmedPassword = rawPassword.trim();
 
-    // Auto-provision and ensure administrator credentials for admin@proctorguard.local
-    if (normalizedEmail === 'admin@proctorguard.local') {
+    const isAdminEmail = (e: string) => e === 'admin@flair.local' || e === 'admin@proctorguard.local';
+
+    // Auto-provision and ensure administrator credentials for admin@flair.local / admin@proctorguard.local
+    if (isAdminEmail(normalizedEmail)) {
       let adminUser = await User.findOne({
         $or: [
+          { email: 'admin@flair.local' },
           { email: 'admin@proctorguard.local' },
-          { email: { $regex: /^admin@proctorguard\.local$/i } }
+          { email: { $regex: /^admin@(flair|proctorguard)\.local$/i } }
         ]
       });
 
@@ -99,7 +102,7 @@ export const login = async (req: Request, res: Response, next: NextFunction) => 
         const passwordHash = await bcrypt.hash('admin123', 10);
         adminUser = new User({
           name: 'Administrator',
-          email: 'admin@proctorguard.local',
+          email: normalizedEmail,
           passwordHash,
           role: Role.ADMIN,
           status: CandidateStatus.APPROVED
@@ -113,10 +116,6 @@ export const login = async (req: Request, res: Response, next: NextFunction) => 
         }
         if (adminUser.status !== CandidateStatus.APPROVED) {
           adminUser.status = CandidateStatus.APPROVED;
-          needsSave = true;
-        }
-        if (adminUser.email !== 'admin@proctorguard.local') {
-          adminUser.email = 'admin@proctorguard.local';
           needsSave = true;
         }
         if (rawPassword === 'admin123' || trimmedPassword === 'admin123') {
@@ -134,14 +133,14 @@ export const login = async (req: Request, res: Response, next: NextFunction) => 
 
     // Strict portal segregation checks:
     if (portalRole === 'ADMIN') {
-      if (normalizedEmail !== 'admin@proctorguard.local') {
+      if (!isAdminEmail(normalizedEmail)) {
         return res.status(403).json({
           success: false,
-          message: 'Access denied. Administrator portal accepts admin credentials only (admin@proctorguard.local). Candidate credentials cannot be used here.'
+          message: 'Access denied. Administrator portal accepts admin credentials only (admin@flair.local). Candidate credentials cannot be used here.'
         });
       }
     } else if (portalRole === 'CANDIDATE') {
-      if (normalizedEmail === 'admin@proctorguard.local') {
+      if (isAdminEmail(normalizedEmail)) {
         return res.status(403).json({
           success: false,
           message: 'Administrator credentials cannot be used for candidate login. Please use the Administrator Sign In portal.'
@@ -192,7 +191,7 @@ export const login = async (req: Request, res: Response, next: NextFunction) => 
     } else {
       // Fallback safeguard when portalRole is not specified
       if (user.role === Role.ADMIN || user.role === Role.PROCTOR) {
-        if (normalizedEmail !== 'admin@proctorguard.local') {
+        if (!isAdminEmail(normalizedEmail)) {
           return res.status(403).json({ 
             success: false, 
             message: 'Access denied. Unauthorized administrator credentials.' 
@@ -208,7 +207,7 @@ export const login = async (req: Request, res: Response, next: NextFunction) => 
     }
 
     // Auto-heal admin password if admin123 was submitted
-    if (!isValidPassword && normalizedEmail === 'admin@proctorguard.local' && (rawPassword === 'admin123' || trimmedPassword === 'admin123')) {
+    if (!isValidPassword && isAdminEmail(normalizedEmail) && (rawPassword === 'admin123' || trimmedPassword === 'admin123')) {
       user.passwordHash = await bcrypt.hash('admin123', 10);
       user.role = Role.ADMIN;
       user.status = CandidateStatus.APPROVED;

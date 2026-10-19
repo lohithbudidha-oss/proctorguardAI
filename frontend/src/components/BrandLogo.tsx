@@ -50,7 +50,7 @@ export default function BrandLogo({
         <ShieldCheck className={`${iconClassName || sizeConfig.icon} text-white`} />
       </div>
       <span className={`${textClassName || sizeConfig.text} ${defaultTextClass}`}>
-        ProctorGuardAI
+        Flair
       </span>
     </div>
   );
