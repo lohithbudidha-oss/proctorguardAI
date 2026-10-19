@@ -1,33 +1,39 @@
 import app from '../src/app';
 import mongoose from 'mongoose';
-import { Request, Response } from 'express';
+import { Request, Response, NextFunction } from 'express';
 
 const MONGODB_URI = process.env.MONGODB_URI || process.env.MONGODB_URL || (process.env.NODE_ENV === 'production'
   ? undefined
   : 'mongodb://localhost:27017/aptitude_portal');
 
-async function connectToDatabase() {
-  if (mongoose.connection.readyState === 1) return;
-  if (!MONGODB_URI) throw new Error('MONGODB_URI or MONGODB_URL is required in production');
-
-  if (mongoose.connection.readyState === 2) {
-    await mongoose.connection.asPromise();
-    return;
+// Serverless DB Connection Middleware: Ensures MongoDB connection is ready before processing API routes
+app.use(async (req: Request, res: Response, next: NextFunction) => {
+  const pathname = (req.url || '').split('?')[0];
+  // Health checks and root routes should never be blocked by DB state
+  if (req.method === 'OPTIONS' || pathname === '/' || pathname === '' || pathname === '/health' || pathname === '/api/health') {
+    return next();
   }
 
-  await mongoose.connect(MONGODB_URI);
-}
+  if (mongoose.connection.readyState === 1) {
+    return next();
+  }
 
-export default async function handler(req: Request, res: Response) {
-  const pathname = (req.url || '').split('?')[0];
-  if (req.method === 'OPTIONS' || pathname === '/' || pathname === '' || pathname === '/health' || pathname === '/api/health') {
-    return app(req, res);
+  if (!MONGODB_URI) {
+    console.error('MONGODB_URI or MONGODB_URL is missing in environment variables.');
+    return res.status(503).json({
+      success: false,
+      error: { code: 'DATABASE_CONFIG_MISSING', message: 'Database configuration missing in environment variables.' }
+    });
   }
 
   try {
-    await connectToDatabase();
-    return app(req, res);
-  } catch (error) {
+    if (mongoose.connection.readyState === 2) {
+      await mongoose.connection.asPromise();
+    } else {
+      await mongoose.connect(MONGODB_URI);
+    }
+    next();
+  } catch (error: any) {
     console.error('Vercel MongoDB connection failed:', error);
     const reqOrigin = (req.headers.origin as string) || '';
     const cleanOrigin = reqOrigin.trim().replace(/\/+$/, '');
@@ -40,9 +46,13 @@ export default async function handler(req: Request, res: Response) {
       success: false,
       error: {
         code: 'DATABASE_UNAVAILABLE',
-        message: 'Database unavailable',
+        message: 'Database unavailable: ' + (error?.message || 'Connection error'),
         requestId: req.headers['x-request-id'] || 'unknown'
       }
     });
   }
-}
+});
+
+// Primary serverless export for Vercel
+module.exports = app;
+export default app;
