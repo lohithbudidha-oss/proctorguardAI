@@ -1,10 +1,22 @@
 import axios from 'axios';
 
+const DEFAULT_API_URL = 'https://proctorguardai.onrender.com/api';
+
 // Resolve appropriate API URL with high-speed local development & seamless cloud fallback
 export const getBaseURL = (): string => {
-  const envUrl = process.env.NEXT_PUBLIC_API_URL;
-  if (envUrl && envUrl.trim()) {
-    return envUrl.trim().replace(/\/+$/, '');
+  const envUrl = process.env.NEXT_PUBLIC_API_URL?.trim().replace(/\/+$/, '');
+  if (envUrl) {
+    const apiUrl = /\/api$/i.test(envUrl) ? envUrl : `${envUrl}/api`;
+    if (typeof window !== 'undefined') {
+      try {
+        if (new URL(apiUrl, window.location.origin).origin === window.location.origin) {
+          return DEFAULT_API_URL;
+        }
+      } catch {
+        return DEFAULT_API_URL;
+      }
+    }
+    return apiUrl;
   }
   if (typeof window !== 'undefined') {
     const hostname = window.location.hostname;
@@ -13,7 +25,7 @@ export const getBaseURL = (): string => {
       return 'http://localhost:5000/api';
     }
   }
-  return 'https://proctorguardai.onrender.com/api';
+  return DEFAULT_API_URL;
 };
 
 const api = axios.create({
@@ -51,7 +63,7 @@ api.interceptors.response.use(
       (!error.response || error.code === 'ECONNREFUSED' || error.code === 'ERR_NETWORK')
     ) {
       config._fallbackAttempted = true;
-      config.baseURL = 'https://proctorguardai.onrender.com/api';
+      config.baseURL = DEFAULT_API_URL;
       console.warn('[API] Local server unreachable at localhost:5000; seamlessly falling back to live API.');
       return api(config);
     }
