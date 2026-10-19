@@ -497,10 +497,29 @@ export const getViolations = async (req: Request, res: Response, next: NextFunct
 export const getViolationProof = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { id } = req.params;
-    const v = await ViolationEvent.findById(id).select('screenshot snapshotImage driveUrl driveFolderUrl').lean();
+    const v = await ViolationEvent.findById(id).select('screenshot snapshotImage driveUrl driveFolderUrl attemptId candidateId detectedAt type').lean();
     if (!v) return res.status(404).json({ success: false, message: 'Violation record not found' });
-    const img = v.screenshot || (v as any).snapshotImage || '';
+    let img = v.screenshot || (v as any).snapshotImage || '';
     const drive = v.driveUrl || (v as any).driveFolderUrl || '';
+
+    // If this specific violation record has no direct screenshot, fallback to latest surveillance snapshot from the same candidate attempt
+    if (!img && v.attemptId) {
+      const sibling = await ViolationEvent.findOne({
+        attemptId: v.attemptId,
+        $or: [
+          { screenshot: { $exists: true, $ne: '' } },
+          { snapshotImage: { $exists: true, $ne: '' } }
+        ]
+      })
+      .select('screenshot snapshotImage')
+      .sort({ detectedAt: -1 })
+      .lean();
+
+      if (sibling) {
+        img = sibling.screenshot || (sibling as any).snapshotImage || '';
+      }
+    }
+
     res.status(200).json({
       success: true,
       screenshot: img,

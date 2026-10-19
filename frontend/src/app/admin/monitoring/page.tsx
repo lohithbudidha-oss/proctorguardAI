@@ -52,6 +52,7 @@ interface ViolationSummary {
   screenshot?: string;
   snapshotImage?: string;
   actionTaken?: string;
+  hasScreenshot?: boolean;
 }
 
 interface CandidateExamRecord {
@@ -105,6 +106,7 @@ export default function CandidateExamRecordsPage() {
     examName?: string;
     severity?: string;
     driveUrl?: string;
+    loading?: boolean;
   } | null>(null);
   const [loading, setLoading] = useState(() => {
     if (typeof window !== 'undefined') {
@@ -245,10 +247,9 @@ export default function CandidateExamRecordsPage() {
 
   const handleOpenViolationProof = async (v: any) => {
     const existingImg = v.screenshot || v.snapshotImage;
-    const existingDrive = v.driveUrl || v.driveFolderUrl;
-    if (existingImg || existingDrive) {
+    if (existingImg) {
       setSelectedProofModal({
-        image: existingImg || '',
+        image: existingImg,
         type: v.type,
         time: new Date(v.detectedAt || v.timestamp || new Date().toISOString()).toLocaleString(),
         desc: v.description,
@@ -256,7 +257,7 @@ export default function CandidateExamRecordsPage() {
         candidateEmail: selectedCandidate?.email,
         examName: selectedCandidate?.examName,
         severity: v.severity,
-        driveUrl: existingDrive
+        loading: false
       });
       return;
     }
@@ -267,11 +268,23 @@ export default function CandidateExamRecordsPage() {
       return;
     }
 
+    // Immediately open modal in loading state directly inside the website
+    setSelectedProofModal({
+      image: '',
+      type: v.type,
+      time: new Date(v.detectedAt || v.timestamp || new Date().toISOString()).toLocaleString(),
+      desc: v.description,
+      candidateName: selectedCandidate?.name,
+      candidateEmail: selectedCandidate?.email,
+      examName: selectedCandidate?.examName,
+      severity: v.severity,
+      loading: true
+    });
+
     setLoadingProofId(vId);
     try {
       const res = await api.get(`/admin/violations/${vId}/proof`);
       let img = res.data?.screenshot || res.data?.snapshotImage || res.data?.image || res.data?.proof?.screenshot || res.data?.proof?.snapshotImage || '';
-      const driveUrl = res.data?.driveUrl || res.data?.proof?.driveUrl || v.driveUrl || v.driveFolderUrl || '';
 
       // Check client-side cached evidence as fallback
       if (!img && typeof window !== 'undefined') {
@@ -286,39 +299,31 @@ export default function CandidateExamRecordsPage() {
         } catch (e) {}
       }
 
-      if (!img && !driveUrl) {
-        alert('No screenshot proof image recorded for this incident.');
-        return;
-      }
-
       v.screenshot = img;
       v.snapshotImage = img;
-      v.driveUrl = driveUrl;
-      v.hasScreenshot = Boolean(img || driveUrl);
+      v.hasScreenshot = Boolean(img);
 
       setSelectedCandidate(prev => {
         if (!prev) return null;
         return {
           ...prev,
           violations: (prev.violations || []).map(item => 
-            (item.id === vId || item._id === vId) ? { ...item, screenshot: img, snapshotImage: img, driveUrl, hasScreenshot: true } : item
+            (item.id === vId || item._id === vId) ? { ...item, screenshot: img, snapshotImage: img, hasScreenshot: Boolean(img) } : item
           )
         };
       });
 
-      setSelectedProofModal({
-        image: img,
-        type: v.type,
-        time: new Date(v.detectedAt || v.timestamp || new Date().toISOString()).toLocaleString(),
-        desc: v.description,
-        candidateName: selectedCandidate?.name,
-        candidateEmail: selectedCandidate?.email,
-        examName: selectedCandidate?.examName,
-        severity: v.severity,
-        driveUrl
+      setSelectedProofModal(prev => {
+        if (!prev) return null;
+        return {
+          ...prev,
+          image: img,
+          loading: false
+        };
       });
     } catch (err: any) {
-      alert(err?.response?.data?.message || 'Failed to load proof image');
+      console.error('Failed to load violation proof image:', err);
+      setSelectedProofModal(prev => prev ? { ...prev, loading: false } : null);
     } finally {
       setLoadingProofId(null);
     }
@@ -1356,23 +1361,14 @@ export default function CandidateExamRecordsPage() {
                             <span className="whitespace-nowrap">{cand.violations.length} Flags</span>
                           </span>
 
-                          {cand.violations.some((v: ViolationSummary) => v.screenshot || v.snapshotImage) && (
+                          {cand.violations.some((v: ViolationSummary) => v.screenshot || v.snapshotImage || v.hasScreenshot) && (
                             <button
                               type="button"
                               onClick={(e) => {
                                 e.stopPropagation();
-                                const vWithProof = cand.violations.find((v: ViolationSummary) => v.screenshot || v.snapshotImage);
+                                const vWithProof = cand.violations.find((v: ViolationSummary) => v.screenshot || v.snapshotImage) || cand.violations[0];
                                 if (vWithProof) {
-                                  setSelectedProofModal({
-                                    image: vWithProof.screenshot || vWithProof.snapshotImage || '',
-                                    type: vWithProof.type,
-                                    time: vWithProof.timestamp || vWithProof.detectedAt || new Date().toISOString(),
-                                    desc: vWithProof.description,
-                                    candidateName: cand.name,
-                                    candidateEmail: cand.email,
-                                    examName: cand.examName,
-                                    severity: vWithProof.severity
-                                  });
+                                  handleOpenViolationProof(vWithProof);
                                 }
                               }}
                               className="bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 px-2.5 py-1 rounded-lg font-bold text-xs flex items-center shrink-0 transition shadow-2xs whitespace-nowrap cursor-pointer hover:border-blue-300"
@@ -1776,45 +1772,31 @@ export default function CandidateExamRecordsPage() {
 
               {/* Modal Body Along With Incident Description */}
               <div className="p-6 bg-slate-50/50 flex flex-col space-y-4">
-                <div className="w-full relative rounded-2xl overflow-hidden border border-slate-200 bg-slate-950 shadow-inner">
-                  {selectedProofModal.image ? (
-                    <img 
-                      src={selectedProofModal.image} 
-                      alt="Violation Evidence" 
-                      className="w-full max-h-[440px] object-contain mx-auto" 
-                    />
-                  ) : selectedProofModal.driveUrl ? (
-                    <div className="py-16 px-6 text-center text-white flex flex-col items-center justify-center">
-                      <Camera className="w-12 h-12 text-blue-400 mb-3" />
-                      <p className="text-sm font-bold">Screenshot Evidence Archived in Google Drive</p>
-                      <a 
-                        href={selectedProofModal.driveUrl} 
-                        target="_blank" 
-                        rel="noreferrer"
-                        className="mt-4 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold inline-flex items-center shadow-sm cursor-pointer"
-                      >
-                        <ExternalLink className="w-3.5 h-3.5 mr-1.5" /> View on Google Drive
-                      </a>
+                <div className="w-full relative rounded-2xl overflow-hidden border border-slate-200 bg-slate-950 shadow-inner min-h-[240px] flex items-center justify-center">
+                  {selectedProofModal.loading ? (
+                    <div className="py-20 px-6 text-center text-white flex flex-col items-center justify-center animate-pulse">
+                      <RefreshCw className="w-10 h-10 text-blue-400 mb-3 animate-spin" />
+                      <p className="text-sm font-bold text-slate-100">Loading Surveillance Proof Snapshot...</p>
+                      <p className="text-xs text-slate-400 mt-1">Retrieving evidence image directly on website</p>
                     </div>
+                  ) : selectedProofModal.image ? (
+                    <>
+                      <img 
+                        src={selectedProofModal.image} 
+                        alt="Violation Evidence" 
+                        className="w-full max-h-[460px] object-contain mx-auto" 
+                      />
+                      <div className="absolute top-3 left-3 bg-rose-600/90 text-white text-[11px] font-extrabold px-2.5 py-1 rounded-md shadow-lg uppercase tracking-wider flex items-center">
+                        <ShieldAlert className="w-3.5 h-3.5 mr-1.5" />
+                        Surveillance Snapshot
+                      </div>
+                    </>
                   ) : (
-                    <div className="py-12 px-6 text-center text-slate-400">
-                      <Camera className="w-10 h-10 mx-auto mb-2 text-slate-500" />
-                      <p className="text-xs">No screenshot image recorded</p>
+                    <div className="py-16 px-6 text-center text-slate-400 flex flex-col items-center justify-center">
+                      <Camera className="w-12 h-12 mx-auto mb-2 text-slate-600 opacity-60" />
+                      <p className="text-sm font-semibold text-slate-300">No screenshot image recorded for this incident.</p>
+                      <p className="text-xs text-slate-500 mt-1">Incident telemetry recorded below</p>
                     </div>
-                  )}
-                  <div className="absolute top-3 left-3 bg-rose-600/90 text-white text-[11px] font-extrabold px-2.5 py-1 rounded-md shadow-lg uppercase tracking-wider flex items-center">
-                    <ShieldAlert className="w-3.5 h-3.5 mr-1.5" />
-                    Surveillance Snapshot
-                  </div>
-                  {selectedProofModal.driveUrl && selectedProofModal.image && (
-                    <a
-                      href={selectedProofModal.driveUrl}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="absolute top-3 right-3 bg-slate-900/80 hover:bg-slate-900 text-white text-[11px] font-bold px-2.5 py-1 rounded-md shadow uppercase tracking-wider flex items-center backdrop-blur-xs transition"
-                    >
-                      <ExternalLink className="w-3 h-3 mr-1" /> Google Drive
-                    </a>
                   )}
                 </div>
 
@@ -2169,7 +2151,7 @@ export default function CandidateExamRecordsPage() {
                     ...(selectedCandidate.examId ? { examId: selectedCandidate.examId } : {})
                   }).toString()}`}
                   className="px-3.5 py-2 text-xs font-bold text-rose-600 hover:text-rose-700 hover:bg-rose-50 rounded-xl transition cursor-pointer flex items-center"
-                  title="Open in complete Violation Portal with Drive archive"
+                  title="Open in Violation Queue Portal"
                 >
                   Open in Violation Queue Portal &rarr;
                 </Link>
