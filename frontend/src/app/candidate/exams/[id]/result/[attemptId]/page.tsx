@@ -27,6 +27,7 @@ interface QuestionAnswerItem {
   questionNumber: number;
   questionId: string;
   questionText: string;
+  imageUrl?: string;
   type: string;
   options: any[];
   marks: number;
@@ -125,6 +126,7 @@ function CandidateResultContent() {
                   questionNumber: idx + 1,
                   questionId: q._id || q.id,
                   questionText: q.text || q.questionText || `Question ${idx + 1}`,
+                  imageUrl: q.imageUrl || undefined,
                   type: q.type || 'SINGLE_CHOICE',
                   options: q.options || [],
                   marks: q.marks || 1,
@@ -166,6 +168,7 @@ function CandidateResultContent() {
                 questionNumber: idx + 1,
                 questionId: q._id || q.id,
                 questionText: q.text || q.questionText || `Question ${idx + 1}`,
+                imageUrl: q.imageUrl || undefined,
                 type: q.type || 'SINGLE_CHOICE',
                 options: q.options || [],
                 marks: q.marks || 1,
@@ -483,9 +486,23 @@ function CandidateResultContent() {
                     </div>
 
                     {/* Question Text */}
-                    <div className="text-base sm:text-lg font-bold text-slate-900 leading-relaxed mb-6 bg-slate-50/70 p-4 rounded-xl border border-slate-200/80">
+                    <div className="text-base sm:text-lg font-bold text-slate-900 leading-relaxed mb-4 bg-slate-50/70 p-4 rounded-xl border border-slate-200/80 whitespace-pre-wrap">
                       {q.questionText}
                     </div>
+
+                    {/* Question Diagram / Image Attachment */}
+                    {q.imageUrl && (
+                      <div className="mb-6 p-3 bg-slate-50 border border-slate-200 rounded-xl flex flex-col items-center justify-center">
+                        <img 
+                          src={q.imageUrl} 
+                          alt={`Question ${q.questionNumber} Diagram`} 
+                          className="max-h-[320px] max-w-full object-contain rounded-lg shadow-2xs bg-white p-2 border border-slate-100" 
+                        />
+                        <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider mt-2">
+                          Diagram / Graphic Reference
+                        </span>
+                      </div>
+                    )}
 
                     {/* Question Options Display */}
                     {hasOptions ? (

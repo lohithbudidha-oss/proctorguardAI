@@ -281,6 +281,7 @@ export const getAttemptResult = async (req: AuthRequest, res: Response, next: Ne
         questionId: q._id,
         questionText: q.text || q.questionText || `Question ${idx + 1}`,
         type: q.type || 'SINGLE_CHOICE',
+        imageUrl: q.imageUrl || undefined,
         options: q.options || [],
         marks: q.marks || 1,
         negativeMarks: q.negativeMarks || 0,

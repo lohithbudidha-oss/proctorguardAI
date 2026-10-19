@@ -119,7 +119,7 @@ function AttemptContent() {
     evidenceImg?: string;
   } | null>(null);
   
-  const [questions, setQuestions] = useState<{ id: string; text: string; type: string; options: string[]; marks: number; negativeMarks: number; correctAnswer: string }[]>([]);
+  const [questions, setQuestions] = useState<{ id: string; text: string; imageUrl?: string; type: string; options: string[]; marks: number; negativeMarks: number; correctAnswer: string }[]>([]);
   const currentQuestionIdxRef = useRef(0);
   const [currentQuestionIdx, setCurrentQuestionIdx] = useState(0);
   const [answers, setAnswers] = useState<Record<string, string>>({});
@@ -149,6 +149,7 @@ function AttemptContent() {
       const mappedQuestions = questions.map((q: any) => ({
         id: q._id || q.id || '',
         text: q.text || '',
+        imageUrl: q.imageUrl || '',
         type: q.type || 'SINGLE_CHOICE',
         options: q.options ? q.options.map((opt: any) => opt.text || opt.id || '') : [],
         marks: q.marks || 1,
@@ -1843,9 +1844,22 @@ function AttemptContent() {
                 <span className="text-sm font-medium bg-slate-100 text-slate-600 px-3 py-1 rounded-full">+1 Mark</span>
               </div>
               
-              <div className="text-lg text-slate-700 mb-8 leading-relaxed">
+              <div className="text-lg text-slate-700 mb-6 leading-relaxed whitespace-pre-wrap">
                 {currentQ.text}
               </div>
+
+              {currentQ.imageUrl && (
+                <div className="mb-8 p-4 bg-slate-50 border border-slate-200 rounded-2xl flex flex-col items-center justify-center">
+                  <img 
+                    src={currentQ.imageUrl} 
+                    alt={`Question ${currentQuestionIdx + 1} Diagram`} 
+                    className="max-h-[380px] max-w-full object-contain rounded-xl shadow-xs bg-white p-2 border border-slate-100" 
+                  />
+                  <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider mt-2.5">
+                    Figure / Diagram Reference
+                  </span>
+                </div>
+              )}
 
               <div className="space-y-4">
                 {currentQ.options.map((opt: string, idx: number) => (

@@ -618,6 +618,11 @@ export default function ResultsVerificationPage() {
                             <span className="font-bold text-sm text-slate-900">
                               Q{q.questionNumber}. {q.questionText}
                             </span>
+                            {q.imageUrl && (
+                              <div className="w-full my-2.5 p-2 bg-slate-50 border border-slate-200 rounded-lg flex justify-center">
+                                <img src={q.imageUrl} alt="Question Diagram" className="max-h-60 max-w-full object-contain rounded shadow-2xs" />
+                              </div>
+                            )}
                             <span className={`text-[11px] font-extrabold px-2.5 py-0.5 rounded-full shrink-0 border ${
                               isUnanswered
                                 ? 'bg-slate-100 text-slate-600 border-slate-200'

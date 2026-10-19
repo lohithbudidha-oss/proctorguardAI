@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState, Suspense } from 'react';
+import React, { useEffect, useState, useRef, Suspense } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { 
@@ -16,19 +16,29 @@ import {
   CheckCircle2, 
   FileText,
   HelpCircle,
-  Sparkles
+  Sparkles,
+  Image as ImageIcon,
+  Upload,
+  FileUp,
+  Eye,
+  RefreshCw,
+  ZoomIn,
+  Layers,
+  FileCheck2
 } from 'lucide-react';
 import api from '@/lib/api';
 
 interface QuestionOption {
   id: string;
   text: string;
+  imageUrl?: string;
 }
 
 interface QuestionItem {
   _id?: string;
   id?: string;
   text: string;
+  imageUrl?: string;
   type: string;
   category: string;
   marks: number;
@@ -63,6 +73,7 @@ function QuestionBuilderContent() {
   const [isSubmittingNew, setIsSubmittingNew] = useState(false);
   const [newQuestion, setNewQuestion] = useState({
     text: '',
+    imageUrl: '',
     type: 'SINGLE_CHOICE',
     category: 'General',
     marks: 1,
@@ -90,6 +101,24 @@ function QuestionBuilderContent() {
   });
   const [isSavingExam, setIsSavingExam] = useState(false);
 
+  // Image Zoom / Diagram Preview Modal state
+  const [previewImageModal, setPreviewImageModal] = useState<{ src: string; title: string } | null>(null);
+
+  // Document / PDF Import Modal state
+  const [showImportModal, setShowImportModal] = useState(false);
+  const [importTab, setImportTab] = useState<'file' | 'text'>('file');
+  const [selectedImportFile, setSelectedImportFile] = useState<File | null>(null);
+  const [pastedImportText, setPastedImportText] = useState('');
+  const [importCategory, setImportCategory] = useState('General');
+  const [isParsingDocument, setIsParsingDocument] = useState(false);
+  const [parsedPreviewQuestions, setParsedPreviewQuestions] = useState<QuestionItem[]>([]);
+  const [isImportingBulk, setIsImportingBulk] = useState(false);
+
+  // File input refs
+  const newImageFileRef = useRef<HTMLInputElement>(null);
+  const editImageFileRef = useRef<HTMLInputElement>(null);
+  const docFileInputRef = useRef<HTMLInputElement>(null);
+
   const showToast = (msg: string) => {
     setToastMessage(msg);
     setTimeout(() => setToastMessage(null), 4000);
@@ -114,10 +143,63 @@ function QuestionBuilderContent() {
     fetchData();
   }, [examId]);
 
+  // Handle Image Upload for New Question (converts to base64 data URI)
+  const handleNewImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      return alert('Please select a valid image file (PNG, JPG, SVG, WebP, GIF).');
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      return alert('Image size must be under 5MB.');
+    }
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      if (typeof reader.result === 'string') {
+        setNewQuestion(prev => ({
+          ...prev,
+          imageUrl: reader.result as string,
+          // If prompt text was empty, provide a helpful default diagram prompt
+          text: prev.text.trim() ? prev.text : 'Study the diagram/figure above and select the correct answer.'
+        }));
+      }
+    };
+    reader.readAsDataURL(file);
+  };
+
+  // Handle Image Upload for Editing Question
+  const handleEditImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      return alert('Please select a valid image file (PNG, JPG, SVG, WebP, GIF).');
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      return alert('Image size must be under 5MB.');
+    }
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      if (typeof reader.result === 'string' && editingQuestion) {
+        setEditingQuestion({
+          ...editingQuestion,
+          imageUrl: reader.result as string
+        });
+      }
+    };
+    reader.readAsDataURL(file);
+  };
+
   // Handle Add New Question
   const handleAddQuestion = async () => {
-    if (!newQuestion.text.trim()) {
-      return alert('Question text is required.');
+    // If an image is provided, question text can be brief; otherwise it's required
+    if (!newQuestion.text.trim() && !newQuestion.imageUrl) {
+      return alert('Question text or diagram image is required.');
     }
     const emptyOption = newQuestion.options.find(opt => !opt.text.trim());
     if (emptyOption) {
@@ -130,6 +212,7 @@ function QuestionBuilderContent() {
       setShowAddForm(false);
       setNewQuestion({ 
         text: '', 
+        imageUrl: '',
         type: 'SINGLE_CHOICE',
         category: 'General',
         marks: 1,
@@ -156,12 +239,13 @@ function QuestionBuilderContent() {
     setEditingQuestion({
       _id: q._id || q.id,
       text: q.text || '',
+      imageUrl: q.imageUrl || '',
       type: q.type || 'SINGLE_CHOICE',
       category: q.category || 'General',
       marks: q.marks !== undefined ? q.marks : 1,
       negativeMarks: q.negativeMarks || 0,
       options: q.options && q.options.length > 0 
-        ? q.options.map(opt => ({ id: opt.id, text: opt.text }))
+        ? q.options.map(opt => ({ id: opt.id, text: opt.text, imageUrl: opt.imageUrl }))
         : [
             { id: 'A', text: '' }, 
             { id: 'B', text: '' }, 
@@ -172,15 +256,14 @@ function QuestionBuilderContent() {
       explanation: q.explanation || ''
     });
     setShowAddForm(false);
-    // Smooth scroll to top of question builder
     window.scrollTo({ top: 120, behavior: 'smooth' });
   };
 
   // Handle Save Edited Question
   const handleSaveEditQuestion = async () => {
     if (!editingQuestion) return;
-    if (!editingQuestion.text.trim()) {
-      return alert('Question text is required.');
+    if (!editingQuestion.text.trim() && !editingQuestion.imageUrl) {
+      return alert('Question text or diagram image is required.');
     }
     const emptyOption = editingQuestion.options.find(opt => !opt.text.trim());
     if (emptyOption) {
@@ -254,6 +337,94 @@ function QuestionBuilderContent() {
     }
   };
 
+  // -------------------------------------------------------------
+  // PDF / DOCUMENT IMPORT FUNCTIONALITY
+  // -------------------------------------------------------------
+  const handleParseDocument = async () => {
+    if (importTab === 'file' && !selectedImportFile) {
+      return alert('Please select a file (.pdf, .docx, .txt, .csv, .json) to upload.');
+    }
+    if (importTab === 'text' && !pastedImportText.trim()) {
+      return alert('Please paste question content into the text area.');
+    }
+
+    setIsParsingDocument(true);
+    try {
+      if (importTab === 'file' && selectedImportFile) {
+        const formData = new FormData();
+        formData.append('file', selectedImportFile);
+        formData.append('category', importCategory);
+
+        const res = await api.post(`/admin/exams/${examId}/questions/parse-document`, formData, {
+          headers: { 'Content-Type': 'multipart/form-data' }
+        });
+
+        if (res.data?.questions && res.data.questions.length > 0) {
+          setParsedPreviewQuestions(res.data.questions);
+          showToast(`Extracted ${res.data.questions.length} questions from document!`);
+        } else {
+          alert('Could not find any standard questions in the uploaded document. Please check the document format or try pasting the text.');
+        }
+      } else {
+        // Send raw text to parse endpoint
+        const res = await api.post(`/admin/exams/${examId}/questions/parse-document`, {
+          text: pastedImportText,
+          category: importCategory
+        });
+
+        if (res.data?.questions && res.data.questions.length > 0) {
+          setParsedPreviewQuestions(res.data.questions);
+          showToast(`Extracted ${res.data.questions.length} questions from text!`);
+        } else {
+          alert('Could not find any structured questions in the pasted text. Ensure questions have options A, B, C, D.');
+        }
+      }
+    } catch (err: any) {
+      console.error('Error parsing questions document:', err);
+      alert(err?.response?.data?.message || 'Failed to parse questions from document. Please verify the file format.');
+    } finally {
+      setIsParsingDocument(false);
+    }
+  };
+
+  // Confirm and Bulk Save all extracted questions to exam
+  const handleConfirmImport = async () => {
+    if (parsedPreviewQuestions.length === 0) return;
+
+    setIsImportingBulk(true);
+    try {
+      const res = await api.post(`/admin/exams/${examId}/questions/bulk`, {
+        questions: parsedPreviewQuestions
+      });
+
+      showToast(`Successfully imported ${res.data?.count || parsedPreviewQuestions.length} questions into exam!`);
+      setShowImportModal(false);
+      setSelectedImportFile(null);
+      setPastedImportText('');
+      setParsedPreviewQuestions([]);
+      fetchData();
+    } catch (err: any) {
+      console.error('Failed to import questions:', err);
+      alert(err?.response?.data?.message || 'Failed to save imported questions.');
+    } finally {
+      setIsImportingBulk(false);
+    }
+  };
+
+  // Update a single parsed question in preview before final import
+  const handleUpdateParsedItem = (idx: number, field: string, value: any) => {
+    setParsedPreviewQuestions(prev => {
+      const updated = [...prev];
+      updated[idx] = { ...updated[idx], [field]: value };
+      return updated;
+    });
+  };
+
+  // Remove a parsed question from preview
+  const handleRemoveParsedItem = (idx: number) => {
+    setParsedPreviewQuestions(prev => prev.filter((_, i) => i !== idx));
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-white flex flex-col items-center justify-center p-10 font-sans text-slate-600">
@@ -264,7 +435,7 @@ function QuestionBuilderContent() {
   }
 
   return (
-    <div className="min-h-screen bg-white py-10 px-6 font-sans text-slate-800">
+    <div className="min-h-screen bg-slate-50/50 py-10 px-6 font-sans text-slate-800">
       <div className="max-w-5xl mx-auto">
         {/* Navigation Link */}
         <Link href="/admin/exams" className="text-blue-600 font-bold flex items-center mb-6 hover:underline text-sm group">
@@ -322,6 +493,19 @@ function QuestionBuilderContent() {
               <span>Edit Exam Details</span>
             </button>
 
+            {/* Import Questions from PDF / Document Button */}
+            <button
+              onClick={() => {
+                setShowImportModal(true);
+                setParsedPreviewQuestions([]);
+              }}
+              className="px-3.5 py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 font-bold rounded-xl text-xs flex items-center transition shadow-2xs cursor-pointer active:scale-95"
+              title="Automatically extract and upload questions from PDF or Documents"
+            >
+              <Upload className="w-3.5 h-3.5 mr-1.5 text-indigo-600" />
+              <span>Import from PDF / Document</span>
+            </button>
+
             {!showAddForm && !editingQuestion && (
               <button 
                 onClick={() => {
@@ -336,7 +520,9 @@ function QuestionBuilderContent() {
           </div>
         </div>
 
+        {/* ========================================================= */}
         {/* EDIT QUESTION FORM CARD */}
+        {/* ========================================================= */}
         {editingQuestion && (
           <div className="bg-white p-6 rounded-2xl shadow-sm border-2 border-amber-300 mb-8 animate-fadeIn">
             <div className="flex items-center justify-between mb-4 pb-3 border-b border-slate-100">
@@ -346,7 +532,7 @@ function QuestionBuilderContent() {
                 </div>
                 <div>
                   <h3 className="text-base font-extrabold text-slate-900">Edit Question</h3>
-                  <p className="text-xs text-slate-500">Modify question prompt, choices, or correct answer</p>
+                  <p className="text-xs text-slate-500">Modify question prompt, diagram, choices, or correct answer</p>
                 </div>
               </div>
               <button 
@@ -360,17 +546,92 @@ function QuestionBuilderContent() {
             <div className="space-y-4">
               <div>
                 <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
-                  Question Text <span className="text-rose-500">*</span>
+                  Question Text / Prompt <span className="text-rose-500">*</span>
                 </label>
                 <textarea 
                   className="w-full border-slate-300 rounded-xl p-3 border focus:ring-2 focus:ring-amber-500 outline-none text-slate-900 bg-white text-sm" 
                   rows={3}
-                  placeholder="Enter the question text..."
+                  placeholder="Enter question text or prompt instructions..."
                   value={editingQuestion.text}
                   onChange={e => setEditingQuestion({ ...editingQuestion, text: e.target.value })}
                 />
               </div>
+
+              {/* DIAGRAM / GRAPHICAL QUESTION ATTACHMENT SECTION */}
+              <div className="p-4 bg-slate-50/80 border border-slate-200 rounded-xl space-y-3">
+                <div className="flex items-center justify-between flex-wrap gap-2">
+                  <div className="flex items-center space-x-2">
+                    <ImageIcon className="w-4 h-4 text-blue-600" />
+                    <span className="text-xs font-bold text-slate-800">
+                      Diagram / Graphical Figure (Mental Ability, Geometry, Patterns, Tables, Circuits)
+                    </span>
+                  </div>
+                  <span className="text-[11px] font-semibold text-slate-500">Optional or Image-Only Question</span>
+                </div>
+
+                {editingQuestion.imageUrl ? (
+                  <div className="relative p-3 bg-white border border-slate-200 rounded-xl flex items-center justify-between gap-4">
+                    <div className="flex items-center space-x-3">
+                      <img 
+                        src={editingQuestion.imageUrl} 
+                        alt="Question Diagram" 
+                        className="w-20 h-20 object-contain rounded-lg border border-slate-200 bg-slate-50 cursor-pointer"
+                        onClick={() => setPreviewImageModal({ src: editingQuestion.imageUrl!, title: 'Question Diagram' })}
+                      />
+                      <div>
+                        <p className="text-xs font-bold text-slate-800 flex items-center">
+                          <Check className="w-3.5 h-3.5 text-emerald-600 mr-1" /> Diagram Attached
+                        </p>
+                        <p className="text-[11px] text-slate-500">Click image to inspect full-size preview</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <button
+                        type="button"
+                        onClick={() => setPreviewImageModal({ src: editingQuestion.imageUrl!, title: 'Question Diagram' })}
+                        className="px-2.5 py-1 text-xs font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg flex items-center"
+                      >
+                        <Eye className="w-3.5 h-3.5 mr-1" /> View
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setEditingQuestion({ ...editingQuestion, imageUrl: '' })}
+                        className="px-2.5 py-1 text-xs font-bold text-rose-700 bg-rose-50 hover:bg-rose-100 rounded-lg flex items-center"
+                      >
+                        <Trash2 className="w-3.5 h-3.5 mr-1" /> Remove
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex flex-col sm:flex-row items-center gap-3">
+                    <input 
+                      type="file" 
+                      ref={editImageFileRef}
+                      accept="image/*" 
+                      className="hidden" 
+                      onChange={handleEditImageUpload}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => editImageFileRef.current?.click()}
+                      className="w-full sm:w-auto px-4 py-2 bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 font-bold rounded-xl text-xs flex items-center justify-center transition shadow-2xs cursor-pointer"
+                    >
+                      <Upload className="w-3.5 h-3.5 mr-1.5 text-blue-600" />
+                      <span>Upload Diagram Image</span>
+                    </button>
+                    <span className="text-xs text-slate-400 font-medium">or paste image URL:</span>
+                    <input
+                      type="text"
+                      placeholder="https://example.com/diagram.png or data:image..."
+                      className="flex-1 w-full border border-slate-300 rounded-xl px-3 py-1.5 text-xs text-slate-800 bg-white focus:ring-2 focus:ring-amber-500 outline-none"
+                      value={editingQuestion.imageUrl || ''}
+                      onChange={e => setEditingQuestion({ ...editingQuestion, imageUrl: e.target.value })}
+                    />
+                  </div>
+                )}
+              </div>
               
+              {/* OPTIONS */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 {editingQuestion.options.map((opt, idx) => (
                   <div key={opt.id} className="relative">
@@ -430,7 +691,7 @@ function QuestionBuilderContent() {
                     type="text" 
                     className="w-full border-slate-300 rounded-xl p-2.5 border outline-none text-slate-900 bg-white focus:ring-2 focus:ring-amber-500 text-sm font-medium" 
                     value={editingQuestion.category} 
-                    placeholder="General, Aptitude, Coding..."
+                    placeholder="General, Aptitude, Mental Ability..."
                     onChange={e => setEditingQuestion({ ...editingQuestion, category: e.target.value })} 
                   />
                 </div>
@@ -458,7 +719,9 @@ function QuestionBuilderContent() {
           </div>
         )}
 
+        {/* ========================================================= */}
         {/* NEW QUESTION FORM CARD */}
+        {/* ========================================================= */}
         {showAddForm && (
           <div className="bg-white p-6 rounded-2xl shadow-sm border border-blue-200 mb-8 animate-fadeIn">
             <div className="flex items-center justify-between mb-4 pb-3 border-b border-slate-100">
@@ -467,8 +730,8 @@ function QuestionBuilderContent() {
                   <Plus className="w-4 h-4" />
                 </div>
                 <div>
-                  <h3 className="text-base font-extrabold text-slate-900">Add New Multiple Choice Question</h3>
-                  <p className="text-xs text-slate-500">Provide question prompt, option choices, and designate the correct answer</p>
+                  <h3 className="text-base font-extrabold text-slate-900">Add New Multiple Choice / Diagram Question</h3>
+                  <p className="text-xs text-slate-500">Provide question prompt or diagram, option choices, and designate the correct answer</p>
                 </div>
               </div>
               <button 
@@ -482,17 +745,92 @@ function QuestionBuilderContent() {
             <div className="space-y-4">
               <div>
                 <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
-                  Question Text <span className="text-rose-500">*</span>
+                  Question Text / Prompt <span className="text-rose-500">*</span>
                 </label>
                 <textarea 
                   className="w-full border-slate-300 rounded-xl p-3 border focus:ring-2 focus:ring-blue-500 outline-none text-slate-900 bg-white text-sm" 
                   rows={3}
-                  placeholder="Enter the question text here..."
+                  placeholder="Enter the question text or prompt instructions here..."
                   value={newQuestion.text}
                   onChange={e => setNewQuestion({ ...newQuestion, text: e.target.value })}
                 />
               </div>
+
+              {/* DIAGRAM / GRAPHICAL QUESTION ATTACHMENT SECTION */}
+              <div className="p-4 bg-slate-50/80 border border-slate-200 rounded-xl space-y-3">
+                <div className="flex items-center justify-between flex-wrap gap-2">
+                  <div className="flex items-center space-x-2">
+                    <ImageIcon className="w-4 h-4 text-blue-600" />
+                    <span className="text-xs font-bold text-slate-800">
+                      Diagram / Graphical Figure (Mental Ability, Geometry, Patterns, Tables, Circuits)
+                    </span>
+                  </div>
+                  <span className="text-[11px] font-semibold text-slate-500">Optional or Image-Only Question</span>
+                </div>
+
+                {newQuestion.imageUrl ? (
+                  <div className="relative p-3 bg-white border border-slate-200 rounded-xl flex items-center justify-between gap-4">
+                    <div className="flex items-center space-x-3">
+                      <img 
+                        src={newQuestion.imageUrl} 
+                        alt="Question Diagram" 
+                        className="w-20 h-20 object-contain rounded-lg border border-slate-200 bg-slate-50 cursor-pointer"
+                        onClick={() => setPreviewImageModal({ src: newQuestion.imageUrl, title: 'Question Diagram' })}
+                      />
+                      <div>
+                        <p className="text-xs font-bold text-slate-800 flex items-center">
+                          <Check className="w-3.5 h-3.5 text-emerald-600 mr-1" /> Diagram Attached
+                        </p>
+                        <p className="text-[11px] text-slate-500">Candidates will see this diagram above their options.</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <button
+                        type="button"
+                        onClick={() => setPreviewImageModal({ src: newQuestion.imageUrl, title: 'Question Diagram' })}
+                        className="px-2.5 py-1 text-xs font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg flex items-center"
+                      >
+                        <Eye className="w-3.5 h-3.5 mr-1" /> View
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setNewQuestion({ ...newQuestion, imageUrl: '' })}
+                        className="px-2.5 py-1 text-xs font-bold text-rose-700 bg-rose-50 hover:bg-rose-100 rounded-lg flex items-center"
+                      >
+                        <Trash2 className="w-3.5 h-3.5 mr-1" /> Remove
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex flex-col sm:flex-row items-center gap-3">
+                    <input 
+                      type="file" 
+                      ref={newImageFileRef}
+                      accept="image/*" 
+                      className="hidden" 
+                      onChange={handleNewImageUpload}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => newImageFileRef.current?.click()}
+                      className="w-full sm:w-auto px-4 py-2 bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 font-bold rounded-xl text-xs flex items-center justify-center transition shadow-2xs cursor-pointer"
+                    >
+                      <Upload className="w-3.5 h-3.5 mr-1.5 text-blue-600" />
+                      <span>Upload Diagram Image</span>
+                    </button>
+                    <span className="text-xs text-slate-400 font-medium">or paste image URL:</span>
+                    <input
+                      type="text"
+                      placeholder="https://example.com/diagram.png or data:image..."
+                      className="flex-1 w-full border border-slate-300 rounded-xl px-3 py-1.5 text-xs text-slate-800 bg-white focus:ring-2 focus:ring-blue-500 outline-none"
+                      value={newQuestion.imageUrl}
+                      onChange={e => setNewQuestion({ ...newQuestion, imageUrl: e.target.value })}
+                    />
+                  </div>
+                )}
+              </div>
               
+              {/* OPTIONS */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 {newQuestion.options.map((opt, idx) => (
                   <div key={opt.id}>
@@ -552,7 +890,7 @@ function QuestionBuilderContent() {
                     type="text" 
                     className="w-full border-slate-300 rounded-xl p-2.5 border outline-none text-slate-900 bg-white focus:ring-2 focus:ring-blue-500 text-sm font-medium" 
                     value={newQuestion.category} 
-                    placeholder="General, Aptitude..."
+                    placeholder="General, Aptitude, Mental Ability..."
                     onChange={e => setNewQuestion({ ...newQuestion, category: e.target.value })} 
                   />
                 </div>
@@ -580,7 +918,9 @@ function QuestionBuilderContent() {
           </div>
         )}
 
+        {/* ========================================================= */}
         {/* QUESTIONS LIST */}
+        {/* ========================================================= */}
         <div className="space-y-4">
           {questions.map((q, idx) => (
             <div 
@@ -602,6 +942,11 @@ function QuestionBuilderContent() {
                   <span className="text-xs font-bold uppercase text-blue-700 bg-blue-50 px-2.5 py-1 rounded-md border border-blue-100">
                     {q.marks} Mark{q.marks !== 1 ? 's' : ''}
                   </span>
+                  {q.imageUrl && (
+                    <span className="text-xs font-bold uppercase text-indigo-700 bg-indigo-50 px-2.5 py-1 rounded-md border border-indigo-200 flex items-center">
+                      <ImageIcon className="w-3 h-3 mr-1" /> Diagram Question
+                    </span>
+                  )}
                 </div>
 
                 {/* Question Actions: EDIT & DELETE BUTTONS */}
@@ -627,9 +972,28 @@ function QuestionBuilderContent() {
               </div>
 
               {/* Question Text */}
-              <p className="text-base sm:text-lg text-slate-900 font-medium mb-4 leading-relaxed whitespace-pre-wrap">
+              <p className="text-base sm:text-lg text-slate-900 font-medium mb-3 leading-relaxed whitespace-pre-wrap">
                 {q.text}
               </p>
+
+              {/* Question Diagram / Image rendering if present */}
+              {q.imageUrl && (
+                <div className="mb-4 p-3 bg-slate-50 border border-slate-200 rounded-xl flex flex-col items-center justify-center group relative max-w-lg">
+                  <img 
+                    src={q.imageUrl} 
+                    alt={`Question ${idx + 1} Diagram`} 
+                    className="max-h-60 max-w-full object-contain rounded-lg cursor-pointer bg-white p-2 border border-slate-100 transition hover:opacity-95"
+                    onClick={() => setPreviewImageModal({ src: q.imageUrl!, title: `Question ${idx + 1} Diagram` })}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setPreviewImageModal({ src: q.imageUrl!, title: `Question ${idx + 1} Diagram` })}
+                    className="mt-2 text-[11px] font-bold text-blue-600 hover:text-blue-800 flex items-center"
+                  >
+                    <ZoomIn className="w-3 h-3 mr-1" /> Click to view full-size diagram
+                  </button>
+                </div>
+              )}
               
               {/* Options Grid */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -670,19 +1034,368 @@ function QuestionBuilderContent() {
               </div>
               <h3 className="text-base font-extrabold text-slate-800">This Exam Has No Questions Yet</h3>
               <p className="text-xs text-slate-500 font-medium mt-1 mb-5">
-                Add multiple choice questions with options and mark values to complete this examination.
+                Add multiple choice or graphical diagram questions, or import questions directly from PDF / Documents.
               </p>
-              <button 
-                onClick={() => setShowAddForm(true)} 
-                className="bg-blue-600 text-white px-5 py-2.5 rounded-xl font-bold hover:bg-blue-700 transition shadow-xs inline-flex items-center text-xs cursor-pointer active:scale-95"
-              >
-                <Plus className="w-4 h-4 mr-1.5" /> Add First Question
-              </button>
+              <div className="flex items-center justify-center gap-3 flex-wrap">
+                <button 
+                  onClick={() => setShowAddForm(true)} 
+                  className="bg-blue-600 text-white px-5 py-2.5 rounded-xl font-bold hover:bg-blue-700 transition shadow-xs inline-flex items-center text-xs cursor-pointer active:scale-95"
+                >
+                  <Plus className="w-4 h-4 mr-1.5" /> Add First Question
+                </button>
+                <button 
+                  onClick={() => setShowImportModal(true)} 
+                  className="bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 px-5 py-2.5 rounded-xl font-bold transition shadow-2xs inline-flex items-center text-xs cursor-pointer active:scale-95"
+                >
+                  <Upload className="w-4 h-4 mr-1.5" /> Import from PDF / Document
+                </button>
+              </div>
             </div>
           )}
         </div>
 
+        {/* ========================================================= */}
+        {/* DOCUMENT / PDF QUESTION IMPORT MODAL */}
+        {/* ========================================================= */}
+        {showImportModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-xs p-4 animate-fadeIn">
+            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[90vh] flex flex-col overflow-hidden border border-slate-200">
+              
+              {/* Modal Header */}
+              <div className="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">
+                <div className="flex items-center space-x-2.5">
+                  <div className="p-2 bg-indigo-50 text-indigo-700 rounded-xl">
+                    <Sparkles className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <h3 className="text-base font-extrabold text-slate-900">
+                      Import Questions from PDF / Document
+                    </h3>
+                    <p className="text-xs text-slate-500">
+                      Automatically extract multiple choice questions from PDFs, Word DOCX, text files, or spreadsheets
+                    </p>
+                  </div>
+                </div>
+                <button 
+                  onClick={() => {
+                    setShowImportModal(false);
+                    setParsedPreviewQuestions([]);
+                  }} 
+                  className="text-slate-400 hover:text-slate-600 p-1.5 rounded-lg hover:bg-slate-100 transition"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              {/* Modal Body */}
+              <div className="p-6 overflow-y-auto space-y-6">
+                
+                {/* PREVIEW & CONFIRM STEP (if questions already extracted) */}
+                {parsedPreviewQuestions.length > 0 ? (
+                  <div className="space-y-4">
+                    <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-xl flex items-center justify-between">
+                      <div className="flex items-center space-x-2">
+                        <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
+                        <div>
+                          <p className="text-xs font-bold text-emerald-900">
+                            Found {parsedPreviewQuestions.length} Questions Ready to Import
+                          </p>
+                          <p className="text-[11px] text-emerald-700">
+                            Review the extracted questions below. You can adjust the correct answer, marks, or delete any question before adding them.
+                          </p>
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setParsedPreviewQuestions([])}
+                        className="px-3 py-1.5 text-xs font-bold text-slate-600 hover:text-slate-800 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 transition"
+                      >
+                        Upload Another File
+                      </button>
+                    </div>
+
+                    {/* Parsed Questions List */}
+                    <div className="space-y-3 max-h-[50vh] overflow-y-auto pr-1">
+                      {parsedPreviewQuestions.map((pq, qIdx) => (
+                        <div key={qIdx} className="p-4 bg-white border border-slate-200 rounded-xl shadow-2xs space-y-3">
+                          <div className="flex items-start justify-between gap-3">
+                            <span className="w-6 h-6 rounded-md bg-indigo-50 text-indigo-700 font-extrabold text-xs flex items-center justify-center shrink-0">
+                              {qIdx + 1}
+                            </span>
+                            <input
+                              type="text"
+                              value={pq.text}
+                              onChange={e => handleUpdateParsedItem(qIdx, 'text', e.target.value)}
+                              className="flex-1 font-semibold text-sm text-slate-900 border border-slate-200 rounded-lg px-2.5 py-1 focus:ring-2 focus:ring-indigo-500 outline-none"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveParsedItem(qIdx)}
+                              className="p-1.5 text-slate-400 hover:text-rose-600 rounded-lg transition"
+                              title="Discard this question"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
+
+                          {/* Options */}
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pl-9">
+                            {pq.options.map(opt => (
+                              <div key={opt.id} className="flex items-center space-x-1.5">
+                                <span className="font-bold text-xs text-slate-500 w-4">{opt.id}:</span>
+                                <input
+                                  type="text"
+                                  value={opt.text}
+                                  onChange={e => {
+                                    const updatedOpts = pq.options.map(o => o.id === opt.id ? { ...o, text: e.target.value } : o);
+                                    handleUpdateParsedItem(qIdx, 'options', updatedOpts);
+                                  }}
+                                  className="w-full text-xs text-slate-800 border border-slate-200 rounded-lg px-2 py-1 focus:ring-1 focus:ring-indigo-500 outline-none"
+                                />
+                              </div>
+                            ))}
+                          </div>
+
+                          {/* Controls (Correct Answer, Marks, Category) */}
+                          <div className="flex items-center gap-4 pl-9 pt-1 flex-wrap text-xs">
+                            <div className="flex items-center space-x-1.5">
+                              <span className="font-bold text-slate-600">Correct Option:</span>
+                              <select
+                                value={pq.correctAnswer}
+                                onChange={e => handleUpdateParsedItem(qIdx, 'correctAnswer', e.target.value)}
+                                className="border border-slate-300 rounded-lg px-2 py-0.5 font-bold text-indigo-700 bg-white"
+                              >
+                                {pq.options.map(o => (
+                                  <option key={o.id} value={o.id}>Option {o.id}</option>
+                                ))}
+                              </select>
+                            </div>
+                            <div className="flex items-center space-x-1.5">
+                              <span className="font-bold text-slate-600">Marks:</span>
+                              <input
+                                type="number"
+                                min="1"
+                                value={pq.marks}
+                                onChange={e => handleUpdateParsedItem(qIdx, 'marks', Math.max(1, Number(e.target.value) || 1))}
+                                className="w-14 border border-slate-300 rounded-lg px-2 py-0.5 font-bold text-slate-800 text-center"
+                              />
+                            </div>
+                            <div className="flex items-center space-x-1.5">
+                              <span className="font-bold text-slate-600">Category:</span>
+                              <input
+                                type="text"
+                                value={pq.category}
+                                onChange={e => handleUpdateParsedItem(qIdx, 'category', e.target.value)}
+                                className="w-28 border border-slate-300 rounded-lg px-2 py-0.5 text-slate-800"
+                              />
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ) : (
+                  <>
+                    {/* TABS: File Upload vs Direct Paste */}
+                    <div className="flex border-b border-slate-200">
+                      <button
+                        type="button"
+                        onClick={() => setImportTab('file')}
+                        className={`pb-3 px-4 font-bold text-xs flex items-center transition border-b-2 ${
+                          importTab === 'file'
+                            ? 'border-indigo-600 text-indigo-600'
+                            : 'border-transparent text-slate-500 hover:text-slate-800'
+                        }`}
+                      >
+                        <FileUp className="w-4 h-4 mr-1.5" /> Upload File (PDF, DOCX, TXT, CSV, JSON)
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setImportTab('text')}
+                        className={`pb-3 px-4 font-bold text-xs flex items-center transition border-b-2 ${
+                          importTab === 'text'
+                            ? 'border-indigo-600 text-indigo-600'
+                            : 'border-transparent text-slate-500 hover:text-slate-800'
+                        }`}
+                      >
+                        <FileText className="w-4 h-4 mr-1.5" /> Paste Question Text Directly
+                      </button>
+                    </div>
+
+                    {/* Common Category Selector */}
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 mb-1">
+                        Default Category for Extracted Questions
+                      </label>
+                      <input
+                        type="text"
+                        value={importCategory}
+                        onChange={e => setImportCategory(e.target.value)}
+                        placeholder="e.g. Mental Ability, Aptitude, Technical, General"
+                        className="w-full border border-slate-300 rounded-xl px-3 py-2 text-xs text-slate-800 focus:ring-2 focus:ring-indigo-500 outline-none"
+                      />
+                    </div>
+
+                    {/* TAB 1: FILE UPLOAD */}
+                    {importTab === 'file' && (
+                      <div className="space-y-3">
+                        <div 
+                          onClick={() => docFileInputRef.current?.click()}
+                          className={`border-2 border-dashed rounded-2xl p-8 text-center cursor-pointer transition flex flex-col items-center justify-center ${
+                            selectedImportFile 
+                              ? 'border-indigo-500 bg-indigo-50/30' 
+                              : 'border-slate-300 hover:border-indigo-400 hover:bg-slate-50'
+                          }`}
+                        >
+                          <input
+                            type="file"
+                            ref={docFileInputRef}
+                            accept=".pdf,.docx,.txt,.csv,.json"
+                            className="hidden"
+                            onChange={e => setSelectedImportFile(e.target.files?.[0] || null)}
+                          />
+                          <div className="w-12 h-12 bg-indigo-100 text-indigo-600 rounded-2xl flex items-center justify-center mb-3">
+                            <Upload className="w-6 h-6" />
+                          </div>
+                          {selectedImportFile ? (
+                            <div>
+                              <p className="text-sm font-bold text-slate-900 flex items-center justify-center">
+                                <FileCheck2 className="w-4 h-4 mr-1 text-emerald-600" />
+                                {selectedImportFile.name}
+                              </p>
+                              <p className="text-xs text-slate-500 mt-1">
+                                {(selectedImportFile.size / 1024).toFixed(1)} KB • Click to change file
+                              </p>
+                            </div>
+                          ) : (
+                            <div>
+                              <p className="text-sm font-bold text-slate-800">
+                                Click or drag and drop your exam file here
+                              </p>
+                              <p className="text-xs text-slate-500 mt-1">
+                                Supports PDF (.pdf), Word (.docx), Plain Text (.txt), CSV (.csv), or JSON (.json)
+                              </p>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Supported format helper note */}
+                        <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 text-[11px] text-slate-600 space-y-1">
+                          <p className="font-bold text-slate-800">💡 Standard Document Format Supported:</p>
+                          <p>Questions numbered like <code className="bg-slate-200 px-1 py-0.5 rounded font-mono">1.</code> or <code className="bg-slate-200 px-1 py-0.5 rounded font-mono">Q1)</code> with options <code className="bg-slate-200 px-1 py-0.5 rounded font-mono">A)</code>, <code className="bg-slate-200 px-1 py-0.5 rounded font-mono">B)</code>, <code className="bg-slate-200 px-1 py-0.5 rounded font-mono">C)</code>, <code className="bg-slate-200 px-1 py-0.5 rounded font-mono">D)</code> and <code className="bg-slate-200 px-1 py-0.5 rounded font-mono">Answer: B</code> will be automatically extracted.</p>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* TAB 2: TEXT PASTE */}
+                    {importTab === 'text' && (
+                      <div className="space-y-3">
+                        <label className="block text-xs font-bold text-slate-700">
+                          Paste Questions Text
+                        </label>
+                        <textarea
+                          rows={8}
+                          value={pastedImportText}
+                          onChange={e => setPastedImportText(e.target.value)}
+                          placeholder={`1. Which protocol is responsible for IP address assignment?
+A) DNS
+B) DHCP
+C) ARP
+D) ICMP
+Answer: B
+
+2. Study the sequence: 2, 4, 8, 16, ? What is the next number?
+A) 24
+B) 30
+C) 32
+D) 64
+Answer: C`}
+                          className="w-full border border-slate-300 rounded-xl p-3 text-xs font-mono text-slate-800 focus:ring-2 focus:ring-indigo-500 outline-none"
+                        />
+                      </div>
+                    )}
+                  </>
+                )}
+
+              </div>
+
+              {/* Modal Footer */}
+              <div className="px-6 py-4 border-t border-slate-100 flex items-center justify-between bg-slate-50">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowImportModal(false);
+                    setParsedPreviewQuestions([]);
+                  }}
+                  className="px-4 py-2 text-slate-600 font-bold hover:bg-slate-200/60 rounded-xl transition text-xs cursor-pointer"
+                >
+                  Cancel
+                </button>
+
+                {parsedPreviewQuestions.length > 0 ? (
+                  <button
+                    type="button"
+                    disabled={isImportingBulk}
+                    onClick={handleConfirmImport}
+                    className="px-5 py-2.5 bg-emerald-700 hover:bg-emerald-800 text-white font-bold rounded-xl transition text-xs shadow-xs cursor-pointer flex items-center disabled:opacity-50"
+                  >
+                    <Check className="w-4 h-4 mr-1.5" />
+                    {isImportingBulk 
+                      ? 'Adding Questions to Exam...' 
+                      : `Confirm & Import All ${parsedPreviewQuestions.length} Questions`}
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    disabled={isParsingDocument || (importTab === 'file' && !selectedImportFile) || (importTab === 'text' && !pastedImportText.trim())}
+                    onClick={handleParseDocument}
+                    className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl transition text-xs shadow-xs cursor-pointer flex items-center disabled:opacity-50"
+                  >
+                    <Sparkles className="w-4 h-4 mr-1.5" />
+                    {isParsingDocument ? 'Analyzing & Extracting...' : 'Parse & Extract Questions'}
+                  </button>
+                )}
+              </div>
+
+            </div>
+          </div>
+        )}
+
+        {/* ========================================================= */}
+        {/* IMAGE ZOOM / FULL PREVIEW MODAL */}
+        {/* ========================================================= */}
+        {previewImageModal && (
+          <div 
+            className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 backdrop-blur-xs p-4 animate-fadeIn"
+            onClick={() => setPreviewImageModal(null)}
+          >
+            <div 
+              className="bg-white rounded-2xl shadow-2xl max-w-3xl max-h-[90vh] overflow-hidden p-4 flex flex-col border border-slate-700"
+              onClick={e => e.stopPropagation()}
+            >
+              <div className="flex justify-between items-center mb-3 pb-2 border-b border-slate-100">
+                <span className="font-bold text-xs text-slate-700">{previewImageModal.title}</span>
+                <button 
+                  onClick={() => setPreviewImageModal(null)}
+                  className="p-1 text-slate-400 hover:text-slate-600 rounded-lg"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+              <div className="flex-1 overflow-auto flex items-center justify-center p-2 bg-slate-50 rounded-xl">
+                <img 
+                  src={previewImageModal.src} 
+                  alt={previewImageModal.title} 
+                  className="max-h-[75vh] max-w-full object-contain rounded-lg"
+                />
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ========================================================= */}
         {/* EDIT EXAM DETAILS MODAL */}
+        {/* ========================================================= */}
         {showEditExamModal && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-xs p-4 animate-fadeIn">
             <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg overflow-hidden border border-slate-200">

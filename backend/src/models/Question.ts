@@ -19,7 +19,8 @@ export interface IQuestion extends Document {
   questionBankId?: mongoose.Types.ObjectId; // Or belong to a bank
   type: QuestionType;
   text: string;
-  options: { id: string; text: string }[];
+  imageUrl?: string; // Graphical / Diagrammatical / Mental Ability question image or figure
+  options: { id: string; text: string; imageUrl?: string }[];
   correctAnswer: any; // The structure depends on the question type
   marks: number;
   negativeMarks: number;
@@ -37,7 +38,8 @@ const QuestionSchema: Schema = new Schema({
   questionBankId: { type: Schema.Types.ObjectId, ref: 'QuestionBank' },
   type: { type: String, enum: Object.values(QuestionType), required: true },
   text: { type: String, required: true },
-  options: [{ id: String, text: String }], // Optional for SHORT_TEXT/NUMERIC
+  imageUrl: { type: String }, // Base64 data URI or image URL
+  options: [{ id: String, text: String, imageUrl: String }], // Optional for SHORT_TEXT/NUMERIC
   correctAnswer: { type: Schema.Types.Mixed, required: true },
   marks: { type: Number, default: 1 },
   negativeMarks: { type: Number, default: 0 },
