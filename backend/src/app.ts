@@ -62,7 +62,7 @@ app.use(cors({
 }));
 
 // Graceful Socket.IO endpoint handling in serverless mode to eliminate 404 polling errors
-app.all(['/socket.io', '/socket.io/*'], (req: Request, res: Response) => {
+app.use('/socket.io', (req: Request, res: Response) => {
   res.setHeader('Content-Type', 'text/plain; charset=UTF-8');
   res.status(200).send('0{"sid":"serverless_noop","upgrades":[],"pingInterval":60000,"pingTimeout":60000,"maxPayload":1000000}');
 });
