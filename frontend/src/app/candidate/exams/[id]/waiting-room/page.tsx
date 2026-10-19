@@ -168,11 +168,11 @@ function WaitingRoomContent() {
       }
 
       if (err.name === 'NotFoundError' || err.message?.includes('not found') || err.name === 'DevicesNotFoundError') {
-        setStreamError('Webcam not detected. You are strictly not allowed to write the exam without a connected, working camera.');
+        setStreamError('Webcam not detected or closed. You are permitted to proceed to the examination.');
       } else if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError' || err.message?.includes('denied')) {
-        setStreamError('Camera permission denied. You are not allowed to write the exam without granting camera access.');
+        setStreamError('Camera access denied or closed. You are permitted to proceed to the examination.');
       } else {
-        setStreamError(`Webcam error: ${err.message || 'Camera is unavailable or in use by another application. A working camera is strictly required to write the exam.'}`);
+        setStreamError('Webcam is closed or unavailable. You are permitted to proceed to the examination.');
       }
     } finally {
       setVerifying(false);
@@ -309,16 +309,16 @@ function WaitingRoomContent() {
                     )}
                   </button>
                   {streamError && (
-                    <div className="mt-4 p-3.5 bg-rose-50 border border-rose-200 rounded-xl text-left max-w-xs animate-in fade-in">
-                      <p className="text-xs font-bold text-rose-900 flex items-center mb-1">
-                        <AlertTriangle className="w-4 h-4 mr-1 text-rose-600 shrink-0" />
-                        Webcam Verification Failed
+                    <div className="mt-4 p-3.5 bg-amber-50 border border-amber-200 rounded-xl text-left max-w-xs animate-in fade-in">
+                      <p className="text-xs font-bold text-amber-900 flex items-center mb-1">
+                        <AlertTriangle className="w-4 h-4 mr-1 text-amber-600 shrink-0" />
+                        Webcam Closed
                       </p>
-                      <p className="text-[11px] text-rose-700 leading-relaxed font-medium">
+                      <p className="text-[11px] text-amber-800 leading-relaxed font-medium">
                         {streamError}
                       </p>
-                      <p className="text-[10px] text-rose-800 font-bold mt-1.5 uppercase tracking-wide">
-                        Candidate is not allowed to start exam
+                      <p className="text-[10px] text-emerald-800 font-bold mt-1.5 uppercase tracking-wide">
+                        Candidate is permitted to start examination
                       </p>
                     </div>
                   )}
@@ -357,14 +357,16 @@ function WaitingRoomContent() {
           <div className="flex justify-center border-t border-slate-100 pt-8">
             <button
               onClick={handleStart}
-              disabled={!canStart || !devicesEnabled}
+              disabled={!canStart}
               className={`px-12 py-4 rounded-lg font-bold text-lg text-white transition-all transform ${
-                canStart && devicesEnabled
-                  ? 'bg-blue-600 hover:bg-blue-700 shadow-xl hover:scale-105 active:scale-95' 
+                canStart
+                  ? 'bg-blue-600 hover:bg-blue-700 shadow-xl hover:scale-105 active:scale-95 cursor-pointer' 
                   : 'bg-slate-300 cursor-not-allowed'
               }`}
             >
-              {canStart && devicesEnabled ? 'Start Examination Now' : (!devicesEnabled ? 'Verify Devices to Start' : 'Waiting to Start...')}
+              {canStart 
+                ? (devicesEnabled ? 'Start Examination Now' : 'Start Examination (Webcam Closed)') 
+                : 'Waiting to Start...'}
             </button>
           </div>
         </div>

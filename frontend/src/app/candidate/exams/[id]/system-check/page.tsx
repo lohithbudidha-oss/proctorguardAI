@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, Suspense, useCallback } from 'react';
 import { useRouter, useParams } from 'next/navigation';
-import { CheckCircle2, XCircle, Loader2, AlertTriangle, Monitor, Camera, Mic, Wifi, ArrowLeft } from 'lucide-react';
+import { CheckCircle2, XCircle, Loader2, AlertTriangle, Monitor, Camera, Mic, Wifi, ArrowLeft, ArrowRight } from 'lucide-react';
 import Link from 'next/link';
 import api from '@/lib/api';
 
@@ -40,7 +40,7 @@ function SystemCheckContent() {
       updateCheck('network', 'FAIL', 'You are currently offline.');
     }
 
-    // 3. Strict Camera Check
+    // 3. Camera Check - Even if candidate closed webcam or it's unavailable, they are allowed to proceed
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ video: true });
       const track = stream.getVideoTracks()[0];
@@ -48,15 +48,15 @@ function SystemCheckContent() {
         updateCheck('camera', 'PASS', 'Camera is verified and working correctly.');
         stream.getTracks().forEach(t => t.stop()); // Stop immediately after check
       } else {
-        updateCheck('camera', 'FAIL', 'Webcam is inactive or not functioning. Working camera is strictly required.');
+        updateCheck('camera', 'FAIL', 'Webcam is closed or inactive. You are permitted to proceed to the examination.');
       }
     } catch (err: any) {
       if (err.name === 'NotFoundError' || err.message?.includes('not found') || err.name === 'DevicesNotFoundError') {
-        updateCheck('camera', 'FAIL', 'Webcam not detected. You are not allowed to write the exam without a functional webcam.');
+        updateCheck('camera', 'FAIL', 'Webcam not detected or closed. You are permitted to proceed to the examination.');
       } else if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError' || err.message?.includes('denied')) {
-        updateCheck('camera', 'FAIL', 'Camera permission denied. Camera access is strictly required to take this assessment.');
+        updateCheck('camera', 'FAIL', 'Camera closed or permission denied. You are permitted to proceed to the examination.');
       } else {
-        updateCheck('camera', 'FAIL', 'Webcam is not functioning or unavailable. Working camera is strictly required.');
+        updateCheck('camera', 'FAIL', 'Webcam is closed or unavailable. You are permitted to proceed to the examination.');
       }
     }
 
@@ -72,24 +72,11 @@ function SystemCheckContent() {
       if (stream.active && track && track.readyState === 'live') {
         updateCheck('camera', 'PASS', 'Camera is verified and working correctly.');
         stream.getTracks().forEach(t => t.stop());
-        setChecks(curr => {
-          const isReady = curr.browser.status === 'PASS' && curr.network.status === 'PASS' && curr.screen.status === 'PASS';
-          setAllReady(isReady);
-          return curr;
-        });
       } else {
-        updateCheck('camera', 'FAIL', 'Webcam is inactive or not functioning. Working camera is strictly required.');
-        setAllReady(false);
+        updateCheck('camera', 'FAIL', 'Webcam is closed or inactive. You are permitted to proceed to the examination.');
       }
     } catch (err: any) {
-      setAllReady(false);
-      if (err.name === 'NotFoundError' || err.message?.includes('not found') || err.name === 'DevicesNotFoundError') {
-        updateCheck('camera', 'FAIL', 'Webcam not detected. You are not allowed to write the exam without a functional webcam.');
-      } else if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError' || err.message?.includes('denied')) {
-        updateCheck('camera', 'FAIL', 'Camera permission denied. Camera access is strictly required to take this assessment.');
-      } else {
-        updateCheck('camera', 'FAIL', 'Webcam is not functioning or unavailable. Working camera is strictly required.');
-      }
+      updateCheck('camera', 'FAIL', 'Webcam is closed or unavailable. You are permitted to proceed to the examination.');
     } finally {
       setRetryingCamera(false);
     }
@@ -123,31 +110,28 @@ function SystemCheckContent() {
         updateCheck('screen', 'PASS', 'Screen sharing is working correctly.');
         displayStream.getTracks().forEach(t => t.stop());
         
-        // Only set allReady if camera is also strictly PASS!
+        // Candidate is allowed to proceed regardless of camera status
         setChecks(curr => {
-          const isCamPass = curr.camera.status === 'PASS';
           const isBrowserPass = curr.browser.status === 'PASS';
           const isNetPass = curr.network.status === 'PASS';
-          setAllReady(isCamPass && isBrowserPass && isNetPass);
+          setAllReady(isBrowserPass && isNetPass);
           return curr;
         });
       } else {
         updateCheck('screen', 'FAIL', 'Screen share is not active.');
-        setAllReady(false);
       }
     } catch (err) {
       updateCheck('screen', 'FAIL', 'Screen share permission denied.');
-      setAllReady(false);
     }
   };
 
+  // Proceed to Waiting Room - allows candidate even if webcam is closed
   const proceedToWaitingRoom = () => {
-    if (checks.camera.status !== 'PASS') {
-      alert('You are not allowed to write the examination without a working, verified webcam.');
-      return;
-    }
     router.push(`/candidate/exams/${examId}/waiting-room`);
   };
+
+  // Can proceed if browser and network are fine, and screen share was tested (or user continues)
+  const isEligibleToProceed = checks.browser.status === 'PASS' && checks.network.status === 'PASS';
 
   return (
     <div className="min-h-screen bg-white flex flex-col items-center justify-center p-6">
@@ -188,7 +172,11 @@ function SystemCheckContent() {
               )}
               {checks.camera.status === 'PENDING' && <Loader2 className="w-6 h-6 text-blue-500 animate-spin" />}
               {checks.camera.status === 'PASS' && <CheckCircle2 className="w-6 h-6 text-emerald-700" />}
-              {checks.camera.status === 'FAIL' && <XCircle className="w-6 h-6 text-red-500" />}
+              {checks.camera.status === 'FAIL' && (
+                <span className="px-2 py-0.5 bg-amber-100 text-amber-800 rounded text-xs font-bold">
+                  Camera Closed (Allowed)
+                </span>
+              )}
             </div>
           </div>
           
@@ -206,7 +194,7 @@ function SystemCheckContent() {
               {checks.screen.status !== 'PASS' && (
                 <button
                   onClick={testScreenShare}
-                  className="px-3 py-1.5 bg-blue-100 text-blue-700 text-sm font-semibold rounded-md hover:bg-blue-200 transition-colors"
+                  className="px-3 py-1.5 bg-blue-100 text-blue-700 text-sm font-semibold rounded-md hover:bg-blue-200 transition-colors cursor-pointer"
                 >
                   Test Screen
                 </button>
@@ -218,41 +206,50 @@ function SystemCheckContent() {
           </div>
         </div>
 
-        {/* Webcam Failure Notification Banner */}
+        {/* Webcam Closed Notification Banner - Informs candidate they are permitted to proceed */}
         {checks.camera.status === 'FAIL' && (
-          <div className="mt-6 p-4 bg-rose-50 border-l-4 border-rose-600 rounded-r-xl flex items-start space-x-3.5 text-rose-900 shadow-xs animate-in fade-in">
-            <AlertTriangle className="w-5 h-5 text-rose-600 shrink-0 mt-0.5" />
+          <div className="mt-6 p-4 bg-amber-50 border-l-4 border-amber-500 rounded-r-xl flex items-start space-x-3.5 text-amber-900 shadow-xs animate-in fade-in">
+            <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
             <div className="flex-1">
-              <h4 className="font-bold text-sm text-rose-950">Webcam Not Functioning — Candidate Not Allowed to Write Exam</h4>
-              <p className="text-xs text-rose-700 mt-1 leading-relaxed">
-                A functioning webcam is strictly required to verify identity and maintain continuous remote proctoring. Because your webcam is not detected or not active, you are not permitted to proceed to the examination.
+              <h4 className="font-bold text-sm text-amber-950">Webcam Closed or Inactive — Candidate Permitted to Proceed</h4>
+              <p className="text-xs text-amber-800 mt-1 leading-relaxed">
+                Your webcam is closed or not detected. You are still allowed to take this examination. You may reconnect your camera or proceed directly to the examination waiting room.
               </p>
               <div className="mt-3 flex items-center space-x-3">
                 <button
                   type="button"
                   onClick={retryCameraCheck}
                   disabled={retryingCamera}
-                  className="px-3.5 py-1.5 bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs rounded-lg transition-all shadow-xs cursor-pointer disabled:opacity-50"
+                  className="px-3 py-1.5 bg-white border border-amber-300 hover:bg-amber-100 text-amber-900 font-semibold text-xs rounded-lg transition-all shadow-2xs cursor-pointer disabled:opacity-50"
                 >
-                  {retryingCamera ? 'Checking Webcam...' : 'Reconnect & Retry Webcam'}
+                  {retryingCamera ? 'Checking Webcam...' : 'Retry Webcam'}
                 </button>
-                <Link
-                  href="/candidate/dashboard"
-                  className="text-xs font-semibold text-rose-700 hover:text-rose-900 hover:underline"
+                <button
+                  type="button"
+                  onClick={proceedToWaitingRoom}
+                  className="px-3.5 py-1.5 bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs rounded-lg transition-all shadow-xs cursor-pointer flex items-center"
                 >
-                  Return to Dashboard
-                </Link>
+                  <span>Proceed to Exam with Closed Camera</span>
+                  <ArrowRight className="w-3.5 h-3.5 ml-1" />
+                </button>
               </div>
             </div>
           </div>
         )}
 
-        <div className="mt-10 pt-6 border-t border-slate-100 flex justify-end">
+        <div className="mt-10 pt-6 border-t border-slate-100 flex items-center justify-between">
+          <Link
+            href="/candidate/dashboard"
+            className="text-xs font-semibold text-slate-500 hover:text-slate-800"
+          >
+            Cancel & Return
+          </Link>
+
           <button
             onClick={proceedToWaitingRoom}
-            disabled={!allReady || checks.camera.status !== 'PASS'}
+            disabled={!isEligibleToProceed}
             className={`px-6 py-3 rounded-md font-semibold text-white transition-all ${
-              allReady && checks.camera.status === 'PASS'
+              isEligibleToProceed
                 ? 'bg-blue-600 hover:bg-blue-700 shadow-md hover:shadow-lg cursor-pointer' 
                 : 'bg-slate-300 cursor-not-allowed opacity-60'
             }`}

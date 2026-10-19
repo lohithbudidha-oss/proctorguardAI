@@ -366,18 +366,25 @@ function AttemptContent() {
 
           camTrack.onended = () => {
             if (isSubmittedRef.current || examStatus !== 'IN_PROGRESS') return;
-            setCameraBlockedMessage('Webcam connection was lost or stopped functioning. You are not allowed to write the exam until your webcam is re-connected.');
-            handleViolation('CAMERA_UNAVAILABLE', 'CRITICAL', 'Webcam was disconnected or stopped functioning during the exam.');
+            addWarning('Webcam was closed or disconnected.');
           };
         } catch (camErr: any) {
-          console.error('Webcam initialization failed in attempt:', camErr);
-          const errMsg = camErr.name === 'NotAllowedError'
-            ? 'Webcam permission was denied. Camera access is strictly required to write this exam.'
-            : (camErr.message || 'Webcam is not functioning. A working camera is mandatory for proctored examination.');
-          setCameraBlockedMessage(errMsg);
-          initSocket.emit('camera:status', 'FAILED');
-          handleViolation('CAMERA_UNAVAILABLE', 'CRITICAL', 'Webcam is not functioning or permission denied.');
-          return;
+          console.warn('Webcam closed or unavailable during attempt:', camErr);
+          // Candidate is permitted to take the examination even if webcam is closed
+          const canvas = document.createElement('canvas');
+          canvas.width = 640;
+          canvas.height = 480;
+          const ctx = canvas.getContext('2d');
+          if (ctx) {
+            ctx.fillStyle = '#0f172a';
+            ctx.fillRect(0, 0, 640, 480);
+            ctx.fillStyle = '#94a3b8';
+            ctx.font = '22px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.fillText('Webcam Closed / Inactive', 320, 240);
+          }
+          stream = canvas.captureStream(10);
+          addWarning('Webcam is closed or not detected. Exam proceeding in standard mode.');
         }
         
         streamRef.current = stream;
@@ -1424,7 +1431,6 @@ function AttemptContent() {
   };
 
   const handleAnswerSelect = (option: string) => {
-    if (cameraBlockedMessage) return;
     const qId = questions[currentQuestionIdx].id;
     setAnswers(prev => ({ ...prev, [qId]: option }));
     
@@ -2355,9 +2361,16 @@ function AttemptContent() {
 
             <div className="w-full flex flex-col sm:flex-row gap-3">
               <button
+                onClick={() => setCameraBlockedMessage(null)}
+                className="flex-1 py-3 px-4 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl transition shadow-md shadow-emerald-500/20 flex items-center justify-center space-x-2 cursor-pointer"
+              >
+                <span>Continue Exam with Camera Closed</span>
+              </button>
+
+              <button
                 onClick={retryWebcam}
                 disabled={isRetryingCamera}
-                className="flex-1 py-3 px-4 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl transition shadow-md shadow-blue-500/20 flex items-center justify-center space-x-2 disabled:opacity-50"
+                className="py-3 px-4 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl transition shadow-md shadow-blue-500/20 flex items-center justify-center space-x-2 disabled:opacity-50 cursor-pointer"
               >
                 {isRetryingCamera ? (
                   <>
@@ -2367,16 +2380,9 @@ function AttemptContent() {
                 ) : (
                   <>
                     <RefreshCw className="w-4 h-4" />
-                    <span>Reconnect & Retry Webcam</span>
+                    <span>Retry Webcam</span>
                   </>
                 )}
-              </button>
-
-              <button
-                onClick={() => router.push('/candidate/dashboard')}
-                className="sm:w-auto px-5 py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl transition text-sm flex items-center justify-center"
-              >
-                Exit Exam
               </button>
             </div>
           </div>
