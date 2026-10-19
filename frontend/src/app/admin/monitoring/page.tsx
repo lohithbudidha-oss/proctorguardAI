@@ -444,7 +444,14 @@ export default function CandidateExamRecordsPage() {
 
     const wsUrl = process.env.NEXT_PUBLIC_WS_URL || (process.env.NEXT_PUBLIC_API_URL ? process.env.NEXT_PUBLIC_API_URL.replace(/\/api\/?$/, '') : 'https://flair-sigma-red.vercel.app');
     const initSocket = io(wsUrl, {
-      auth: { token: typeof window !== 'undefined' ? localStorage.getItem('token') : '' }
+      auth: { token: typeof window !== 'undefined' ? localStorage.getItem('token') : '' },
+      reconnectionAttempts: 3,
+      timeout: 5000,
+      transports: ['websocket', 'polling']
+    });
+
+    initSocket.on('connect_error', () => {
+      // Gracefully prevent unhandled polling spam on serverless
     });
 
     initSocket.on('attempt:status_change', () => {

@@ -262,7 +262,14 @@ function AttemptContent() {
 
     const wsUrl = process.env.NEXT_PUBLIC_WS_URL || (process.env.NEXT_PUBLIC_API_URL ? process.env.NEXT_PUBLIC_API_URL.replace(/\/api\/?$/, '') : 'https://flair-sigma-red.vercel.app');
     const initSocket = io(wsUrl, {
-      auth: { token: localStorage.getItem('token') } // Use the real token
+      auth: { token: localStorage.getItem('token') },
+      reconnectionAttempts: 3,
+      timeout: 5000,
+      transports: ['websocket', 'polling']
+    });
+
+    initSocket.on('connect_error', () => {
+      // Gracefully prevent unhandled polling spam on serverless
     });
 
     initSocket.on('admin:command_received', (data: { action: string; message?: string }) => {
