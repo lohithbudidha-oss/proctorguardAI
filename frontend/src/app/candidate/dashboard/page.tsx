@@ -4,6 +4,7 @@ import React, { useEffect, useState, useRef, useMemo, Suspense } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import BrandLogo from '@/components/BrandLogo';
+import FlyhiiBranding from '@/components/FlyhiiBranding';
 import { 
   ShieldCheck, 
   FileText, 
@@ -340,7 +341,11 @@ export default function CandidateDashboard() {
     <div className="min-h-screen bg-white flex flex-col font-sans">
       <header className="bg-white/80 backdrop-blur-xl border-b border-slate-200 sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-6 h-20 flex justify-between items-center">
-          <BrandLogo size="md" variant="dark" />
+          <div className="flex items-center space-x-3.5">
+            <BrandLogo size="md" variant="dark" />
+            <span className="hidden sm:inline-block h-6 w-px bg-slate-200" />
+            <FlyhiiBranding variant="dark" size="sm" className="hidden sm:inline-flex" />
+          </div>
           <div className="w-24 h-8 bg-slate-200 rounded-lg animate-pulse" />
         </div>
       </header>
@@ -362,9 +367,13 @@ export default function CandidateDashboard() {
       {/* Enterprise Header */}
       <header className="bg-white/80 backdrop-blur-xl border-b border-slate-200 sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-6 h-20 flex justify-between items-center">
-          <Link href="/candidate/dashboard" className="hover:opacity-95 transition-opacity">
-            <BrandLogo size="md" variant="dark" />
-          </Link>
+          <div className="flex items-center space-x-3.5">
+            <Link href="/candidate/dashboard" className="hover:opacity-95 transition-opacity">
+              <BrandLogo size="md" variant="dark" />
+            </Link>
+            <span className="hidden sm:inline-block h-6 w-px bg-slate-200" />
+            <FlyhiiBranding variant="dark" size="sm" className="hidden sm:inline-flex" />
+          </div>
           
           <div className="flex items-center space-x-3 sm:space-x-4">
             <Link 
@@ -511,6 +520,9 @@ export default function CandidateDashboard() {
 
         <div className="mb-8 flex flex-col md:flex-row md:items-end justify-between gap-4">
           <div>
+            <div className="inline-flex items-center gap-2 mb-2">
+              <FlyhiiBranding variant="dark" size="sm" />
+            </div>
             <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight">Welcome back!</h1>
             {exams.some(e => e.canRewrite) ? (
               <p className="text-slate-500 mt-2 text-lg">

@@ -4,6 +4,7 @@ import React, { useState, Suspense } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import BrandLogo from '@/components/BrandLogo';
+import FlyhiiBranding from '@/components/FlyhiiBranding';
 import { ShieldCheck, Mail, Lock, ArrowRight, ArrowLeft, Fingerprint, Activity, Eye, EyeOff, CheckCircle2, AlertCircle } from 'lucide-react';
 import api from '@/lib/api';
 
@@ -118,10 +119,11 @@ function LoginContent() {
     <div className="min-h-screen flex bg-white">
       {/* Left Side - Branding & Features */}
       <div className="hidden lg:flex lg:w-1/2 relative overflow-hidden flex-col justify-between p-12 bg-blue-600 text-white">
-        <div className="relative z-10">
+        <div className="relative z-10 flex items-center justify-between flex-wrap gap-4">
           <Link href="/" className="inline-block hover:opacity-95 transition-opacity">
             <BrandLogo size="lg" variant="light" />
           </Link>
+          <FlyhiiBranding variant="light" size="sm" />
         </div>
 
         <div className="relative z-10 max-w-lg mt-12">
@@ -171,23 +173,27 @@ function LoginContent() {
             </Link>
           </div>
 
-          <div className="lg:hidden mb-8">
+          <div className="lg:hidden mb-8 flex items-center justify-between flex-wrap gap-3">
             <Link href="/" className="inline-block hover:opacity-95 transition-opacity">
               <BrandLogo size="lg" variant="dark" />
             </Link>
+            <FlyhiiBranding variant="dark" size="sm" />
           </div>
 
-          {isAdminLogin ? (
-            <div className="inline-flex items-center space-x-1.5 px-3 py-1 bg-amber-50 text-amber-800 border border-amber-200 rounded-full text-xs font-bold mb-3 shadow-xs">
-              <Lock className="w-3.5 h-3.5 text-amber-600" />
-              <span>Administrator Portal</span>
-            </div>
-          ) : (
-            <div className="inline-flex items-center space-x-1.5 px-3 py-1 bg-blue-50 text-blue-700 border border-blue-200 rounded-full text-xs font-bold mb-3 shadow-xs">
-              <ShieldCheck className="w-3.5 h-3.5 text-blue-600" />
-              <span>Candidate Portal</span>
-            </div>
-          )}
+          <div className="flex items-center justify-between flex-wrap gap-2 mb-3">
+            {isAdminLogin ? (
+              <div className="inline-flex items-center space-x-1.5 px-3 py-1 bg-amber-50 text-amber-800 border border-amber-200 rounded-full text-xs font-bold shadow-xs">
+                <Lock className="w-3.5 h-3.5 text-amber-600" />
+                <span>Administrator Portal</span>
+              </div>
+            ) : (
+              <div className="inline-flex items-center space-x-1.5 px-3 py-1 bg-blue-50 text-blue-700 border border-blue-200 rounded-full text-xs font-bold shadow-xs">
+                <ShieldCheck className="w-3.5 h-3.5 text-blue-600" />
+                <span>Candidate Portal</span>
+              </div>
+            )}
+            <FlyhiiBranding variant="dark" size="sm" className="hidden lg:inline-flex" />
+          </div>
 
           <h2 className="text-3xl font-bold text-slate-900 mb-2">
             {isAdminLogin ? 'Administrator Sign In' : 'Candidate Sign In'}
