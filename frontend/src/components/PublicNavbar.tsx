@@ -53,21 +53,8 @@ export default function PublicNavbar({ activePage = 'home' }: PublicNavbarProps)
           </Link>
         </nav>
 
-        {/* Right: User Actions */}
-        <div className="flex-1 flex items-center justify-end space-x-3">
-          <Link
-            href="/login"
-            className="text-slate-700 font-semibold hover:text-blue-600 transition-colors text-sm px-3.5 py-2 rounded-lg hover:bg-slate-50"
-          >
-            Login
-          </Link>
-          <Link
-            href="/register"
-            className="bg-blue-600 text-white px-4 py-2 rounded-lg font-semibold hover:bg-blue-700 transition-all shadow-xs text-sm"
-          >
-            Register
-          </Link>
-        </div>
+        {/* Right spacer to keep center navigation links balanced */}
+        <div className="flex-1 hidden md:block" />
       </div>
     </header>
   );
