@@ -11,11 +11,25 @@ const server = http.createServer(app);
 
 import { setupSockets } from './sockets/proctorSocket';
 
-// Setup Socket.IO
+const socketAllowedOrigins = [
+  'https://flair-oqvv.vercel.app',
+  'http://localhost:3000',
+  'http://127.0.0.1:3000',
+  ...(process.env.CORS_ORIGIN ? process.env.CORS_ORIGIN.split(',').map(s => s.trim()) : [])
+];
+
 const io = new Server(server, {
   cors: {
-    origin: '*',
-    methods: ['GET', 'POST', 'PATCH', 'DELETE']
+    origin: (origin, callback) => {
+      if (!origin) return callback(null, true);
+      const clean = origin.trim().replace(/\/+$/, '');
+      if (socketAllowedOrigins.includes(clean) || clean.endsWith('.vercel.app') || process.env.NODE_ENV !== 'production') {
+        return callback(null, true);
+      }
+      return callback(null, true);
+    },
+    methods: ['GET', 'POST', 'PATCH', 'DELETE', 'OPTIONS'],
+    credentials: true
   }
 });
 

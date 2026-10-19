@@ -1,5 +1,5 @@
 async function runTests() {
-  const baseURL = 'http://localhost:5000/api';
+  const baseURL = process.env.API_URL || 'http://localhost:5000/api';
 
   try {
     console.log('--- TEST REM-08: SESSION REVOCATION ---');

@@ -442,7 +442,7 @@ export default function CandidateExamRecordsPage() {
       fetchPendingApprovalsCount();
     }, 25000);
 
-    const wsUrl = process.env.NEXT_PUBLIC_WS_URL || (process.env.NEXT_PUBLIC_API_URL ? process.env.NEXT_PUBLIC_API_URL.replace(/\/api\/?$/, '') : 'https://proctorguardai.onrender.com');
+    const wsUrl = process.env.NEXT_PUBLIC_WS_URL || (process.env.NEXT_PUBLIC_API_URL ? process.env.NEXT_PUBLIC_API_URL.replace(/\/api\/?$/, '') : 'https://flair-sigma-red.vercel.app');
     const initSocket = io(wsUrl, {
       auth: { token: typeof window !== 'undefined' ? localStorage.getItem('token') : '' }
     });

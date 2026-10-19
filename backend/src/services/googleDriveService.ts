@@ -18,7 +18,9 @@ export class GoogleDriveService {
   private folderId: string = '1P_3yKzFloiMrF8Pe1XFl9Lh-nqvPTit1';
   private subfolderCache: Map<string, string> = new Map();
   private serviceAccountEmail: string = '';
-  private localVaultPath: string = path.join(__dirname, '../../temp_storage/google_drive_vault');
+  private localVaultPath: string = process.env.VERCEL
+    ? path.join(require('os').tmpdir(), 'google_drive_vault')
+    : path.join(__dirname, '../../temp_storage/google_drive_vault');
 
   private oauth2Client: any = null;
 
@@ -86,7 +88,9 @@ export class GoogleDriveService {
       } 
       // 4. Check OAuth 2.0 Client ID & Secret
       else if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
-        const redirectUri = process.env.GOOGLE_REDIRECT_URI || 'http://localhost:5000/api/auth/google/callback';
+        const redirectUri = process.env.GOOGLE_REDIRECT_URI || (process.env.NODE_ENV === 'production'
+          ? 'https://flair-sigma-red.vercel.app/api/auth/google/callback'
+          : 'http://localhost:5000/api/auth/google/callback');
         this.oauth2Client = new google.auth.OAuth2(
           process.env.GOOGLE_CLIENT_ID,
           process.env.GOOGLE_CLIENT_SECRET,

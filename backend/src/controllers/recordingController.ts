@@ -148,7 +148,8 @@ export const completeRecording = async (req: AuthRequest, res: Response, next: N
 
     // 1. Fetch chunks and merge
     const chunks = await RecordingChunk.find({ recordingSessionId }).sort({ sequenceNumber: 1 });
-    const mergedFilePath = path.join(__dirname, `../../temp_storage/merged_${recordingSessionId}.webm`);
+    const baseStorageDir = process.env.VERCEL ? require('os').tmpdir() : path.join(__dirname, '../../temp_storage');
+    const mergedFilePath = path.join(baseStorageDir, `merged_${recordingSessionId}.webm`);
     
     const writeStream = fs.createWriteStream(mergedFilePath);
     for (const chunk of chunks) {

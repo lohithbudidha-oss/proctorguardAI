@@ -5,9 +5,15 @@ class StorageProvider {
   private baseDir: string;
 
   constructor() {
-    this.baseDir = path.join(__dirname, '../../temp_storage');
-    if (!fs.existsSync(this.baseDir)) {
-      fs.mkdirSync(this.baseDir, { recursive: true });
+    this.baseDir = process.env.VERCEL
+      ? path.join(require('os').tmpdir(), 'flair_storage')
+      : path.join(__dirname, '../../temp_storage');
+    try {
+      if (!fs.existsSync(this.baseDir)) {
+        fs.mkdirSync(this.baseDir, { recursive: true });
+      }
+    } catch (e) {
+      console.warn('[StorageProvider] Could not create baseDir:', e);
     }
   }
 

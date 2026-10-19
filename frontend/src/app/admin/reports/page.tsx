@@ -502,7 +502,7 @@ export default function ResultsVerificationPage() {
 
               <div className="flex items-center space-x-2">
                 <a
-                  href={`${process.env.NEXT_PUBLIC_API_URL || 'https://proctorguardai.onrender.com/api'}/admin/results/${selectedAnswersData.result?._id || selectedAnswersData.result?.id || selectedAnswersData.resultId}/report-html?token=${typeof window !== 'undefined' ? localStorage.getItem('token') || '' : ''}`}
+                  href={`${process.env.NEXT_PUBLIC_API_URL || 'https://flair-sigma-red.vercel.app/api'}/admin/results/${selectedAnswersData.result?._id || selectedAnswersData.result?.id || selectedAnswersData.resultId}/report-html?token=${typeof window !== 'undefined' ? localStorage.getItem('token') || '' : ''}`}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="px-3 py-1.5 bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 rounded-lg text-xs font-semibold inline-flex items-center transition shadow-2xs"
@@ -834,7 +834,7 @@ export default function ResultsVerificationPage() {
               <div className="flex items-center space-x-2 flex-wrap gap-y-2">
                 {!driveData?.isConfigured ? (
                   <a
-                    href={`${(process.env.NEXT_PUBLIC_API_URL || 'https://proctorguardai.onrender.com/api').replace(/\/api\/?$/, '')}/api/auth/google/drive-auth`}
+                    href={`${(process.env.NEXT_PUBLIC_API_URL || 'https://flair-sigma-red.vercel.app/api').replace(/\/api\/?$/, '')}/api/auth/google/drive-auth`}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="px-3.5 py-1.5 bg-amber-500 hover:bg-amber-600 text-white rounded-lg text-xs font-bold transition flex items-center shadow-xs cursor-pointer"
@@ -1095,7 +1095,7 @@ export default function ResultsVerificationPage() {
 
                               <button
                                 onClick={() => {
-                                  const apiOrigin = (process.env.NEXT_PUBLIC_API_URL || 'https://proctorguardai.onrender.com/api').replace(/\/api$/, '');
+                                  const apiOrigin = (process.env.NEXT_PUBLIC_API_URL || 'https://flair-sigma-red.vercel.app/api').replace(/\/api$/, '');
                                   const token = typeof window !== 'undefined' ? localStorage.getItem('token') || '' : '';
                                   window.open(`${apiOrigin}${file.htmlReportUrl}?token=${token}`, '_blank');
                                 }}

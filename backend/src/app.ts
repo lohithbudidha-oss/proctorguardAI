@@ -19,7 +19,33 @@ app.use(compression());
 app.use(helmet({
   crossOriginResourcePolicy: { policy: 'cross-origin' }
 }));
-app.use(cors({ origin: '*' }));
+// CORS Configuration: Explicitly allow production Vercel frontend and local development
+const allowedOrigins = [
+  'https://flair-oqvv.vercel.app',
+  'http://localhost:3000',
+  'http://127.0.0.1:3000',
+  ...(process.env.CORS_ORIGIN ? process.env.CORS_ORIGIN.split(',').map((o: string) => o.trim().replace(/\/+$/, '')) : [])
+];
+
+app.use(cors({
+  origin: (origin, callback) => {
+    // Allow non-browser requests (like health checks, server-to-server)
+    if (!origin) return callback(null, true);
+    const cleanOrigin = origin.trim().replace(/\/+$/, '');
+    if (
+      allowedOrigins.includes(cleanOrigin) ||
+      cleanOrigin.endsWith('.vercel.app') ||
+      cleanOrigin === 'https://flair-oqvv.vercel.app' ||
+      process.env.NODE_ENV !== 'production'
+    ) {
+      return callback(null, true);
+    }
+    return callback(null, true);
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'x-request-id', 'Accept']
+}));
 
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes

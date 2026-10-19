@@ -34,8 +34,8 @@ export default function RootLayout({
     >
       <head>
         {/* Preconnect to external resources to eliminate DNS and TLS latency */}
-        <link rel="preconnect" href="https://proctorguardai.onrender.com" />
-        <link rel="dns-prefetch" href="https://proctorguardai.onrender.com" />
+        <link rel="preconnect" href="https://flair-sigma-red.vercel.app" />
+        <link rel="dns-prefetch" href="https://flair-sigma-red.vercel.app" />
         <link rel="preconnect" href="https://storage.googleapis.com" crossOrigin="anonymous" />
         <link rel="dns-prefetch" href="https://storage.googleapis.com" />
         <link rel="preconnect" href="https://cdn.jsdelivr.net" crossOrigin="anonymous" />

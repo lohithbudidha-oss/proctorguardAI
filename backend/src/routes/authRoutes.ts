@@ -55,6 +55,7 @@ router.get('/google/callback', async (req, res) => {
       return res.status(400).send('Google Authorization code is missing.');
     }
     const tokens = await googleDriveService.setAuthCode(code);
+    const frontendUrl = process.env.FRONTEND_URL || (process.env.CORS_ORIGIN ? process.env.CORS_ORIGIN.split(',')[0].trim() : (process.env.NODE_ENV === 'production' ? 'https://flair-oqvv.vercel.app' : 'http://localhost:3000'));
     res.send(`
       <!DOCTYPE html>
       <html>
@@ -70,8 +71,8 @@ router.get('/google/callback', async (req, res) => {
               Flair is now authorized with Google Drive. All candidate violation proofs, surveillance snapshots, and exam answer sheets will automatically sync to folder <strong style="color:#60a5fa; font-family:monospace;">1P_3yKzFloiMrF8Pe1XFl9Lh-nqvPTit1</strong>.
             </p>
             <div style="display: flex; gap: 12px; justify-content: center;">
-              <a href="http://localhost:3000/admin/violations" style="display: inline-block; padding: 12px 24px; background: #2563eb; color: white; border-radius: 10px; font-weight: bold; text-decoration: none; font-size: 14px;">View Violation Queue</a>
-              <a href="http://localhost:3000/admin/reports" style="display: inline-block; padding: 12px 24px; background: #334155; color: white; border-radius: 10px; font-weight: bold; text-decoration: none; font-size: 14px;">Drive Vault & Reports</a>
+              <a href="${frontendUrl}/admin/violations" style="display: inline-block; padding: 12px 24px; background: #2563eb; color: white; border-radius: 10px; font-weight: bold; text-decoration: none; font-size: 14px;">View Violation Queue</a>
+              <a href="${frontendUrl}/admin/reports" style="display: inline-block; padding: 12px 24px; background: #334155; color: white; border-radius: 10px; font-weight: bold; text-decoration: none; font-size: 14px;">Drive Vault & Reports</a>
             </div>
             <p style="color: #64748b; font-size: 12px; margin-top: 20px;">Window will auto-close or redirect shortly...</p>
           </div>
@@ -81,7 +82,7 @@ router.get('/google/callback', async (req, res) => {
                 window.opener.postMessage({ type: 'GOOGLE_DRIVE_CONNECTED' }, '*');
                 setTimeout(() => window.close(), 2500);
               } else {
-                setTimeout(() => { window.location.href = 'http://localhost:3000/admin/violations'; }, 3000);
+                setTimeout(() => { window.location.href = '${frontendUrl}/admin/violations'; }, 3000);
               }
             } catch (e) {}
           </script>

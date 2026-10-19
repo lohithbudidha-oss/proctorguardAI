@@ -29,7 +29,13 @@ export default async function handler(req: Request, res: Response) {
     return app(req, res);
   } catch (error) {
     console.error('Vercel MongoDB connection failed:', error);
-    res.setHeader('Access-Control-Allow-Origin', '*');
+    const reqOrigin = (req.headers.origin as string) || '';
+    const cleanOrigin = reqOrigin.trim().replace(/\/+$/, '');
+    const isAllowed = cleanOrigin === 'https://flair-oqvv.vercel.app' || cleanOrigin.endsWith('.vercel.app') || cleanOrigin.includes('localhost');
+    res.setHeader('Access-Control-Allow-Origin', isAllowed ? reqOrigin : 'https://flair-oqvv.vercel.app');
+    res.setHeader('Access-Control-Allow-Credentials', 'true');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, x-request-id, Accept');
     return res.status(503).json({
       success: false,
       error: {
