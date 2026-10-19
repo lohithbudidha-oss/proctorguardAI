@@ -768,8 +768,8 @@ export default function CandidateExamRecordsPage() {
 
   return (
     <div className="min-h-screen bg-white text-slate-800 flex font-sans selection:bg-blue-500/20">
-      {/* Sidebar - Sticky at left corner, navigating along with page scroll */}
-      <aside className="w-64 bg-blue-600 text-white border-r border-blue-700 flex flex-col hidden md:flex shadow-sm z-30 sticky top-0 h-screen shrink-0">
+      {/* Sidebar - Fixed at left edge, stretching 100% full height top to bottom */}
+      <aside className="w-64 bg-blue-600 text-white border-r border-blue-700 flex flex-col hidden md:flex shadow-sm z-30 fixed inset-y-0 left-0 shrink-0">
         <div className="p-6 border-b border-blue-500/30 shrink-0">
           <Link href="/admin/monitoring" className="hover:opacity-95 transition-opacity">
             <BrandLogo size="md" variant="light" />
@@ -843,7 +843,7 @@ export default function CandidateExamRecordsPage() {
       </aside>
 
       {/* Main Content */}
-      <div className="flex-1 flex flex-col min-w-0 relative overflow-hidden">
+      <div className="flex-1 md:ml-64 flex flex-col min-w-0 relative overflow-hidden">
         {/* Top Header */}
         <header className="bg-white/85 backdrop-blur-md border-b border-slate-200/80 px-8 py-5 z-10 sticky top-0 shadow-2xs">
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
