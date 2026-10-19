@@ -19,8 +19,9 @@ app.use(compression());
 app.use(helmet({
   crossOriginResourcePolicy: { policy: 'cross-origin' }
 }));
-// CORS Configuration: Explicitly allow production Vercel frontend and local development
+// CORS Configuration: Explicitly allow custom domain flair.flyhii.in, Vercel domains, and local development
 const allowedOrigins = [
+  'https://flair.flyhii.in',
   'https://flair-oqvv.vercel.app',
   'http://localhost:3000',
   'http://127.0.0.1:3000',
@@ -34,7 +35,9 @@ app.use(cors({
     const cleanOrigin = origin.trim().replace(/\/+$/, '');
     if (
       allowedOrigins.includes(cleanOrigin) ||
+      cleanOrigin.endsWith('.flyhii.in') ||
       cleanOrigin.endsWith('.vercel.app') ||
+      cleanOrigin === 'https://flair.flyhii.in' ||
       cleanOrigin === 'https://flair-oqvv.vercel.app' ||
       process.env.NODE_ENV !== 'production'
     ) {
@@ -44,8 +47,25 @@ app.use(cors({
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'x-request-id', 'Accept']
+  allowedHeaders: [
+    'Content-Type',
+    'Authorization',
+    'X-Requested-With',
+    'x-request-id',
+    'Accept',
+    'Cache-Control',
+    'Pragma',
+    'Expires',
+    'If-Modified-Since',
+    'Origin'
+  ]
 }));
+
+// Graceful Socket.IO endpoint handling in serverless mode to eliminate 404 polling errors
+app.all(['/socket.io', '/socket.io/*'], (req: Request, res: Response) => {
+  res.setHeader('Content-Type', 'text/plain; charset=UTF-8');
+  res.status(200).send('0{"sid":"serverless_noop","upgrades":[],"pingInterval":60000,"pingTimeout":60000,"maxPayload":1000000}');
+});
 
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes

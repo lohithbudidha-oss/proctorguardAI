@@ -37,11 +37,11 @@ app.use(async (req: Request, res: Response, next: NextFunction) => {
     console.error('Vercel MongoDB connection failed:', error);
     const reqOrigin = (req.headers.origin as string) || '';
     const cleanOrigin = reqOrigin.trim().replace(/\/+$/, '');
-    const isAllowed = cleanOrigin === 'https://flair-oqvv.vercel.app' || cleanOrigin.endsWith('.vercel.app') || cleanOrigin.includes('localhost');
-    res.setHeader('Access-Control-Allow-Origin', isAllowed ? reqOrigin : 'https://flair-oqvv.vercel.app');
+    const isAllowed = cleanOrigin === 'https://flair.flyhii.in' || cleanOrigin.endsWith('.flyhii.in') || cleanOrigin === 'https://flair-oqvv.vercel.app' || cleanOrigin.endsWith('.vercel.app') || cleanOrigin.includes('localhost');
+    res.setHeader('Access-Control-Allow-Origin', isAllowed ? reqOrigin : 'https://flair.flyhii.in');
     res.setHeader('Access-Control-Allow-Credentials', 'true');
     res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, x-request-id, Accept');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, x-request-id, Accept, Cache-Control, Pragma, Expires, If-Modified-Since, Origin');
     return res.status(503).json({
       success: false,
       error: {
