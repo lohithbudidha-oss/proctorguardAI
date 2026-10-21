@@ -5,6 +5,12 @@ import rateLimit from 'express-rate-limit';
 import dotenv from 'dotenv';
 import compression from 'compression';
 
+import authRoutes from './routes/authRoutes';
+import adminRoutes from './routes/adminRoutes';
+import candidateRoutes from './routes/candidateRoutes';
+import recordingRoutes from './routes/recordingRoutes';
+import supportRoutes from './routes/supportRoutes';
+
 dotenv.config();
 
 const app: Application = express();
@@ -19,7 +25,8 @@ app.use(compression());
 app.use(helmet({
   crossOriginResourcePolicy: { policy: 'cross-origin' }
 }));
-// CORS Configuration: Explicitly allow custom domain flair.flyhii.in, Vercel domains, and local development
+
+// CORS Configuration: Explicitly allow custom domains, Vercel frontend domains, and local development
 const allowedOrigins = [
   'https://flair.flyhii.in',
   'https://flair-oqvv.vercel.app',
@@ -33,17 +40,17 @@ app.use(cors({
     // Allow non-browser requests (like health checks, server-to-server)
     if (!origin) return callback(null, true);
     const cleanOrigin = origin.trim().replace(/\/+$/, '');
-    if (
+    const isAllowed =
       allowedOrigins.includes(cleanOrigin) ||
       cleanOrigin.endsWith('.flyhii.in') ||
       cleanOrigin.endsWith('.vercel.app') ||
-      cleanOrigin === 'https://flair.flyhii.in' ||
-      cleanOrigin === 'https://flair-oqvv.vercel.app' ||
-      process.env.NODE_ENV !== 'production'
-    ) {
+      cleanOrigin.endsWith('.onrender.com') ||
+      process.env.NODE_ENV !== 'production';
+
+    if (isAllowed) {
       return callback(null, true);
     }
-    return callback(null, true);
+    return callback(new Error(`CORS blocked for origin: ${origin}`));
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
@@ -63,6 +70,9 @@ app.use(cors({
 
 // Graceful Socket.IO endpoint handling in serverless mode to eliminate 404 polling errors
 app.use('/socket.io', (req: Request, res: Response) => {
+  if (req.query.transport === 'websocket' || req.headers.upgrade === 'websocket') {
+    return res.status(400).send('WebSockets are not supported in serverless mode. Connect to persistent WebSocket server at https://proctorguardai.onrender.com');
+  }
   res.setHeader('Content-Type', 'text/plain; charset=UTF-8');
   res.status(200).send('0{"sid":"serverless_noop","upgrades":[],"pingInterval":60000,"pingTimeout":60000,"maxPayload":1000000}');
 });
@@ -82,6 +92,7 @@ app.use(express.urlencoded({ limit: '50mb', extended: true }));
 const healthHandler = (req: Request, res: Response) => {
   res.status(200).json({ status: 'ok', service: 'flair-backend', timestamp: new Date().toISOString() });
 };
+
 app.get('/', (req: Request, res: Response) => {
   res.status(200).json({
     name: 'Flair Online Examination & Proctoring Platform API',
@@ -95,13 +106,7 @@ app.get('/', (req: Request, res: Response) => {
 app.get('/health', healthHandler);
 app.get('/api/health', healthHandler);
 
-import authRoutes from './routes/authRoutes';
-import adminRoutes from './routes/adminRoutes';
-import candidateRoutes from './routes/candidateRoutes';
-import recordingRoutes from './routes/recordingRoutes';
-import supportRoutes from './routes/supportRoutes';
-
-// Routes
+// API Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/candidate', candidateRoutes);
@@ -109,12 +114,12 @@ app.use('/api/recordings', recordingRoutes);
 app.use('/api/support', supportRoutes);
 
 // Global Error Handler
-app.use((err: any, req: Request, res: Response, next: NextFunction) => {
+app.use((err: any, req: Request, res: Response, _next: NextFunction) => {
   console.error(err);
   const isProduction = process.env.NODE_ENV === 'production';
   
   let message = 'Internal Server Error';
-  if (!isProduction || err.status < 500) {
+  if (!isProduction || (err.status && err.status < 500)) {
     message = err.message || message;
   }
 

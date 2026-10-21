@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import io from 'socket.io-client';
+import { getSocketURL } from '@/lib/socket';
 import { 
   ArrowLeft, 
   AlertTriangle, 
@@ -167,9 +168,17 @@ export default function ViolationQueuePage() {
     };
     window.addEventListener('message', handleWindowMsg);
 
-    const wsUrl = process.env.NEXT_PUBLIC_WS_URL || (process.env.NEXT_PUBLIC_API_URL ? process.env.NEXT_PUBLIC_API_URL.replace(/\/api\/?$/, '') : 'https://flair-sigma-red.vercel.app');
+    const wsUrl = getSocketURL();
     const socket = io(wsUrl, {
-      auth: { token: typeof window !== 'undefined' ? localStorage.getItem('token') : '' }
+      auth: { token: typeof window !== 'undefined' ? localStorage.getItem('token') : '' },
+      reconnectionAttempts: 5,
+      reconnectionDelay: 1500,
+      timeout: 10000,
+      transports: ['polling', 'websocket']
+    });
+
+    socket.on('connect_error', (err) => {
+      console.warn('[Socket.IO] Admin violations connection warning:', err?.message || err);
     });
 
     socket.on('violation:alert', (data) => {

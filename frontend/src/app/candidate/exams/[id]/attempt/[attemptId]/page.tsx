@@ -4,6 +4,7 @@ import React, { useState, useEffect, useRef, Suspense } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import io from 'socket.io-client';
 import api, { getBaseURL } from '@/lib/api';
+import { getSocketURL, ProctorSocket } from '@/lib/socket';
 import { 
   Clock, 
   ShieldAlert, 
@@ -41,8 +42,8 @@ function AttemptContent() {
   const [cameraSessionId, setCameraSessionId] = useState<string | undefined>();
   const [screenSessionId, setScreenSessionId] = useState<string | undefined>();
 
-  const [socket, setSocket] = useState<ReturnType<typeof import('socket.io-client').io> | null>(null);
-  const socketRef = useRef<any>(null);
+  const [socket, setSocket] = useState<ProctorSocket | null>(null);
+  const socketRef = useRef<ProctorSocket | null>(null);
   const [warnings, setWarnings] = useState<string[]>([]);
   const [showWarningModal, setShowWarningModal] = useState(false);
   const [showReviewCatalogModal, setShowReviewCatalogModal] = useState(false);
@@ -285,16 +286,18 @@ function AttemptContent() {
     
     mediaInitialized.current = true;
 
-    const wsUrl = process.env.NEXT_PUBLIC_WS_URL || (process.env.NEXT_PUBLIC_API_URL ? process.env.NEXT_PUBLIC_API_URL.replace(/\/api\/?$/, '') : 'https://flair-sigma-red.vercel.app');
+    const wsUrl = getSocketURL();
     const initSocket = io(wsUrl, {
       auth: { token: localStorage.getItem('token') },
-      reconnectionAttempts: 3,
-      timeout: 5000,
-      transports: ['websocket', 'polling']
+      reconnectionAttempts: 5,
+      reconnectionDelay: 1500,
+      timeout: 10000,
+      transports: ['polling', 'websocket']
     });
 
-    initSocket.on('connect_error', () => {
-      // Gracefully prevent unhandled polling spam on serverless
+    initSocket.on('connect_error', (err) => {
+      // Gracefully prevent unhandled polling spam or errors
+      console.warn('[Socket.IO] Candidate connection warning:', err?.message || err);
     });
 
     initSocket.on('admin:command_received', (data: { action: string; message?: string }) => {

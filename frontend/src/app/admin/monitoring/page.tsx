@@ -4,6 +4,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import io from 'socket.io-client';
+import { getSocketURL } from '@/lib/socket';
 import BrandLogo from '@/components/BrandLogo';
 import FlyhiiBranding from '@/components/FlyhiiBranding';
 import { 
@@ -442,16 +443,17 @@ export default function CandidateExamRecordsPage() {
       fetchPendingApprovalsCount();
     }, 25000);
 
-    const wsUrl = process.env.NEXT_PUBLIC_WS_URL || (process.env.NEXT_PUBLIC_API_URL ? process.env.NEXT_PUBLIC_API_URL.replace(/\/api\/?$/, '') : 'https://flair-sigma-red.vercel.app');
+    const wsUrl = getSocketURL();
     const initSocket = io(wsUrl, {
       auth: { token: typeof window !== 'undefined' ? localStorage.getItem('token') : '' },
-      reconnectionAttempts: 3,
-      timeout: 5000,
-      transports: ['websocket', 'polling']
+      reconnectionAttempts: 5,
+      reconnectionDelay: 1500,
+      timeout: 10000,
+      transports: ['polling', 'websocket']
     });
 
-    initSocket.on('connect_error', () => {
-      // Gracefully prevent unhandled polling spam on serverless
+    initSocket.on('connect_error', (err) => {
+      console.warn('[Socket.IO] Admin monitoring connection warning:', err?.message || err);
     });
 
     initSocket.on('attempt:status_change', () => {
