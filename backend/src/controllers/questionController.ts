@@ -94,13 +94,23 @@ export const parseQuestionsDocument = async (req: Request, res: Response, next: 
       });
     }
 
+    if (!questions || questions.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'Could not extract any standard multiple choice questions from the document. Please ensure questions are numbered (e.g. 1. or Q1) with options (A, B, C, D).'
+      });
+    }
+
     res.status(200).json({
       success: true,
       count: questions.length,
       questions
     });
-  } catch (err) {
-    next(err);
+  } catch (err: any) {
+    res.status(400).json({
+      success: false,
+      message: err?.message || 'Failed to parse questions from document.'
+    });
   }
 };
 

@@ -122,7 +122,17 @@ function AttemptContent() {
     evidenceImg?: string;
   } | null>(null);
   
-  const [questions, setQuestions] = useState<{ id: string; text: string; imageUrl?: string; type: string; options: string[]; marks: number; negativeMarks: number; correctAnswer: string }[]>([]);
+  const [questions, setQuestions] = useState<{ 
+    id: string; 
+    text: string; 
+    imageUrl?: string; 
+    type: string; 
+    options: { id: string; text: string; imageUrl?: string }[]; 
+    marks: number; 
+    negativeMarks: number; 
+    correctAnswer: string 
+  }[]>([]);
+  const [previewImageModal, setPreviewImageModal] = useState<{ src: string; title: string } | null>(null);
   const currentQuestionIdxRef = useRef(0);
   const [currentQuestionIdx, setCurrentQuestionIdx] = useState(0);
   const [answers, setAnswers] = useState<Record<string, string>>({});
@@ -154,7 +164,22 @@ function AttemptContent() {
         text: q.text || '',
         imageUrl: q.imageUrl || '',
         type: q.type || 'SINGLE_CHOICE',
-        options: q.options ? q.options.map((opt: any) => opt.text || opt.id || '') : [],
+        options: Array.isArray(q.options)
+          ? q.options.map((opt: any, optIdx: number) => {
+              if (typeof opt === 'object' && opt !== null) {
+                return {
+                  id: opt.id || String.fromCharCode(65 + optIdx),
+                  text: opt.text || '',
+                  imageUrl: opt.imageUrl || undefined
+                };
+              }
+              return {
+                id: String.fromCharCode(65 + optIdx),
+                text: String(opt),
+                imageUrl: undefined
+              };
+            })
+          : [],
         marks: q.marks || 1,
         negativeMarks: q.negativeMarks || 0,
         correctAnswer: q.correctAnswer || ''
@@ -2049,35 +2074,74 @@ function AttemptContent() {
                   <img 
                     src={currentQ.imageUrl} 
                     alt={`Question ${currentQuestionIdx + 1} Diagram`} 
-                    className="max-h-[380px] max-w-full object-contain rounded-xl shadow-xs bg-white p-2 border border-slate-100" 
+                    className="max-h-[380px] max-w-full object-contain rounded-xl shadow-xs bg-white p-2 border border-slate-100 cursor-pointer hover:opacity-95 transition" 
+                    onClick={() => setPreviewImageModal({ src: currentQ.imageUrl!, title: `Question ${currentQuestionIdx + 1} Diagram` })}
                   />
-                  <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider mt-2.5">
-                    Figure / Diagram Reference
-                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setPreviewImageModal({ src: currentQ.imageUrl!, title: `Question ${currentQuestionIdx + 1} Diagram` })}
+                    className="text-[11px] font-bold text-blue-600 hover:text-blue-800 uppercase tracking-wider mt-2.5 cursor-pointer"
+                  >
+                    Click to view full-size diagram
+                  </button>
                 </div>
               )}
 
               <div className="space-y-4">
-                {currentQ.options.map((opt: string, idx: number) => (
-                  <label 
-                    key={idx} 
-                    className={`flex items-center p-4 border rounded-xl cursor-pointer transition-all ${
-                      answers[currentQ.id] === opt 
-                        ? 'border-blue-500 bg-blue-50/50 shadow-sm' 
-                        : 'border-slate-200 hover:border-slate-300 hover:bg-slate-50'
-                    }`}
-                  >
-                    <input 
-                      type="radio" 
-                      name={`question-${currentQ.id}`} 
-                      value={opt}
-                      checked={answers[currentQ.id] === opt}
-                      onChange={() => handleAnswerSelect(opt)}
-                      className="w-5 h-5 text-blue-600 border-slate-300 focus:ring-blue-500"
-                    />
-                    <span className="ml-4 text-slate-700">{opt}</span>
-                  </label>
-                ))}
+                {currentQ.options.map((opt: any, idx: number) => {
+                  const optId = typeof opt === 'object' ? (opt.id || String.fromCharCode(65 + idx)) : String.fromCharCode(65 + idx);
+                  const optText = typeof opt === 'object' ? opt.text : String(opt);
+                  const optImageUrl = typeof opt === 'object' ? opt.imageUrl : undefined;
+                  const isChecked = Boolean(
+                    answers[currentQ.id] && (
+                      answers[currentQ.id] === optId || 
+                      (optText && answers[currentQ.id] === optText) ||
+                      answers[currentQ.id] === `${optId}) ${optText}`
+                    )
+                  );
+
+                  return (
+                    <label 
+                      key={optId || idx} 
+                      className={`flex flex-col sm:flex-row sm:items-center justify-between p-4 border rounded-xl cursor-pointer transition-all gap-4 ${
+                        isChecked 
+                          ? 'border-blue-500 bg-blue-50/50 shadow-sm ring-1 ring-blue-500/20' 
+                          : 'border-slate-200 hover:border-slate-300 hover:bg-slate-50'
+                      }`}
+                    >
+                      <div className="flex items-center space-x-3.5 min-w-0">
+                        <input 
+                          type="radio" 
+                          name={`question-${currentQ.id}`} 
+                          value={optId}
+                          checked={isChecked}
+                          onChange={() => handleAnswerSelect(optId)}
+                          className="w-5 h-5 text-blue-600 border-slate-300 focus:ring-blue-500 shrink-0"
+                        />
+                        <span className="w-6 h-6 rounded-md bg-slate-100 border border-slate-200 text-xs font-bold text-slate-700 flex items-center justify-center shrink-0">
+                          {optId}
+                        </span>
+                        {optText && (
+                          <span className="text-slate-800 font-medium text-base leading-relaxed">{optText}</span>
+                        )}
+                      </div>
+
+                      {optImageUrl && (
+                        <div className="ml-9 sm:ml-0 flex items-center shrink-0">
+                          <img 
+                            src={optImageUrl} 
+                            alt={`Option ${optId} Diagram`} 
+                            className="max-h-28 max-w-[220px] object-contain rounded-lg border border-slate-200 bg-white p-1.5 shadow-2xs hover:scale-105 transition-transform cursor-pointer" 
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setPreviewImageModal({ src: optImageUrl, title: `Option ${optId} Diagram` });
+                            }}
+                          />
+                        </div>
+                      )}
+                    </label>
+                  );
+                })}
               </div>
             </div>
           </div>
@@ -2577,6 +2641,36 @@ function AttemptContent() {
                   </>
                 )}
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Image Zoom / Diagram Preview Modal */}
+      {previewImageModal && (
+        <div 
+          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 backdrop-blur-xs p-4 animate-fadeIn"
+          onClick={() => setPreviewImageModal(null)}
+        >
+          <div 
+            className="bg-white rounded-2xl shadow-2xl max-w-3xl max-h-[90vh] overflow-hidden p-4 flex flex-col border border-slate-700"
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="flex justify-between items-center mb-3 pb-2 border-b border-slate-100">
+              <span className="font-bold text-xs text-slate-700">{previewImageModal.title}</span>
+              <button 
+                onClick={() => setPreviewImageModal(null)}
+                className="p-1 text-slate-400 hover:text-slate-600 rounded-lg cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <div className="flex-1 overflow-auto flex items-center justify-center p-2 bg-slate-50 rounded-xl">
+              <img 
+                src={previewImageModal.src} 
+                alt={previewImageModal.title} 
+                className="max-h-[75vh] max-w-full object-contain rounded-lg"
+              />
             </div>
           </div>
         </div>

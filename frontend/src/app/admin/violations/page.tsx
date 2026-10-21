@@ -228,7 +228,7 @@ export default function ViolationQueuePage() {
     };
   }, []);
 
-  const fetchDriveStatus = async () => {
+  async function fetchDriveStatus() {
     try {
       const res = await api.get('/admin/drive/status');
       setDriveStatus(res.data);
@@ -291,7 +291,7 @@ export default function ViolationQueuePage() {
     }
   };
 
-  const fetchViolations = async () => {
+  async function fetchViolations() {
     try {
       const res = await api.get('/admin/violations', {
         params: { _t: Date.now() },

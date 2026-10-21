@@ -103,6 +103,7 @@ function CandidateResultContent() {
   const [answers, setAnswers] = useState<QuestionAnswerItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [questionFilter, setQuestionFilter] = useState<'ALL' | 'CORRECT' | 'WRONG' | 'UNANSWERED'>('ALL');
+  const [previewImageModal, setPreviewImageModal] = useState<{ src: string; title: string } | null>(null);
 
   useEffect(() => {
     api.get(`/candidate/results/${attemptId}`)
@@ -496,11 +497,16 @@ function CandidateResultContent() {
                         <img 
                           src={q.imageUrl} 
                           alt={`Question ${q.questionNumber} Diagram`} 
-                          className="max-h-[320px] max-w-full object-contain rounded-lg shadow-2xs bg-white p-2 border border-slate-100" 
+                          className="max-h-[320px] max-w-full object-contain rounded-lg shadow-2xs bg-white p-2 border border-slate-100 cursor-pointer hover:opacity-95 transition" 
+                          onClick={() => setPreviewImageModal({ src: q.imageUrl!, title: `Question ${q.questionNumber} Diagram` })}
                         />
-                        <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider mt-2">
-                          Diagram / Graphic Reference
-                        </span>
+                        <button
+                          type="button"
+                          onClick={() => setPreviewImageModal({ src: q.imageUrl!, title: `Question ${q.questionNumber} Diagram` })}
+                          className="text-[11px] font-bold text-blue-600 hover:text-blue-800 uppercase tracking-wider mt-2 cursor-pointer"
+                        >
+                          Click to view full-size diagram
+                        </button>
                       </div>
                     )}
 
@@ -509,7 +515,8 @@ function CandidateResultContent() {
                       <div className="space-y-3 mb-6">
                         {q.options.map((opt: any, optIdx: number) => {
                           const optLetter = String.fromCharCode(65 + optIdx);
-                          const optText = typeof opt === 'object' && opt !== null ? (opt.text ?? opt.value ?? opt.title ?? opt.id) : opt;
+                          const optText = typeof opt === 'object' && opt !== null ? (opt.text ?? opt.value ?? opt.title ?? (opt.imageUrl ? '' : opt.id)) : opt;
+                          const optImageUrl = typeof opt === 'object' && opt !== null ? opt.imageUrl : undefined;
                           
                           const isSelectedByCandidate = isOptionSelectedByCandidate(opt, optIdx, q.candidateSelectedAnswer);
                           const isCorrectOption = isOptionCorrectAnswer(opt, optIdx, q.correctAnswer);
@@ -555,8 +562,22 @@ function CandidateResultContent() {
                                   ) : null}
                                 </div>
 
+                                {/* Option Image if present */}
+                                {optImageUrl && (
+                                  <img 
+                                    src={optImageUrl} 
+                                    alt={`Option ${optLetter}`} 
+                                    className="max-h-24 max-w-[180px] object-contain rounded-lg border border-slate-200 bg-white p-1 shrink-0 shadow-2xs cursor-pointer hover:opacity-90"
+                                    onClick={() => setPreviewImageModal({ src: optImageUrl, title: `Option ${optLetter} Diagram` })}
+                                  />
+                                )}
+
                                 {/* Option Text */}
-                                <span className="text-sm font-medium leading-relaxed">{optText}</span>
+                                {optText ? (
+                                  <span className="text-sm font-medium leading-relaxed">{optText}</span>
+                                ) : optImageUrl ? (
+                                  <span className="text-xs text-slate-400 italic">(Diagram Option)</span>
+                                ) : null}
                               </div>
 
                               {/* Right Badge Badges */}
@@ -676,6 +697,36 @@ function CandidateResultContent() {
           </div>
         </div>
       </div>
+
+      {/* Image Zoom / Diagram Preview Modal */}
+      {previewImageModal && (
+        <div 
+          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 backdrop-blur-xs p-4 animate-fadeIn"
+          onClick={() => setPreviewImageModal(null)}
+        >
+          <div 
+            className="bg-white rounded-2xl shadow-2xl max-w-3xl max-h-[90vh] overflow-hidden p-4 flex flex-col border border-slate-700"
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="flex justify-between items-center mb-3 pb-2 border-b border-slate-100">
+              <span className="font-bold text-xs text-slate-700">{previewImageModal.title}</span>
+              <button 
+                onClick={() => setPreviewImageModal(null)}
+                className="p-1 text-slate-400 hover:text-slate-600 rounded-lg cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <div className="flex-1 overflow-auto flex items-center justify-center p-2 bg-slate-50 rounded-xl">
+              <img 
+                src={previewImageModal.src} 
+                alt={previewImageModal.title} 
+                className="max-h-[75vh] max-w-full object-contain rounded-lg"
+              />
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

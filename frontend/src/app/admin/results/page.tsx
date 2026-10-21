@@ -123,7 +123,7 @@ export default function AdminResultsPage() {
     }
   }, []);
 
-  const fetchResults = async (isManual = false) => {
+  async function fetchResults(isManual = false) {
     if (isManual) {
       setRefreshing(true);
       setRefreshSuccess(null);

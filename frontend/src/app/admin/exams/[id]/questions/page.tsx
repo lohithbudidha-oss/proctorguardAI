@@ -79,10 +79,10 @@ function QuestionBuilderContent() {
     marks: 1,
     negativeMarks: 0,
     options: [
-      { id: 'A', text: '' }, 
-      { id: 'B', text: '' }, 
-      { id: 'C', text: '' }, 
-      { id: 'D', text: '' }
+      { id: 'A', text: '', imageUrl: '' }, 
+      { id: 'B', text: '', imageUrl: '' }, 
+      { id: 'C', text: '', imageUrl: '' }, 
+      { id: 'D', text: '', imageUrl: '' }
     ],
     correctAnswer: 'A'
   });
@@ -93,7 +93,12 @@ function QuestionBuilderContent() {
 
   // Edit Exam Details modal state
   const [showEditExamModal, setShowEditExamModal] = useState(false);
-  const [editExamForm, setEditExamForm] = useState({
+  const [editExamForm, setEditExamForm] = useState<{
+    title: string;
+    duration: number | '';
+    description: string;
+    instructions: string;
+  }>({
     title: '',
     duration: 60,
     description: '',
@@ -195,15 +200,78 @@ function QuestionBuilderContent() {
     reader.readAsDataURL(file);
   };
 
+  // Handle Option Image Upload for New Question
+  const handleNewOptionImageUpload = (idx: number, e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      return alert('Please select a valid image file (PNG, JPG, SVG, WebP, GIF).');
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      return alert('Image size must be under 5MB.');
+    }
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      if (typeof reader.result === 'string') {
+        const newOpts = [...newQuestion.options];
+        newOpts[idx] = {
+          ...newOpts[idx],
+          imageUrl: reader.result as string
+        };
+        setNewQuestion(prev => ({
+          ...prev,
+          options: newOpts
+        }));
+      }
+    };
+    reader.readAsDataURL(file);
+    e.target.value = '';
+  };
+
+  // Handle Option Image Upload for Editing Question
+  const handleEditOptionImageUpload = (idx: number, e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!editingQuestion) return;
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      return alert('Please select a valid image file (PNG, JPG, SVG, WebP, GIF).');
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      return alert('Image size must be under 5MB.');
+    }
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      if (typeof reader.result === 'string' && editingQuestion) {
+        const newOpts = [...editingQuestion.options];
+        newOpts[idx] = {
+          ...newOpts[idx],
+          imageUrl: reader.result as string
+        };
+        setEditingQuestion({
+          ...editingQuestion,
+          options: newOpts
+        });
+      }
+    };
+    reader.readAsDataURL(file);
+    e.target.value = '';
+  };
+
   // Handle Add New Question
   const handleAddQuestion = async () => {
     // If an image is provided, question text can be brief; otherwise it's required
     if (!newQuestion.text.trim() && !newQuestion.imageUrl) {
       return alert('Question text or diagram image is required.');
     }
-    const emptyOption = newQuestion.options.find(opt => !opt.text.trim());
+    const emptyOption = newQuestion.options.find(opt => !opt.text.trim() && !opt.imageUrl);
     if (emptyOption) {
-      return alert(`Please provide text for Option ${emptyOption.id}.`);
+      return alert(`Please provide text or an image for Option ${emptyOption.id}.`);
     }
 
     setIsSubmittingNew(true);
@@ -218,10 +286,10 @@ function QuestionBuilderContent() {
         marks: 1,
         negativeMarks: 0,
         options: [
-          { id: 'A', text: '' }, 
-          { id: 'B', text: '' }, 
-          { id: 'C', text: '' }, 
-          { id: 'D', text: '' }
+          { id: 'A', text: '', imageUrl: '' }, 
+          { id: 'B', text: '', imageUrl: '' }, 
+          { id: 'C', text: '', imageUrl: '' }, 
+          { id: 'D', text: '', imageUrl: '' }
         ], 
         correctAnswer: 'A' 
       });
@@ -245,12 +313,12 @@ function QuestionBuilderContent() {
       marks: q.marks !== undefined ? q.marks : 1,
       negativeMarks: q.negativeMarks || 0,
       options: q.options && q.options.length > 0 
-        ? q.options.map(opt => ({ id: opt.id, text: opt.text, imageUrl: opt.imageUrl }))
+        ? q.options.map(opt => ({ id: opt.id, text: opt.text || '', imageUrl: opt.imageUrl || '' }))
         : [
-            { id: 'A', text: '' }, 
-            { id: 'B', text: '' }, 
-            { id: 'C', text: '' }, 
-            { id: 'D', text: '' }
+            { id: 'A', text: '', imageUrl: '' }, 
+            { id: 'B', text: '', imageUrl: '' }, 
+            { id: 'C', text: '', imageUrl: '' }, 
+            { id: 'D', text: '', imageUrl: '' }
           ],
       correctAnswer: q.correctAnswer || 'A',
       explanation: q.explanation || ''
@@ -265,9 +333,9 @@ function QuestionBuilderContent() {
     if (!editingQuestion.text.trim() && !editingQuestion.imageUrl) {
       return alert('Question text or diagram image is required.');
     }
-    const emptyOption = editingQuestion.options.find(opt => !opt.text.trim());
+    const emptyOption = editingQuestion.options.find(opt => !opt.text.trim() && !opt.imageUrl);
     if (emptyOption) {
-      return alert(`Please provide text for Option ${emptyOption.id}.`);
+      return alert(`Please provide text or an image for Option ${emptyOption.id}.`);
     }
 
     setIsSavingEditQuestion(true);
@@ -321,9 +389,16 @@ function QuestionBuilderContent() {
     if (!editExamForm.title.trim()) {
       return alert('Exam title is required.');
     }
+    const durationNum = Number(editExamForm.duration);
+    if (!durationNum || durationNum <= 0) {
+      return alert('Please assign a valid exam duration (minimum 1 minute).');
+    }
     setIsSavingExam(true);
     try {
-      const res = await api.patch(`/admin/exams/${examId}`, editExamForm);
+      const res = await api.patch(`/admin/exams/${examId}`, {
+        ...editExamForm,
+        duration: durationNum
+      });
       if (res.data?.exam) {
         setExam(res.data.exam);
       }
@@ -634,23 +709,51 @@ function QuestionBuilderContent() {
               {/* OPTIONS */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 {editingQuestion.options.map((opt, idx) => (
-                  <div key={opt.id} className="relative">
-                    <label className="block text-xs font-bold text-slate-700 mb-1 flex items-center justify-between">
-                      <span>Option {opt.id}</span>
-                      {editingQuestion.correctAnswer === opt.id && (
-                        <span className="text-[10px] font-extrabold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
-                          Correct Option
+                  <div 
+                    key={opt.id} 
+                    className={`p-3.5 rounded-2xl border transition-all ${
+                      editingQuestion.correctAnswer === opt.id 
+                        ? 'border-emerald-500 bg-emerald-50/20 shadow-xs' 
+                        : 'border-slate-200 bg-slate-50/40 hover:border-slate-300'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center space-x-2">
+                        <span className={`w-6 h-6 rounded-md flex items-center justify-center font-extrabold text-xs ${
+                          editingQuestion.correctAnswer === opt.id 
+                            ? 'bg-emerald-600 text-white' 
+                            : 'bg-slate-200 text-slate-700'
+                        }`}>
+                          {opt.id}
                         </span>
-                      )}
-                    </label>
+                        <span className="text-xs font-bold text-slate-800">Option {opt.id}</span>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        {editingQuestion.correctAnswer === opt.id ? (
+                          <span className="text-[10px] font-extrabold text-emerald-700 bg-emerald-100/70 px-2 py-0.5 rounded-full border border-emerald-300 flex items-center">
+                            <Check className="w-3 h-3 mr-0.5 stroke-[3]" /> Correct Option
+                          </span>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => setEditingQuestion({ ...editingQuestion, correctAnswer: opt.id })}
+                            className="text-[10px] font-semibold text-slate-500 hover:text-emerald-700 hover:bg-emerald-50 px-2 py-0.5 rounded-full border border-transparent hover:border-emerald-200 transition cursor-pointer"
+                          >
+                            Set as Correct
+                          </button>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Option Text */}
                     <input 
                       type="text"
-                      className={`w-full rounded-xl p-2.5 border text-sm outline-none transition ${
+                      className={`w-full rounded-xl p-2.5 border text-sm outline-none transition bg-white ${
                         editingQuestion.correctAnswer === opt.id 
-                          ? 'border-emerald-600 bg-emerald-50/20 focus:ring-2 focus:ring-emerald-700' 
-                          : 'border-slate-300 bg-white focus:ring-2 focus:ring-amber-500'
+                          ? 'border-emerald-600 focus:ring-2 focus:ring-emerald-700' 
+                          : 'border-slate-300 focus:ring-2 focus:ring-amber-500'
                       }`}
-                      placeholder={`Enter text for option ${opt.id}...`}
+                      placeholder={`Enter text for option ${opt.id}${opt.imageUrl ? ' (optional)' : ''}...`}
                       value={opt.text}
                       onChange={e => {
                         const newOpts = [...editingQuestion.options];
@@ -658,6 +761,76 @@ function QuestionBuilderContent() {
                         setEditingQuestion({ ...editingQuestion, options: newOpts });
                       }}
                     />
+
+                    {/* Option Image Attachment Preview or Upload Bar */}
+                    {opt.imageUrl ? (
+                      <div className="mt-2.5 p-2 bg-white border border-slate-200 rounded-xl flex items-center justify-between gap-3 shadow-2xs">
+                        <div className="flex items-center space-x-2.5 min-w-0">
+                          <img 
+                            src={opt.imageUrl} 
+                            alt={`Option ${opt.id} Image`}
+                            className="w-14 h-14 object-contain rounded-lg border border-slate-200 bg-slate-50 p-1 cursor-pointer shrink-0 hover:opacity-90 transition"
+                            onClick={() => setPreviewImageModal({ src: opt.imageUrl!, title: `Option ${opt.id} Diagram` })}
+                          />
+                          <div className="min-w-0">
+                            <p className="text-xs font-bold text-slate-800 flex items-center">
+                              <Check className="w-3.5 h-3.5 text-emerald-600 mr-1 shrink-0" /> Option Image
+                            </p>
+                            <p className="text-[11px] text-slate-500">Click to view full preview</p>
+                          </div>
+                        </div>
+                        <div className="flex items-center space-x-1.5 shrink-0">
+                          <button
+                            type="button"
+                            onClick={() => setPreviewImageModal({ src: opt.imageUrl!, title: `Option ${opt.id} Diagram` })}
+                            className="p-1.5 text-xs font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg flex items-center transition cursor-pointer"
+                            title="View full image"
+                          >
+                            <Eye className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const newOpts = [...editingQuestion.options];
+                              newOpts[idx].imageUrl = '';
+                              setEditingQuestion({ ...editingQuestion, options: newOpts });
+                            }}
+                            className="p-1.5 text-xs font-bold text-rose-700 bg-rose-50 hover:bg-rose-100 rounded-lg flex items-center transition cursor-pointer"
+                            title="Remove image"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="mt-2 flex items-center gap-2">
+                        <input 
+                          id={`edit-opt-file-${opt.id}`}
+                          type="file" 
+                          accept="image/*" 
+                          className="hidden" 
+                          onChange={(e) => handleEditOptionImageUpload(idx, e)}
+                        />
+                        <label 
+                          htmlFor={`edit-opt-file-${opt.id}`}
+                          className="inline-flex items-center px-2.5 py-1.5 bg-white hover:bg-amber-50 text-slate-700 hover:text-amber-700 border border-slate-200 hover:border-amber-300 font-semibold rounded-lg text-xs transition cursor-pointer shadow-2xs shrink-0"
+                        >
+                          <Upload className="w-3 h-3 mr-1 text-amber-600" />
+                          <span>Upload Image</span>
+                        </label>
+                        <input
+                          type="text"
+                          placeholder="or paste image URL..."
+                          className="flex-1 w-full border border-slate-200 rounded-lg px-2.5 py-1 text-xs text-slate-800 bg-white focus:ring-1 focus:ring-amber-500 outline-none"
+                          value={opt.imageUrl || ''}
+                          onChange={e => {
+                            const newOpts = [...editingQuestion.options];
+                            newOpts[idx].imageUrl = e.target.value;
+                            setEditingQuestion({ ...editingQuestion, options: newOpts });
+                          }}
+                        />
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>
@@ -671,7 +844,9 @@ function QuestionBuilderContent() {
                     onChange={e => setEditingQuestion({ ...editingQuestion, correctAnswer: e.target.value })}
                   >
                     {editingQuestion.options.map(opt => (
-                      <option key={opt.id} value={opt.id}>Option {opt.id} {opt.text ? `(${opt.text.slice(0, 20)}...)` : ''}</option>
+                      <option key={opt.id} value={opt.id}>
+                        Option {opt.id} {opt.text ? `(${opt.text.slice(0, 25)}${opt.text.length > 25 ? '...' : ''})` : opt.imageUrl ? '(Diagram/Image Attached)' : ''}
+                      </option>
                     ))}
                   </select>
                 </div>
@@ -682,7 +857,13 @@ function QuestionBuilderContent() {
                     min="1"
                     className="w-full border-slate-300 rounded-xl p-2.5 border outline-none text-slate-900 bg-white focus:ring-2 focus:ring-amber-500 text-sm font-semibold" 
                     value={editingQuestion.marks} 
-                    onChange={e => setEditingQuestion({ ...editingQuestion, marks: Math.max(1, Number(e.target.value) || 1) })} 
+                    onChange={e => {
+                      const val = e.target.value;
+                      setEditingQuestion({ 
+                        ...editingQuestion, 
+                        marks: val === '' ? ('' as any) : parseInt(val, 10) || 0 
+                      });
+                    }} 
                   />
                 </div>
                 <div>
@@ -833,23 +1014,51 @@ function QuestionBuilderContent() {
               {/* OPTIONS */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 {newQuestion.options.map((opt, idx) => (
-                  <div key={opt.id}>
-                    <label className="block text-xs font-bold text-slate-700 mb-1 flex items-center justify-between">
-                      <span>Option {opt.id}</span>
-                      {newQuestion.correctAnswer === opt.id && (
-                        <span className="text-[10px] font-extrabold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
-                          Correct Option
+                  <div 
+                    key={opt.id}
+                    className={`p-3.5 rounded-2xl border transition-all ${
+                      newQuestion.correctAnswer === opt.id 
+                        ? 'border-emerald-400 bg-emerald-50/20 shadow-xs' 
+                        : 'border-slate-200 bg-slate-50/40 hover:border-slate-300'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center space-x-2">
+                        <span className={`w-6 h-6 rounded-md flex items-center justify-center font-extrabold text-xs ${
+                          newQuestion.correctAnswer === opt.id 
+                            ? 'bg-emerald-600 text-white' 
+                            : 'bg-slate-200 text-slate-700'
+                        }`}>
+                          {opt.id}
                         </span>
-                      )}
-                    </label>
+                        <span className="text-xs font-bold text-slate-800">Option {opt.id}</span>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        {newQuestion.correctAnswer === opt.id ? (
+                          <span className="text-[10px] font-extrabold text-emerald-700 bg-emerald-100/70 px-2 py-0.5 rounded-full border border-emerald-300 flex items-center">
+                            <Check className="w-3 h-3 mr-0.5 stroke-[3]" /> Correct Option
+                          </span>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => setNewQuestion({ ...newQuestion, correctAnswer: opt.id })}
+                            className="text-[10px] font-semibold text-slate-500 hover:text-emerald-700 hover:bg-emerald-50 px-2 py-0.5 rounded-full border border-transparent hover:border-emerald-200 transition cursor-pointer"
+                          >
+                            Set as Correct
+                          </button>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Option Text */}
                     <input 
                       type="text"
-                      className={`w-full rounded-xl p-2.5 border text-sm outline-none transition ${
+                      className={`w-full rounded-xl p-2.5 border text-sm outline-none transition bg-white ${
                         newQuestion.correctAnswer === opt.id 
-                          ? 'border-emerald-400 bg-emerald-50/20 focus:ring-2 focus:ring-emerald-500' 
-                          : 'border-slate-300 bg-white focus:ring-2 focus:ring-blue-500'
+                          ? 'border-emerald-400 focus:ring-2 focus:ring-emerald-500' 
+                          : 'border-slate-300 focus:ring-2 focus:ring-blue-500'
                       }`}
-                      placeholder={`Enter text for option ${opt.id}...`}
+                      placeholder={`Enter text for option ${opt.id}${opt.imageUrl ? ' (optional)' : ''}...`}
                       value={opt.text}
                       onChange={e => {
                         const newOpts = [...newQuestion.options];
@@ -857,6 +1066,76 @@ function QuestionBuilderContent() {
                         setNewQuestion({ ...newQuestion, options: newOpts });
                       }}
                     />
+
+                    {/* Option Image Attachment Preview or Upload Bar */}
+                    {opt.imageUrl ? (
+                      <div className="mt-2.5 p-2 bg-white border border-slate-200 rounded-xl flex items-center justify-between gap-3 shadow-2xs">
+                        <div className="flex items-center space-x-2.5 min-w-0">
+                          <img 
+                            src={opt.imageUrl} 
+                            alt={`Option ${opt.id} Image`}
+                            className="w-14 h-14 object-contain rounded-lg border border-slate-200 bg-slate-50 p-1 cursor-pointer shrink-0 hover:opacity-90 transition"
+                            onClick={() => setPreviewImageModal({ src: opt.imageUrl!, title: `Option ${opt.id} Diagram` })}
+                          />
+                          <div className="min-w-0">
+                            <p className="text-xs font-bold text-slate-800 flex items-center">
+                              <Check className="w-3.5 h-3.5 text-emerald-600 mr-1 shrink-0" /> Option Image
+                            </p>
+                            <p className="text-[11px] text-slate-500">Click to view full preview</p>
+                          </div>
+                        </div>
+                        <div className="flex items-center space-x-1.5 shrink-0">
+                          <button
+                            type="button"
+                            onClick={() => setPreviewImageModal({ src: opt.imageUrl!, title: `Option ${opt.id} Diagram` })}
+                            className="p-1.5 text-xs font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg flex items-center transition cursor-pointer"
+                            title="View full image"
+                          >
+                            <Eye className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const newOpts = [...newQuestion.options];
+                              newOpts[idx].imageUrl = '';
+                              setNewQuestion({ ...newQuestion, options: newOpts });
+                            }}
+                            className="p-1.5 text-xs font-bold text-rose-700 bg-rose-50 hover:bg-rose-100 rounded-lg flex items-center transition cursor-pointer"
+                            title="Remove image"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="mt-2 flex items-center gap-2">
+                        <input 
+                          id={`new-opt-file-${opt.id}`}
+                          type="file" 
+                          accept="image/*" 
+                          className="hidden" 
+                          onChange={(e) => handleNewOptionImageUpload(idx, e)}
+                        />
+                        <label 
+                          htmlFor={`new-opt-file-${opt.id}`}
+                          className="inline-flex items-center px-2.5 py-1.5 bg-white hover:bg-blue-50 text-slate-700 hover:text-blue-700 border border-slate-200 hover:border-blue-300 font-semibold rounded-lg text-xs transition cursor-pointer shadow-2xs shrink-0"
+                        >
+                          <Upload className="w-3 h-3 mr-1 text-blue-600" />
+                          <span>Upload Image</span>
+                        </label>
+                        <input
+                          type="text"
+                          placeholder="or paste image URL..."
+                          className="flex-1 w-full border border-slate-200 rounded-lg px-2.5 py-1 text-xs text-slate-800 bg-white focus:ring-1 focus:ring-blue-500 outline-none"
+                          value={opt.imageUrl || ''}
+                          onChange={e => {
+                            const newOpts = [...newQuestion.options];
+                            newOpts[idx].imageUrl = e.target.value;
+                            setNewQuestion({ ...newQuestion, options: newOpts });
+                          }}
+                        />
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>
@@ -870,7 +1149,9 @@ function QuestionBuilderContent() {
                     onChange={e => setNewQuestion({ ...newQuestion, correctAnswer: e.target.value })}
                   >
                     {newQuestion.options.map(opt => (
-                      <option key={opt.id} value={opt.id}>Option {opt.id} {opt.text ? `(${opt.text.slice(0, 20)}...)` : ''}</option>
+                      <option key={opt.id} value={opt.id}>
+                        Option {opt.id} {opt.text ? `(${opt.text.slice(0, 25)}${opt.text.length > 25 ? '...' : ''})` : opt.imageUrl ? '(Diagram/Image Attached)' : ''}
+                      </option>
                     ))}
                   </select>
                 </div>
@@ -881,7 +1162,13 @@ function QuestionBuilderContent() {
                     min="1"
                     className="w-full border-slate-300 rounded-xl p-2.5 border outline-none text-slate-900 bg-white focus:ring-2 focus:ring-blue-500 text-sm font-semibold" 
                     value={newQuestion.marks} 
-                    onChange={e => setNewQuestion({ ...newQuestion, marks: Math.max(1, Number(e.target.value) || 1) })} 
+                    onChange={e => {
+                      const val = e.target.value;
+                      setNewQuestion({ 
+                        ...newQuestion, 
+                        marks: val === '' ? ('' as any) : parseInt(val, 10) || 0 
+                      });
+                    }} 
                   />
                 </div>
                 <div>
@@ -1002,19 +1289,34 @@ function QuestionBuilderContent() {
                   return (
                     <div 
                       key={opt.id} 
-                      className={`p-3.5 rounded-xl border text-sm font-medium transition flex items-center justify-between ${
+                      className={`p-3.5 rounded-xl border text-sm font-medium transition flex items-center justify-between gap-2 ${
                         isCorrect 
                           ? 'border-emerald-600 bg-emerald-50 text-emerald-900 shadow-2xs font-semibold' 
                           : 'border-slate-200 bg-slate-50/60 text-slate-700'
                       }`}
                     >
-                      <div className="flex items-center">
-                        <span className={`w-5 h-5 rounded-md flex items-center justify-center font-bold text-xs mr-2.5 shrink-0 ${
+                      <div className="flex items-center space-x-2.5 min-w-0">
+                        <span className={`w-5 h-5 rounded-md flex items-center justify-center font-bold text-xs shrink-0 ${
                           isCorrect ? 'bg-emerald-700 text-white' : 'bg-slate-200 text-slate-600'
                         }`}>
                           {opt.id}
                         </span> 
-                        <span>{opt.text}</span>
+                        {opt.imageUrl && (
+                          <img 
+                            src={opt.imageUrl} 
+                            alt={`Option ${opt.id}`} 
+                            className="h-12 w-12 sm:h-14 sm:w-14 object-contain rounded-lg border border-slate-200 bg-white p-1 shrink-0 cursor-pointer hover:opacity-90 transition shadow-2xs"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setPreviewImageModal({ src: opt.imageUrl!, title: `Option ${opt.id} Diagram` });
+                            }}
+                          />
+                        )}
+                        {opt.text ? (
+                          <span className="truncate">{opt.text}</span>
+                        ) : opt.imageUrl ? (
+                          <span className="text-xs text-slate-400 italic font-normal">(Diagram option)</span>
+                        ) : null}
                       </div>
                       {isCorrect && (
                         <Check className="w-4 h-4 text-emerald-700 shrink-0 ml-2" />
@@ -1119,15 +1421,30 @@ function QuestionBuilderContent() {
                       {parsedPreviewQuestions.map((pq, qIdx) => (
                         <div key={qIdx} className="p-4 bg-white border border-slate-200 rounded-xl shadow-2xs space-y-3">
                           <div className="flex items-start justify-between gap-3">
-                            <span className="w-6 h-6 rounded-md bg-indigo-50 text-indigo-700 font-extrabold text-xs flex items-center justify-center shrink-0">
+                            <span className="w-6 h-6 rounded-md bg-indigo-50 text-indigo-700 font-extrabold text-xs flex items-center justify-center shrink-0 mt-1">
                               {qIdx + 1}
                             </span>
-                            <input
-                              type="text"
-                              value={pq.text}
-                              onChange={e => handleUpdateParsedItem(qIdx, 'text', e.target.value)}
-                              className="flex-1 font-semibold text-sm text-slate-900 border border-slate-200 rounded-lg px-2.5 py-1 focus:ring-2 focus:ring-indigo-500 outline-none"
-                            />
+                            <div className="flex-1 space-y-2">
+                              <input
+                                type="text"
+                                value={pq.text}
+                                onChange={e => handleUpdateParsedItem(qIdx, 'text', e.target.value)}
+                                className="w-full font-semibold text-sm text-slate-900 border border-slate-200 rounded-lg px-2.5 py-1 focus:ring-2 focus:ring-indigo-500 outline-none"
+                              />
+                              {pq.imageUrl && (
+                                <div className="relative inline-block border border-slate-200 rounded-lg p-1 bg-slate-50">
+                                  <img src={pq.imageUrl} alt="Question Diagram" className="h-16 max-w-xs object-contain rounded" />
+                                  <button
+                                    type="button"
+                                    onClick={() => handleUpdateParsedItem(qIdx, 'imageUrl', undefined)}
+                                    className="absolute -top-1.5 -right-1.5 bg-rose-600 text-white rounded-full p-0.5 shadow hover:bg-rose-700"
+                                    title="Remove diagram"
+                                  >
+                                    <X className="w-3 h-3" />
+                                  </button>
+                                </div>
+                              )}
+                            </div>
                             <button
                               type="button"
                               onClick={() => handleRemoveParsedItem(qIdx)}
@@ -1141,17 +1458,35 @@ function QuestionBuilderContent() {
                           {/* Options */}
                           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pl-9">
                             {pq.options.map(opt => (
-                              <div key={opt.id} className="flex items-center space-x-1.5">
-                                <span className="font-bold text-xs text-slate-500 w-4">{opt.id}:</span>
-                                <input
-                                  type="text"
-                                  value={opt.text}
-                                  onChange={e => {
-                                    const updatedOpts = pq.options.map(o => o.id === opt.id ? { ...o, text: e.target.value } : o);
-                                    handleUpdateParsedItem(qIdx, 'options', updatedOpts);
-                                  }}
-                                  className="w-full text-xs text-slate-800 border border-slate-200 rounded-lg px-2 py-1 focus:ring-1 focus:ring-indigo-500 outline-none"
-                                />
+                              <div key={opt.id} className="space-y-1">
+                                <div className="flex items-center space-x-1.5">
+                                  <span className="font-bold text-xs text-slate-500 w-4">{opt.id}:</span>
+                                  <input
+                                    type="text"
+                                    value={opt.text}
+                                    onChange={e => {
+                                      const updatedOpts = pq.options.map(o => o.id === opt.id ? { ...o, text: e.target.value } : o);
+                                      handleUpdateParsedItem(qIdx, 'options', updatedOpts);
+                                    }}
+                                    className="w-full text-xs text-slate-800 border border-slate-200 rounded-lg px-2 py-1 focus:ring-1 focus:ring-indigo-500 outline-none"
+                                  />
+                                </div>
+                                {opt.imageUrl && (
+                                  <div className="pl-5 relative inline-block">
+                                    <img src={opt.imageUrl} alt={`Option ${opt.id}`} className="h-12 max-w-[120px] object-contain rounded border border-slate-200 bg-slate-50 p-0.5" />
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        const updatedOpts = pq.options.map(o => o.id === opt.id ? { ...o, imageUrl: undefined } : o);
+                                        handleUpdateParsedItem(qIdx, 'options', updatedOpts);
+                                      }}
+                                      className="absolute -top-1 -right-1 bg-rose-600 text-white rounded-full p-0.5 shadow hover:bg-rose-700"
+                                      title="Remove option image"
+                                    >
+                                      <X className="w-2.5 h-2.5" />
+                                    </button>
+                                  </div>
+                                )}
                               </div>
                             ))}
                           </div>
@@ -1439,9 +1774,17 @@ Answer: C`}
                     type="number"
                     min="1"
                     max="600"
-                    required
+                    placeholder="e.g. 60"
                     value={editExamForm.duration}
-                    onChange={e => setEditExamForm({ ...editExamForm, duration: Math.max(1, parseInt(e.target.value) || 0) })}
+                    onChange={e => {
+                      const val = e.target.value;
+                      if (val === '') {
+                        setEditExamForm({ ...editExamForm, duration: '' });
+                      } else {
+                        const parsed = parseInt(val, 10);
+                        setEditExamForm({ ...editExamForm, duration: isNaN(parsed) ? '' : Math.max(0, parsed) });
+                      }
+                    }}
                     className="w-full px-3.5 py-2 border border-slate-300 rounded-xl text-xs text-slate-900 focus:ring-2 focus:ring-blue-500 outline-none"
                   />
                 </div>

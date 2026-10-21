@@ -125,7 +125,7 @@ export default function AdminExamsPage() {
   // Create Exam Modal State
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [createTitle, setCreateTitle] = useState('');
-  const [createDuration, setCreateDuration] = useState<number>(60);
+  const [createDuration, setCreateDuration] = useState<number | ''>(60);
   const [createDescription, setCreateDescription] = useState('');
   const [createInstructions, setCreateInstructions] = useState('');
   const [createErrors, setCreateErrors] = useState<{ title?: string; description?: string; instructions?: string }>({});
@@ -135,7 +135,7 @@ export default function AdminExamsPage() {
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [editingExam, setEditingExam] = useState<Exam | null>(null);
   const [editTitle, setEditTitle] = useState('');
-  const [editDuration, setEditDuration] = useState<number>(60);
+  const [editDuration, setEditDuration] = useState<number | ''>(60);
   const [editDescription, setEditDescription] = useState('');
   const [editInstructions, setEditInstructions] = useState('');
   const [editErrors, setEditErrors] = useState<{ title?: string; description?: string; instructions?: string }>({});
@@ -209,13 +209,14 @@ export default function AdminExamsPage() {
     } catch (e) {}
   }, []);
 
-  const formatDurationDisplay = (mins: number) => {
-    if (!mins || isNaN(mins)) return '0 Min';
-    const hours = Math.floor(mins / 60);
-    const rem = mins % 60;
-    if (hours > 0 && rem > 0) return `${hours}h ${rem}m (${mins} Mins)`;
-    if (hours > 0) return `${hours} hr${hours > 1 ? 's' : ''} (${mins} Mins)`;
-    return `${mins} Mins`;
+  const formatDurationDisplay = (mins: number | string) => {
+    const num = typeof mins === 'string' ? parseInt(mins, 10) : mins;
+    if (!num || isNaN(num) || num <= 0) return 'Not set';
+    const hours = Math.floor(num / 60);
+    const rem = num % 60;
+    if (hours > 0 && rem > 0) return `${hours}h ${rem}m (${num} Mins)`;
+    if (hours > 0) return `${hours} hr${hours > 1 ? 's' : ''} (${num} Mins)`;
+    return `${num} Mins`;
   };
 
   const filteredExams = useMemo(() => {
@@ -762,12 +763,30 @@ export default function AdminExamsPage() {
                     type="number"
                     min="1"
                     max="600"
-                    required
-                    value={createDuration || ''}
-                    onChange={e => setCreateDuration(Math.max(1, parseInt(e.target.value) || 0))}
+                    placeholder="e.g. 60"
+                    value={createDuration}
+                    onChange={e => {
+                      const val = e.target.value;
+                      if (val === '') {
+                        setCreateDuration('');
+                      } else {
+                        const parsed = parseInt(val, 10);
+                        setCreateDuration(isNaN(parsed) ? '' : Math.max(0, parsed));
+                      }
+                    }}
                     className="w-24 px-3 py-1.5 border border-blue-300 rounded-lg bg-white text-slate-900 font-bold text-center focus:ring-2 focus:ring-blue-500 outline-none text-xs sm:text-sm"
                   />
                   <span className="text-xs font-semibold text-slate-600">Minutes</span>
+                  {createDuration !== '' && (
+                    <button
+                      type="button"
+                      onClick={() => setCreateDuration('')}
+                      className="text-[11px] font-semibold text-slate-400 hover:text-slate-600 px-1.5 py-0.5 rounded hover:bg-slate-100 transition cursor-pointer"
+                      title="Clear duration"
+                    >
+                      Clear
+                    </button>
+                  )}
                 </div>
 
                 {/* Quick preset pills */}
@@ -972,12 +991,30 @@ export default function AdminExamsPage() {
                     type="number"
                     min="1"
                     max="600"
-                    required
-                    value={editDuration || ''}
-                    onChange={e => setEditDuration(Math.max(1, parseInt(e.target.value) || 0))}
+                    placeholder="e.g. 60"
+                    value={editDuration}
+                    onChange={e => {
+                      const val = e.target.value;
+                      if (val === '') {
+                        setEditDuration('');
+                      } else {
+                        const parsed = parseInt(val, 10);
+                        setEditDuration(isNaN(parsed) ? '' : Math.max(0, parsed));
+                      }
+                    }}
                     className="w-24 px-3 py-1.5 border border-amber-300 rounded-lg bg-white text-slate-900 font-bold text-center focus:ring-2 focus:ring-amber-500 outline-none text-xs sm:text-sm"
                   />
                   <span className="text-xs font-semibold text-slate-600">Minutes</span>
+                  {editDuration !== '' && (
+                    <button
+                      type="button"
+                      onClick={() => setEditDuration('')}
+                      className="text-[11px] font-semibold text-slate-400 hover:text-slate-600 px-1.5 py-0.5 rounded hover:bg-slate-100 transition cursor-pointer"
+                      title="Clear duration"
+                    >
+                      Clear
+                    </button>
+                  )}
                 </div>
 
                 {/* Quick preset pills */}
