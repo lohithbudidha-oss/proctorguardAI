@@ -1,6 +1,69 @@
 import { QuestionType } from '../models/Question';
 import zlib from 'zlib';
 
+// Polyfill browser globals required by pdfjs-dist in Node.js / Vercel Serverless runtimes
+try {
+  require('pdf-parse/worker');
+} catch (_) {}
+
+if (typeof (globalThis as any).DOMMatrix === 'undefined') {
+  class DOMMatrixFallback {
+    a = 1; b = 0; c = 0; d = 1; e = 0; f = 0;
+    m11 = 1; m12 = 0; m21 = 0; m22 = 1; m41 = 0; m42 = 0;
+    constructor(init?: any) {
+      if (Array.isArray(init) && init.length >= 6) {
+        this.a = this.m11 = init[0];
+        this.b = this.m12 = init[1];
+        this.c = this.m21 = init[2];
+        this.d = this.m22 = init[3];
+        this.e = this.m41 = init[4];
+        this.f = this.m42 = init[5];
+      }
+    }
+    translate(tx = 0, ty = 0) {
+      return new DOMMatrixFallback([this.a, this.b, this.c, this.d, this.e + tx * this.a + ty * this.c, this.f + tx * this.b + ty * this.d]);
+    }
+    scale(sx = 1, sy = sx) {
+      return new DOMMatrixFallback([this.a * sx, this.b * sx, this.c * sy, this.d * sy, this.e, this.f]);
+    }
+    multiply() { return this; }
+    multiplySelf() { return this; }
+    preMultiplySelf() { return this; }
+    invertSelf() { return this; }
+    inverse() { return this; }
+    rotate() { return this; }
+  }
+  (globalThis as any).DOMMatrix = DOMMatrixFallback;
+}
+
+if (typeof (globalThis as any).Path2D === 'undefined') {
+  class Path2DFallback {
+    addPath() {}
+    closePath() {}
+    moveTo() {}
+    lineTo() {}
+    bezierCurveTo() {}
+    quadraticCurveTo() {}
+    arc() {}
+    rect() {}
+  }
+  (globalThis as any).Path2D = Path2DFallback;
+}
+
+if (typeof (globalThis as any).ImageData === 'undefined') {
+  class ImageDataFallback {
+    width: number;
+    height: number;
+    data: Uint8ClampedArray;
+    constructor(w: number, h: number) {
+      this.width = w;
+      this.height = h;
+      this.data = new Uint8ClampedArray(w * h * 4);
+    }
+  }
+  (globalThis as any).ImageData = ImageDataFallback;
+}
+
 export interface ParsedOption {
   id: string;
   text: string;
@@ -172,6 +235,15 @@ export class QuestionParserService {
    */
   static async extractTextFromPDF(buffer: Buffer): Promise<string> {
     try {
+      // Ensure browser globals (DOMMatrix, ImageData, Path2D) are polyfilled for Node.js server environments
+      if (typeof (globalThis as any).DOMMatrix === 'undefined') {
+        try {
+          require('pdf-parse/worker');
+        } catch (workerErr) {
+          console.warn('pdf-parse/worker polyfill load warning:', workerErr);
+        }
+      }
+
       const pdfModule = require('pdf-parse');
       let text = '';
 

@@ -423,6 +423,11 @@ export default function CandidateExamRecordsPage() {
     } catch (err: any) {
       console.error('Failed fetching candidate records', err);
       if (err.response && (err.response.status === 401 || err.response.status === 403)) {
+        if (typeof window !== 'undefined') {
+          localStorage.removeItem('token');
+          localStorage.removeItem('user');
+          sessionStorage.clear();
+        }
         router.replace('/login?role=admin');
       }
     } finally {
@@ -432,6 +437,18 @@ export default function CandidateExamRecordsPage() {
   };
 
   useEffect(() => {
+    const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+    const userStr = typeof window !== 'undefined' ? localStorage.getItem('user') : null;
+    if (!token || !userStr) {
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+        sessionStorage.clear();
+      }
+      router.replace('/login?role=admin');
+      return;
+    }
+
     fetchCandidateRecords();
     fetchAllExams();
     fetchPendingApprovalsCount();

@@ -19,6 +19,9 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "Flair — Secure Remote Proctoring Platform",
   description: "Enterprise-grade online proctoring and examination integrity platform powered by AI.",
+  icons: {
+    icon: "/favicon.ico",
+  },
 };
 
 export default function RootLayout({
@@ -34,8 +37,6 @@ export default function RootLayout({
     >
       <head>
         {/* Preconnect to external resources to eliminate DNS and TLS latency */}
-        <link rel="preconnect" href="https://proctorguardai.onrender.com" />
-        <link rel="dns-prefetch" href="https://proctorguardai.onrender.com" />
         <link rel="preconnect" href="https://flair-sigma-red.vercel.app" />
         <link rel="dns-prefetch" href="https://flair-sigma-red.vercel.app" />
         <link rel="preconnect" href="https://storage.googleapis.com" crossOrigin="anonymous" />

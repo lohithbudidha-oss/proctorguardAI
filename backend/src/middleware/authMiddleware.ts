@@ -1,8 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 import { Role } from '../models/User';
-
-const JWT_SECRET = process.env.JWT_SECRET;
+import { getJwtSecret } from '../config/jwt';
 
 export interface AuthRequest extends Request {
   user?: {
@@ -30,7 +29,7 @@ export const authenticate = async (req: AuthRequest, res: Response, next: NextFu
   }
 
   try {
-    const secret = JWT_SECRET || 'dev_secret';
+    const secret = getJwtSecret();
     const decoded = jwt.verify(token, secret) as any;
     
     // REM-08: Session Revocation Check

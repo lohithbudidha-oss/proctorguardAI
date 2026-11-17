@@ -25,20 +25,20 @@ function LoginContent() {
   const [emailError, setEmailError] = useState('');
   const [loading, setLoading] = useState(false);
 
+  // Clear any stale tokens when arriving on login so user can cleanly authenticate
   React.useEffect(() => {
-    const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
-    const userStr = typeof window !== 'undefined' ? localStorage.getItem('user') : null;
-    if (token && userStr) {
-      try {
-        const u = JSON.parse(userStr);
-        if (isAdminLogin && (u.role === 'ADMIN' || u.role === 'PROCTOR')) {
-          router.replace('/admin/monitoring');
-        } else if (!isAdminLogin && u.role === 'CANDIDATE') {
-          router.replace('/candidate/dashboard');
+    if (typeof window !== 'undefined') {
+      const isRegistered = searchParams.get('registered') === 'true';
+      const isTicket = searchParams.get('ticketSubmitted') === 'true';
+      if (!isRegistered && !isTicket) {
+        // Ensure clean authentication state on the login page
+        const token = localStorage.getItem('token');
+        if (!token) {
+          localStorage.removeItem('user');
         }
-      } catch (e) {}
+      }
     }
-  }, [isAdminLogin, router]);
+  }, [searchParams]);
 
   const handleEmailChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const rawVal = e.target.value;

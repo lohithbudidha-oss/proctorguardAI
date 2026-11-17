@@ -6,8 +6,7 @@ import ViolationEvent from '../models/ViolationEvent';
 import Session from '../models/Session';
 import Exam from '../models/Exam';
 import { googleDriveService } from '../services/googleDriveService';
-
-const JWT_SECRET = process.env.JWT_SECRET;
+import { getJwtSecret } from '../config/jwt';
 
 interface AuthenticatedSocket extends Socket {
   user?: {
@@ -46,7 +45,7 @@ export const setupSockets = (io: Server) => {
     if (!token) return next(new Error('Authentication error'));
 
     const actualToken = token.replace('Bearer ', '');
-    const secret = JWT_SECRET || 'dev_secret';
+    const secret = getJwtSecret();
     
     jwt.verify(actualToken, secret, async (err: any, decoded: any) => {
       if (err) return next(new Error('Authentication error'));

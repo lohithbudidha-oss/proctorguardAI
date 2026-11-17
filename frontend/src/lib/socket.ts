@@ -1,38 +1,42 @@
 import io, { Socket } from 'socket.io-client';
 
-const DEFAULT_WS_URL = 'https://proctorguardai.onrender.com';
+const PRODUCTION_WS_URL = 'https://flair-sigma-red.vercel.app';
 
 export type ProctorSocket = Socket;
 export type { Socket };
 
 /**
- * Resolves the appropriate WebSocket / Socket.IO server URL.
- * Serverless platforms like Vercel do not support persistent WebSockets,
- * so any *.vercel.app domain will safely fall back to the dedicated Render WebSocket server.
+ * Resolves the appropriate WebSocket / Socket.IO server URL:
+ * - Local URL (http://localhost:5000) when running locally
+ * - Production URL (https://flair-sigma-red.vercel.app) when running in production
  */
 export const getSocketURL = (): string => {
-  // 1. Explicit WebSocket URL from environment variable (ensure it's not pointing to Vercel)
-  const envWsUrl = process.env.NEXT_PUBLIC_WS_URL?.trim().replace(/\/+$/, '');
-  if (envWsUrl && !envWsUrl.includes('vercel.app')) {
-    return envWsUrl;
-  }
-
-  // 2. Local development fallback
   if (typeof window !== 'undefined') {
     const hostname = window.location.hostname;
-    if (hostname === 'localhost' || hostname === '127.0.0.1') {
+    const isLocal = hostname === 'localhost' || hostname === '127.0.0.1';
+    if (isLocal) {
+      const localEnv = process.env.NEXT_PUBLIC_WS_URL?.trim().replace(/\/+$/, '');
+      if (localEnv && (localEnv.includes('localhost') || localEnv.includes('127.0.0.1'))) {
+        return localEnv;
+      }
       return 'http://localhost:5000';
     }
+
+    const envWsUrl = process.env.NEXT_PUBLIC_WS_URL?.trim().replace(/\/+$/, '');
+    if (envWsUrl && !envWsUrl.includes('localhost') && !envWsUrl.includes('127.0.0.1')) {
+      return envWsUrl;
+    }
+    return PRODUCTION_WS_URL;
   }
 
-  // 3. Fallback from NEXT_PUBLIC_API_URL (only if not on Vercel)
-  const envApiUrl = process.env.NEXT_PUBLIC_API_URL?.trim().replace(/\/+$/, '');
-  if (envApiUrl && !envApiUrl.includes('vercel.app')) {
-    return envApiUrl.replace(/\/api\/?$/i, '');
+  const envWsUrl = process.env.NEXT_PUBLIC_WS_URL?.trim().replace(/\/+$/, '');
+  if (envWsUrl) {
+    return envWsUrl;
   }
-
-  // 4. Default persistent WebSocket backend
-  return DEFAULT_WS_URL;
+  if (process.env.NODE_ENV === 'development') {
+    return 'http://localhost:5000';
+  }
+  return PRODUCTION_WS_URL;
 };
 
 /**

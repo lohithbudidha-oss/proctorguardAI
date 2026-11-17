@@ -1,3 +1,7 @@
+try {
+  require('pdf-parse/worker');
+} catch (_) {}
+
 import app from '../src/app';
 import mongoose from 'mongoose';
 import { Request, Response } from 'express';

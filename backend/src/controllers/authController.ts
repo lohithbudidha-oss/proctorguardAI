@@ -6,11 +6,7 @@ import User, { Role, CandidateStatus } from '../models/User';
 import Session from '../models/Session';
 import Assignment, { AssignmentStatus } from '../models/Assignment';
 import Exam from '../models/Exam';
-
-const JWT_SECRET = process.env.JWT_SECRET || 'flair_production_secure_jwt_fallback_key_2026';
-if (!process.env.JWT_SECRET) {
-  console.warn('[Security Warning] JWT_SECRET is not set in environment variables. Using fallback key.');
-}
+import { getJwtSecret } from '../config/jwt';
 
 // Strict Gmail email format validator ensuring valid username and @gmail.com domain only
 const GMAIL_EMAIL_REGEX = /^[a-zA-Z0-9._%+-]+@gmail\.com$/i;
@@ -227,7 +223,7 @@ export const login = async (req: Request, res: Response, next: NextFunction) => 
       return res.status(403).json({ success: false, message: 'Account is suspended or deactivated' });
     }
 
-    const secret = JWT_SECRET || 'dev_secret';
+    const secret = getJwtSecret();
     const token = jwt.sign(
       { userId: user._id, role: user.role, status: user.status },
       secret,

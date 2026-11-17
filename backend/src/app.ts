@@ -1,8 +1,11 @@
+import dotenv from 'dotenv';
+dotenv.config();
+
 import express, { Application, Request, Response, NextFunction } from 'express';
+import mongoose from 'mongoose';
 import cors from 'cors';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
-import dotenv from 'dotenv';
 import compression from 'compression';
 
 import authRoutes from './routes/authRoutes';
@@ -10,8 +13,6 @@ import adminRoutes from './routes/adminRoutes';
 import candidateRoutes from './routes/candidateRoutes';
 import recordingRoutes from './routes/recordingRoutes';
 import supportRoutes from './routes/supportRoutes';
-
-dotenv.config();
 
 const app: Application = express();
 
@@ -29,6 +30,7 @@ app.use(helmet({
 // CORS Configuration: Explicitly allow custom domains, Vercel frontend domains, and local development
 const allowedOrigins = [
   'https://flair.flyhii.in',
+  'https://flair.flyhiibackend.in',
   'https://flair-oqvv.vercel.app',
   'http://localhost:3000',
   'http://127.0.0.1:3000',
@@ -43,8 +45,8 @@ app.use(cors({
     const isAllowed =
       allowedOrigins.includes(cleanOrigin) ||
       cleanOrigin.endsWith('.flyhii.in') ||
+      cleanOrigin.endsWith('.flyhiibackend.in') ||
       cleanOrigin.endsWith('.vercel.app') ||
-      cleanOrigin.endsWith('.onrender.com') ||
       process.env.NODE_ENV !== 'production';
 
     if (isAllowed) {
@@ -71,7 +73,7 @@ app.use(cors({
 // Graceful Socket.IO endpoint handling in serverless mode to eliminate 404 polling errors
 app.use('/socket.io', (req: Request, res: Response) => {
   if (req.query.transport === 'websocket' || req.headers.upgrade === 'websocket') {
-    return res.status(400).send('WebSockets are not supported in serverless mode. Connect to persistent WebSocket server at https://proctorguardai.onrender.com');
+    return res.status(400).send('WebSockets are not supported in serverless mode.');
   }
   res.setHeader('Content-Type', 'text/plain; charset=UTF-8');
   res.status(200).send('0{"sid":"serverless_noop","upgrades":[],"pingInterval":60000,"pingTimeout":60000,"maxPayload":1000000}');
@@ -90,13 +92,23 @@ app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
 // Health Check and Root Status
 const healthHandler = (req: Request, res: Response) => {
-  res.status(200).json({ status: 'ok', service: 'flair-backend', timestamp: new Date().toISOString() });
+  const dbState = mongoose.connection.readyState;
+  const dbStatus = dbState === 1 ? 'connected' : dbState === 2 ? 'connecting' : 'disconnected';
+  res.status(200).json({ 
+    status: 'ok', 
+    service: 'flair-backend', 
+    database: dbStatus, 
+    timestamp: new Date().toISOString() 
+  });
 };
 
 app.get('/', (req: Request, res: Response) => {
+  const dbState = mongoose.connection.readyState;
+  const dbStatus = dbState === 1 ? 'connected' : dbState === 2 ? 'connecting' : 'disconnected';
   res.status(200).json({
     name: 'Flair Online Examination & Proctoring Platform API',
     status: 'online',
+    database: dbStatus,
     version: '1.0.0',
     documentation: 'https://flair-oqvv.vercel.app',
     health: '/api/health',
@@ -105,6 +117,21 @@ app.get('/', (req: Request, res: Response) => {
 });
 app.get('/health', healthHandler);
 app.get('/api/health', healthHandler);
+
+// Guard API routes: return graceful 503 instead of hanging or crashing when database is offline
+app.use('/api', (req: Request, res: Response, next: NextFunction) => {
+  if (req.path === '/health') return next();
+  if (mongoose.connection.readyState !== 1) {
+    return res.status(503).json({
+      success: false,
+      error: {
+        code: 'DATABASE_UNAVAILABLE',
+        message: 'Database is currently disconnected or unavailable. Please verify MONGODB_URI in backend/.env.'
+      }
+    });
+  }
+  next();
+});
 
 // API Routes
 app.use('/api/auth', authRoutes);
