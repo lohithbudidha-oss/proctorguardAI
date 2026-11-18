@@ -12,7 +12,7 @@ export const uploadQuestionsMiddleware = multer({
 export const getQuestions = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { examId } = req.params;
-    const questions = await Question.find({ examId }).sort({ createdAt: 1 });
+    const questions = await Question.find({ examId }).sort({ createdAt: 1 }).lean();
     res.status(200).json({ success: true, questions });
   } catch (err) {
     next(err);

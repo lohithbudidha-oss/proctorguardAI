@@ -98,24 +98,23 @@ export const getLiveCandidates = async (req: Request, res: Response, next: NextF
   try {
     res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
 
-    // 1. Fetch most recent 60 attempts using indexed primary key sort {_id: -1} (sub-millisecond scan)
-    const attempts = await Attempt.find()
-      .select('candidateId examId status startedAt submittedAt expiresAt score percentage resultStatus updatedAt createdAt')
-      .sort({ _id: -1 })
-      .limit(60)
-      .lean();
-
-    // 2. Fetch pending or active assignments (scheduled candidates who haven't attempted yet)
-    let assignments: any[] = [];
-    try {
-      assignments = await Assignment.find({ status: { $in: [AssignmentStatus.PENDING, AssignmentStatus.ACTIVE] } })
+    // 1 & 2. Fetch attempts and assignments in parallel using indexed sort
+    const [attempts, assignments] = await Promise.all([
+      Attempt.find()
+        .select('candidateId examId status startedAt submittedAt expiresAt score percentage resultStatus updatedAt createdAt')
+        .sort({ _id: -1 })
+        .limit(60)
+        .lean(),
+      Assignment.find({ status: { $in: [AssignmentStatus.PENDING, AssignmentStatus.ACTIVE] } })
         .select('candidateId examId status scheduledAt createdAt')
         .sort({ _id: -1 })
         .limit(30)
-        .lean();
-    } catch (assignErr) {
-      console.warn('[AdminController] Error fetching assignments:', assignErr);
-    }
+        .lean()
+        .catch(assignErr => {
+          console.warn('[AdminController] Error fetching assignments:', assignErr);
+          return [];
+        })
+    ]);
 
     // Collect all candidate, exam, and attempt IDs
     const candidateIdSet = new Set<string>();

@@ -27,5 +27,6 @@ const AssignmentSchema: Schema = new Schema({
 
 AssignmentSchema.index({ candidateId: 1, examId: 1 });
 AssignmentSchema.index({ examId: 1 });
+AssignmentSchema.index({ status: 1, _id: -1 });
 
 export default mongoose.model<IAssignment>('Assignment', AssignmentSchema);

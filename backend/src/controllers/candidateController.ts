@@ -19,11 +19,13 @@ export const getAssignedExams = async (req: AuthRequest, res: Response, next: Ne
       return res.status(401).json({ success: false, message: 'Unauthorized' });
     }
 
-    const candidateUser = await User.findById(candidateId).select('name email role status').lean();
-    const assignments = await Assignment.find({ candidateId }).populate('examId').lean();
+    const [candidateUser, assignments, results, attempts] = await Promise.all([
+      User.findById(candidateId).select('name email role status').lean(),
+      Assignment.find({ candidateId }).populate('examId').lean(),
+      Result.find({ candidateId }).sort({ createdAt: -1 }).lean(),
+      Attempt.find({ candidateId }).sort({ createdAt: -1 }).lean()
+    ]);
 
-    // 1. Fetch all results of this candidate
-    const results = await Result.find({ candidateId }).sort({ createdAt: -1 }).lean();
     const resultMap = new Map<string, any>();
     for (const r of results) {
       const examIdStr = r.examId ? r.examId.toString() : '';
@@ -32,8 +34,6 @@ export const getAssignedExams = async (req: AuthRequest, res: Response, next: Ne
       }
     }
 
-    // 2. Fetch all attempts of this candidate to accurately detect completed and in-progress exams
-    const attempts = await Attempt.find({ candidateId }).sort({ createdAt: -1 }).lean();
     const attemptsByExam = new Map<string, any[]>();
     for (const att of attempts) {
       const eId = att.examId ? att.examId.toString() : '';

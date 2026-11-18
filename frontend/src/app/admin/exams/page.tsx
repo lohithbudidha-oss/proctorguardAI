@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useEffect, useState, useMemo, useRef } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { 
@@ -158,47 +158,54 @@ export default function AdminExamsPage() {
     terminated: number;
     assigned: number;
   }>>({});
+  const isFetchingRef = useRef(false);
 
-  const fetchExams = () => {
-    api.get('/admin/exams')
-      .then(res => {
-        const list = res.data.exams || [];
+  const fetchExams = async () => {
+    if (isFetchingRef.current) return;
+    isFetchingRef.current = true;
+    try {
+      const [examsRes, statsRes, pendingRes] = await Promise.allSettled([
+        api.get('/admin/exams'),
+        api.get('/admin/exams/stats'),
+        api.get('/admin/candidates?status=PENDING&countOnly=true')
+      ]);
+
+      if (examsRes.status === 'fulfilled') {
+        const list = examsRes.value.data.exams || [];
         setExams(list);
         try {
           sessionStorage.setItem('pg_cached_admin_exams', JSON.stringify(list));
         } catch (e) {}
-        setLoading(false);
-      })
-      .catch(err => {
-        console.error('Failed to fetch exams', err);
-        setLoading(false);
-      });
+      }
 
-    api.get('/admin/exams/stats')
-      .then(res => {
-        const statsList = res.data?.stats || [];
+      if (statsRes.status === 'fulfilled') {
+        const statsList = statsRes.value.data?.stats || [];
         const map: Record<string, any> = {};
         statsList.forEach((s: any) => {
           map[s.examId] = s;
         });
         setExamStatsMap(map);
-      })
-      .catch(() => {});
+      }
 
-    api.get('/admin/candidates?status=PENDING&countOnly=true')
-      .then(res => {
+      if (pendingRes.status === 'fulfilled') {
+        const res = pendingRes.value;
         if (res.data?.count !== undefined) {
           setPendingApprovalsCount(res.data.count);
         } else {
-          const cands = res.data.candidates || [];
+          const cands = res.data?.candidates || [];
           const pending = cands.filter((c: any) => {
             const s = (c.status || '').toUpperCase();
             return s === 'PENDING_VERIFICATION' || s === 'PENDING';
           }).length;
           setPendingApprovalsCount(pending);
         }
-      })
-      .catch(() => {});
+      }
+    } catch (err) {
+      console.error('Failed to fetch exams', err);
+    } finally {
+      setLoading(false);
+      isFetchingRef.current = false;
+    }
   };
 
   useEffect(() => {
@@ -636,12 +643,14 @@ export default function AdminExamsPage() {
                 <div className="w-px h-6 bg-slate-200 mx-1"></div>
                 <Link 
                   href={`/admin/exams/${exam._id}/questions`}
+                  prefetch={false}
                   className="px-3.5 py-2 text-slate-600 font-semibold border border-slate-200 rounded-lg hover:bg-slate-50 transition text-xs"
                 >
                   Builder
                 </Link>
                 <Link 
                   href={`/admin/exams/${exam._id}/assign`}
+                  prefetch={false}
                   className="px-3.5 py-2 text-blue-600 font-semibold border border-blue-200 bg-blue-50 rounded-lg hover:bg-blue-100 transition flex items-center text-xs"
                 >
                   <Users className="w-3.5 h-3.5 mr-1.5" /> Assign

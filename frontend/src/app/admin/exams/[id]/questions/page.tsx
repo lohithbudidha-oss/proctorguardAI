@@ -63,9 +63,42 @@ function QuestionBuilderContent() {
   const router = useRouter();
   const examId = params.id as string;
   
-  const [exam, setExam] = useState<ExamDetails | null>(null);
-  const [questions, setQuestions] = useState<QuestionItem[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [exam, setExam] = useState<ExamDetails | null>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const cached = sessionStorage.getItem(`pg_exam_${examId}`);
+        return cached ? JSON.parse(cached) : null;
+      } catch (e) {
+        return null;
+      }
+    }
+    return null;
+  });
+
+  const [questions, setQuestions] = useState<QuestionItem[]>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const cached = sessionStorage.getItem(`pg_questions_${examId}`);
+        return cached ? JSON.parse(cached) : [];
+      } catch (e) {
+        return [];
+      }
+    }
+    return [];
+  });
+
+  const [loading, setLoading] = useState<boolean>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        return !sessionStorage.getItem(`pg_exam_${examId}`);
+      } catch (e) {
+        return true;
+      }
+    }
+    return true;
+  });
+
+  const isFetchingRef = useRef(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   // New question form state
@@ -130,17 +163,26 @@ function QuestionBuilderContent() {
   };
 
   async function fetchData() {
+    if (isFetchingRef.current) return;
+    isFetchingRef.current = true;
     try {
       const [examRes, qRes] = await Promise.all([
         api.get(`/admin/exams/${examId}`),
         api.get(`/admin/exams/${examId}/questions`)
       ]);
-      setExam(examRes.data.exam);
-      setQuestions(qRes.data.questions || []);
-      setLoading(false);
+      const fetchedExam = examRes.data.exam;
+      const fetchedQuestions = qRes.data.questions || [];
+      setExam(fetchedExam);
+      setQuestions(fetchedQuestions);
+      try {
+        sessionStorage.setItem(`pg_exam_${examId}`, JSON.stringify(fetchedExam));
+        sessionStorage.setItem(`pg_questions_${examId}`, JSON.stringify(fetchedQuestions));
+      } catch (e) {}
     } catch (err) {
       console.error(err);
+    } finally {
       setLoading(false);
+      isFetchingRef.current = false;
     }
   }
 

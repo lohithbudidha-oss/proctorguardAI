@@ -7,6 +7,7 @@ import Session from '../models/Session';
 import Assignment, { AssignmentStatus } from '../models/Assignment';
 import Exam from '../models/Exam';
 import { getJwtSecret } from '../config/jwt';
+import { invalidateSessionCache } from '../middleware/authMiddleware';
 
 // Strict Gmail email format validator ensuring valid username and @gmail.com domain only
 const GMAIL_EMAIL_REGEX = /^[a-zA-Z0-9._%+-]+@gmail\.com$/i;
@@ -253,6 +254,7 @@ export const logout = async (req: Request, res: Response, next: NextFunction) =>
     const authHeader = req.headers.authorization;
     if (authHeader && authHeader.startsWith('Bearer ')) {
       const token = authHeader.split(' ')[1];
+      invalidateSessionCache(token);
       await Session.findOneAndUpdate({ tokenIdentifier: token }, { isValid: false });
     }
     res.status(200).json({ success: true, message: 'Logged out successfully' });

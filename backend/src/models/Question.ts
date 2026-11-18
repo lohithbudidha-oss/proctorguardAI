@@ -51,5 +51,6 @@ const QuestionSchema: Schema = new Schema({
 }, { timestamps: true });
 
 QuestionSchema.index({ examId: 1 });
+QuestionSchema.index({ examId: 1, createdAt: 1 });
 
 export default mongoose.model<IQuestion>('Question', QuestionSchema);

@@ -2,6 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 import { Role } from '../models/User';
 import { getJwtSecret } from '../config/jwt';
+import Session from '../models/Session';
 
 export interface AuthRequest extends Request {
   user?: {
@@ -11,7 +12,22 @@ export interface AuthRequest extends Request {
   };
 }
 
-import Session from '../models/Session';
+// In-memory cache for valid sessions to prevent redundant MongoDB round trips on high-frequency requests
+// Cache entries remain valid for 60 seconds
+interface CachedSession {
+  isValid: boolean;
+  cachedAt: number;
+}
+const sessionCache = new Map<string, CachedSession>();
+const CACHE_TTL_MS = 60 * 1000;
+
+export const invalidateSessionCache = (token?: string) => {
+  if (token) {
+    sessionCache.delete(token);
+  } else {
+    sessionCache.clear();
+  }
+};
 
 export const authenticate = async (req: AuthRequest, res: Response, next: NextFunction) => {
   let token: string | undefined;
@@ -32,9 +48,27 @@ export const authenticate = async (req: AuthRequest, res: Response, next: NextFu
     const secret = getJwtSecret();
     const decoded = jwt.verify(token, secret) as any;
     
-    // REM-08: Session Revocation Check
-    const activeSession = await Session.findOne({ tokenIdentifier: token });
-    if (!activeSession || !activeSession.isValid) {
+    // REM-08: Session Revocation Check with in-memory caching
+    const now = Date.now();
+    const cached = sessionCache.get(token);
+    let isSessionValid = false;
+
+    if (cached && (now - cached.cachedAt < CACHE_TTL_MS)) {
+      isSessionValid = cached.isValid;
+    } else {
+      const activeSession = await Session.findOne({ tokenIdentifier: token }).lean();
+      isSessionValid = Boolean(activeSession && activeSession.isValid);
+      sessionCache.set(token, { isValid: isSessionValid, cachedAt: now });
+
+      // Prevent unbound memory growth
+      if (sessionCache.size > 10000) {
+        const oldestKeys = Array.from(sessionCache.keys()).slice(0, 1000);
+        oldestKeys.forEach(k => sessionCache.delete(k));
+      }
+    }
+
+    if (!isSessionValid) {
+      sessionCache.delete(token);
       return res.status(401).json({ success: false, message: 'Unauthorized. Session revoked.' });
     }
 

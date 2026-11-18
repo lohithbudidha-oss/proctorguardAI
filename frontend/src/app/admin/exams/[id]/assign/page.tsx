@@ -11,14 +11,58 @@ function CandidateAssignmentContent() {
   const params = useParams();
   const examId = params.id as string;
 
-  const [exam, setExam] = useState<{ id: string; title: string; duration: number } | null>(null);
+  const [exam, setExam] = useState<{ id: string; title: string; duration: number } | null>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const cached = sessionStorage.getItem(`pg_assign_exam_${examId}`);
+        return cached ? JSON.parse(cached) : null;
+      } catch (e) {
+        return null;
+      }
+    }
+    return null;
+  });
+
   const [candidates, setCandidates] = useState<{
     _id: Key | null | undefined;
     candidateId: any; userId: { _id?: string; id?: string }; status: string
-  }[]>([]);
-  const [allUsers, setAllUsers] = useState<{ id: string; _id: string; name: string; email: string; role: string; status: string }[]>([]);
+  }[]>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const cached = sessionStorage.getItem(`pg_assign_candidates_${examId}`);
+        return cached ? JSON.parse(cached) : [];
+      } catch (e) {
+        return [];
+      }
+    }
+    return [];
+  });
+
+  const [allUsers, setAllUsers] = useState<{ id: string; _id: string; name: string; email: string; role: string; status: string }[]>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const cached = sessionStorage.getItem('pg_cached_admin_all_candidates');
+        return cached ? JSON.parse(cached) : [];
+      } catch (e) {
+        return [];
+      }
+    }
+    return [];
+  });
+
   const [searchQuery, setSearchQuery] = useState('');
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        return !sessionStorage.getItem(`pg_assign_exam_${examId}`);
+      } catch (e) {
+        return true;
+      }
+    }
+    return true;
+  });
+
+  const isFetchingRef = React.useRef(false);
   const [isAssigningAll, setIsAssigningAll] = useState(false);
   const [isRewritingAll, setIsRewritingAll] = useState(false);
 
@@ -52,19 +96,30 @@ function CandidateAssignmentContent() {
   }, [filteredUsers, candidates]);
 
   async function fetchData() {
+    if (isFetchingRef.current) return;
+    isFetchingRef.current = true;
     try {
       const [examRes, assignRes, usersRes] = await Promise.all([
         api.get(`/admin/exams/${examId}`),
         api.get(`/admin/exams/${examId}/candidates`),
         api.get(`/admin/candidates`)
       ]);
-      setExam(examRes.data.exam);
-      setCandidates(assignRes.data.candidates || []);
-      setAllUsers(usersRes.data.candidates || []);
-      setLoading(false);
+      const fetchedExam = examRes.data.exam;
+      const fetchedCandidates = assignRes.data.candidates || [];
+      const fetchedUsers = usersRes.data.candidates || [];
+      setExam(fetchedExam);
+      setCandidates(fetchedCandidates);
+      setAllUsers(fetchedUsers);
+      try {
+        sessionStorage.setItem(`pg_assign_exam_${examId}`, JSON.stringify(fetchedExam));
+        sessionStorage.setItem(`pg_assign_candidates_${examId}`, JSON.stringify(fetchedCandidates));
+        sessionStorage.setItem('pg_cached_admin_all_candidates', JSON.stringify(fetchedUsers));
+      } catch (e) {}
     } catch (err) {
       console.error(err);
+    } finally {
       setLoading(false);
+      isFetchingRef.current = false;
     }
   }
 
