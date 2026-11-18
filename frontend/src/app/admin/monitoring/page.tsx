@@ -2420,3 +2420,5 @@ export default function CandidateExamRecordsPage() {
     </div>
   );
 }
+
+
