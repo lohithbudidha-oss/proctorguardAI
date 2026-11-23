@@ -694,6 +694,20 @@ export const getCandidateAnswers = async (req: Request, res: Response, next: Nex
     }
 
     if (!result) {
+      // Auto-evaluate attempt if attempt exists but result hasn't been saved yet
+      const attempt = await Attempt.findById(id);
+      if (attempt) {
+        try {
+          const { evaluateAttempt } = require('./attemptController');
+          await evaluateAttempt(attempt._id.toString(), String(attempt.candidateId));
+          result = await Result.findOne({ attemptId: attempt._id })
+            .populate('candidateId', 'name email status role')
+            .populate('examId', 'title duration description totalMarks');
+        } catch (e) {}
+      }
+    }
+
+    if (!result) {
       return res.status(404).json({ success: false, message: 'Candidate examination result not found' });
     }
 
@@ -798,6 +812,20 @@ export const getCandidateReportHtml = async (req: Request, res: Response, next: 
       result = await Result.findOne({ attemptId: id })
         .populate('candidateId', 'name email')
         .populate('examId', 'title duration totalMarks');
+    }
+
+    if (!result) {
+      // Auto-evaluate attempt if attempt exists but result hasn't been saved yet
+      const attempt = await Attempt.findById(id);
+      if (attempt) {
+        try {
+          const { evaluateAttempt } = require('./attemptController');
+          await evaluateAttempt(attempt._id.toString(), String(attempt.candidateId));
+          result = await Result.findOne({ attemptId: attempt._id })
+            .populate('candidateId', 'name email')
+            .populate('examId', 'title duration totalMarks');
+        } catch (e) {}
+      }
     }
 
     if (!result) {

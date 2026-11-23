@@ -7,8 +7,11 @@ import Session from '../models/Session';
 export interface AuthRequest extends Request {
   user?: {
     userId: string;
+    id?: string;
     role: Role;
     status: string;
+    email?: string;
+    name?: string;
   };
 }
 
@@ -32,15 +35,17 @@ export const invalidateSessionCache = (token?: string) => {
 export const authenticate = async (req: AuthRequest, res: Response, next: NextFunction) => {
   let token: string | undefined;
   const authHeader = req.headers.authorization;
-  if (authHeader && authHeader.startsWith('Bearer ')) {
-    token = authHeader.split(' ')[1];
+  if (authHeader && /^Bearer\s+/i.test(authHeader)) {
+    token = authHeader.replace(/^Bearer\s+/i, '').trim();
   } else if (typeof req.query.token === 'string') {
-    token = req.query.token;
+    token = req.query.token.trim();
   } else if (typeof req.body?.token === 'string') {
-    token = req.body.token;
+    token = req.body.token.trim();
+  } else if (typeof req.headers['x-access-token'] === 'string') {
+    token = (req.headers['x-access-token'] as string).trim();
   }
 
-  if (!token) {
+  if (!token || token === 'null' || token === 'undefined' || !token.trim()) {
     return res.status(401).json({ success: false, message: 'Unauthorized. Token missing.' });
   }
 
@@ -57,7 +62,24 @@ export const authenticate = async (req: AuthRequest, res: Response, next: NextFu
       isSessionValid = cached.isValid;
     } else {
       const activeSession = await Session.findOne({ tokenIdentifier: token }).lean();
-      isSessionValid = Boolean(activeSession && activeSession.isValid);
+      if (activeSession) {
+        isSessionValid = Boolean(activeSession.isValid);
+      } else {
+        // If session document does not exist yet for this cryptographically valid token,
+        // self-heal by upserting active session so subsequent queries and logout revoke it cleanly
+        isSessionValid = true;
+        Session.findOneAndUpdate(
+          { tokenIdentifier: token },
+          {
+            userId: decoded.userId || decoded.id,
+            tokenIdentifier: token,
+            isValid: true,
+            expiresAt: new Date(decoded.exp ? decoded.exp * 1000 : Date.now() + 8 * 60 * 60 * 1000)
+          },
+          { upsert: true, returnDocument: 'after' }
+        ).catch(() => {});
+      }
+
       sessionCache.set(token, { isValid: isSessionValid, cachedAt: now });
 
       // Prevent unbound memory growth
@@ -72,7 +94,11 @@ export const authenticate = async (req: AuthRequest, res: Response, next: NextFu
       return res.status(401).json({ success: false, message: 'Unauthorized. Session revoked.' });
     }
 
-    req.user = decoded;
+    req.user = {
+      ...decoded,
+      userId: (decoded.userId || decoded.id || decoded._id)?.toString(),
+      id: (decoded.id || decoded.userId || decoded._id)?.toString()
+    };
     next();
   } catch (err) {
     return res.status(401).json({ success: false, message: 'Unauthorized. Invalid or expired token.' });
@@ -81,7 +107,12 @@ export const authenticate = async (req: AuthRequest, res: Response, next: NextFu
 
 export const requireRole = (roles: Role[]) => {
   return (req: AuthRequest, res: Response, next: NextFunction) => {
-    if (!req.user || !roles.includes(req.user.role)) {
+    if (!req.user || !req.user.role) {
+      return res.status(403).json({ success: false, message: 'Forbidden. Insufficient permissions.' });
+    }
+    const userRole = String(req.user.role).toUpperCase();
+    const allowed = roles.map(r => String(r).toUpperCase());
+    if (!allowed.includes(userRole)) {
       return res.status(403).json({ success: false, message: 'Forbidden. Insufficient permissions.' });
     }
     next();

@@ -76,6 +76,7 @@ export const parseQuestionsDocument = async (req: Request, res: Response, next: 
   try {
     const { examId } = req.params;
     const defaultCategory = (req.body.category as string) || 'General';
+    const textData = req.body.text || req.body.textContent || req.body.content;
     let questions = [];
 
     if (req.file) {
@@ -85,8 +86,8 @@ export const parseQuestionsDocument = async (req: Request, res: Response, next: 
         req.file.mimetype,
         defaultCategory
       );
-    } else if (req.body.text) {
-      questions = QuestionParserService.parseText(req.body.text, defaultCategory);
+    } else if (textData) {
+      questions = QuestionParserService.parseText(textData, defaultCategory);
     } else {
       return res.status(400).json({ 
         success: false, 

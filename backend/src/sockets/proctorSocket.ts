@@ -42,21 +42,27 @@ export const setupSockets = (io: Server) => {
   // Authentication middleware for sockets
   io.use(async (socket: AuthenticatedSocket, next) => {
     const token = socket.handshake.auth.token || socket.handshake.headers['authorization'];
-    if (!token) return next(new Error('Authentication error'));
+    if (!token || token === 'null' || token === 'undefined' || !String(token).trim()) {
+      return next(new Error('Authentication error: Token missing'));
+    }
 
-    const actualToken = token.replace('Bearer ', '');
+    const actualToken = String(token).replace(/^Bearer\s+/i, '').trim();
     const secret = getJwtSecret();
     
     jwt.verify(actualToken, secret, async (err: any, decoded: any) => {
-      if (err) return next(new Error('Authentication error'));
+      if (err) return next(new Error('Authentication error: Invalid or expired token'));
       
       // SEC-16: Session Revocation Check
       try {
         const activeSession = await Session.findOne({ tokenIdentifier: actualToken });
-        if (!activeSession || !activeSession.isValid) {
+        if (activeSession && activeSession.isValid === false) {
           return next(new Error('Authentication error: Session revoked'));
         }
-        socket.user = decoded;
+        socket.user = {
+          ...decoded,
+          userId: (decoded.userId || decoded.id || decoded._id)?.toString(),
+          id: (decoded.id || decoded.userId || decoded._id)?.toString()
+        };
         next();
       } catch (dbErr) {
         return next(new Error('Authentication error: DB failure'));

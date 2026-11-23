@@ -32,15 +32,33 @@ function RegistrationForm() {
     setLoading(true);
     
     try {
-      const res = await api.post(`/public/exams/${examId}/register`, {
-        ...formData,
-        name: formData.name.trim(),
-        email: formData.email.trim().toLowerCase()
-      });
-      if (res.data.success) {
-        localStorage.setItem('token', res.data.token);
-        // Automatically redirect to the exam system check and start page
-        router.push(`/candidate/exams/${examId}/system-check`);
+      let res;
+      try {
+        res = await api.post(`/public/exams/${examId}/register`, {
+          ...formData,
+          name: formData.name.trim(),
+          email: formData.email.trim().toLowerCase()
+        });
+      } catch (postErr: any) {
+        if (postErr.response?.status === 404) {
+          res = await api.post(`/auth/public/exams/${examId}/register`, {
+            ...formData,
+            name: formData.name.trim(),
+            email: formData.email.trim().toLowerCase()
+          });
+        } else {
+          throw postErr;
+        }
+      }
+
+      if (res?.data?.success) {
+        if (res.data.token) {
+          localStorage.setItem('token', res.data.token);
+          router.push(`/candidate/exams/${examId}/system-check`);
+        } else {
+          alert(res.data.message || 'Registration successful! An administrator will review your application before you can take the examination.');
+          router.push('/login');
+        }
       }
     } catch (err: any) {
       if (err.response?.data?.errors?.length > 0) {

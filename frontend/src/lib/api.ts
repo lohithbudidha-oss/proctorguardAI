@@ -62,7 +62,7 @@ api.interceptors.response.use(
       if (!isAuthEndpoint && typeof window !== 'undefined') {
         localStorage.removeItem('token');
         localStorage.removeItem('user');
-        if (!window.location.pathname.startsWith('/login') && !window.location.pathname.startsWith('/register')) {
+        if (!window.location.pathname.startsWith('/login') && !window.location.pathname.startsWith('/register') && !window.location.pathname.startsWith('/public')) {
           const isAdminRoute = window.location.pathname.startsWith('/admin');
           window.location.replace(isAdminRoute ? '/login?role=admin' : '/login');
         }

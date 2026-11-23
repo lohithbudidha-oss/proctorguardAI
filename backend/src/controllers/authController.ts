@@ -256,9 +256,17 @@ export const login = async (req: Request, res: Response, next: NextFunction) => 
 
 export const logout = async (req: Request, res: Response, next: NextFunction) => {
   try {
+    let token: string | undefined;
     const authHeader = req.headers.authorization;
-    if (authHeader && authHeader.startsWith('Bearer ')) {
-      const token = authHeader.split(' ')[1];
+    if (authHeader && /^Bearer\s+/i.test(authHeader)) {
+      token = authHeader.replace(/^Bearer\s+/i, '').trim();
+    } else if (typeof req.body?.token === 'string') {
+      token = req.body.token.trim();
+    } else if (typeof req.query?.token === 'string') {
+      token = (req.query.token as string).trim();
+    }
+
+    if (token) {
       invalidateSessionCache(token);
       await Session.findOneAndUpdate({ tokenIdentifier: token }, { isValid: false });
     }

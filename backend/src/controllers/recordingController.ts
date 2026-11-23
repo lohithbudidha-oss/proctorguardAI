@@ -207,16 +207,27 @@ export const getRecordingPlayback = async (req: AuthRequest, res: Response, next
     const { recordingSessionId } = req.params;
     // Assume req.user has been checked for Admin/Proctor role by middleware
     
-    const chunks = await RecordingChunk.find({ recordingSessionId, uploadStatus: 'COMPLETED' })
-                                       .sort({ sequenceNumber: 1 });
+    // Support lookup by either recordingSessionId or attemptId
+    const chunks = await RecordingChunk.find({
+      $or: [{ recordingSessionId }, { attemptId: recordingSessionId }],
+      uploadStatus: 'COMPLETED'
+    }).sort({ sequenceNumber: 1 });
     
-    if (chunks.length === 0) return res.status(404).json({ success: false, message: 'No chunks available' });
+    if (chunks.length === 0) {
+      return res.status(200).json({ success: true, chunks: [] });
+    }
 
-    // Generate signed URLs for all chunks (in a real advanced implementation, you'd merge them or use HLS streaming)
-    // For Phase 11 MVP: return ordered array of signed URLs
+    // Generate signed URLs for all chunks
     const signedUrls = await Promise.all(chunks.map(async chunk => {
       const url = await storageService.generateSignedUrl(chunk.storageKey);
-      return { sequence: chunk.sequenceNumber, url, duration: chunk.endedAt.getTime() - chunk.startedAt.getTime() };
+      return { 
+        sequence: chunk.sequenceNumber, 
+        chunkIndex: chunk.sequenceNumber,
+        url, 
+        fileUrl: url,
+        createdAt: (chunk as any).uploadedAt || (chunk as any).createdAt || new Date(),
+        duration: chunk.endedAt.getTime() - chunk.startedAt.getTime() 
+      };
     }));
 
     await AuditLog.create({

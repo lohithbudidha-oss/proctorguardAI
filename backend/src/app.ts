@@ -9,6 +9,7 @@ import rateLimit from 'express-rate-limit';
 import compression from 'compression';
 
 import authRoutes from './routes/authRoutes';
+import { publicExamRegister } from './controllers/authController';
 import adminRoutes from './routes/adminRoutes';
 import candidateRoutes from './routes/candidateRoutes';
 import recordingRoutes from './routes/recordingRoutes';
@@ -135,6 +136,7 @@ app.use('/api', (req: Request, res: Response, next: NextFunction) => {
 
 // API Routes
 app.use('/api/auth', authRoutes);
+app.post('/api/public/exams/:examId/register', publicExamRegister);
 app.use('/api/admin', adminRoutes);
 app.use('/api/candidate', candidateRoutes);
 app.use('/api/recordings', recordingRoutes);
