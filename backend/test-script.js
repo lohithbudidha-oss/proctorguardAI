@@ -3,25 +3,17 @@ async function runTests() {
 
   try {
     console.log('--- TEST REM-08: SESSION REVOCATION ---');
-    // 0. Register
-    const regName = 'TestAdmin' + Date.now();
-    const regEmail = `admin_${Date.now()}@example.com`;
-    await fetch(`${baseURL}/auth/register`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name: regName, email: regEmail, password: 'password123' })
-    });
 
-    // 1. Login
+    // 1. Login as Administrator
     const loginRes = await fetch(`${baseURL}/auth/login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email: regEmail, password: 'password123' })
+      body: JSON.stringify({ email: 'admin@flair.local', password: 'admin123', portalRole: 'ADMIN' })
     });
     const loginData = await loginRes.json();
     
     if (!loginData.success) {
-      console.log('Login failed (seed data missing or wrong credentials):', loginData);
+      console.log('Login failed:', loginData);
       return;
     }
 

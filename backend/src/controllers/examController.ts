@@ -163,9 +163,11 @@ export const deleteExam = async (req: Request, res: Response, next: NextFunction
     
     if (!exam) return res.status(404).json({ success: false, message: 'Exam not found' });
     
-    // Cascade delete questions and assignments
+    // Cascade delete questions, assignments, attempts, and results
     await mongoose.model('Question').deleteMany({ examId: id });
     await mongoose.model('Assignment').deleteMany({ examId: id });
+    await mongoose.model('Attempt').deleteMany({ examId: id });
+    await mongoose.model('Result').deleteMany({ examId: id });
 
     res.status(200).json({ success: true, message: 'Exam deleted successfully' });
   } catch (err) {

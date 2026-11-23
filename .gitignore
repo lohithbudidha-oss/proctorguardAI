@@ -6,3 +6,5 @@ dist
 .env.test.local
 .env.production.local
 .next
+temp_storage
+backend/temp_storage

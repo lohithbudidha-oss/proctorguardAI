@@ -1,4 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
+import crypto from 'crypto';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import { z } from 'zod';
@@ -228,15 +229,19 @@ export const login = async (req: Request, res: Response, next: NextFunction) => 
     const token = jwt.sign(
       { userId: user._id, role: user.role, status: user.status },
       secret,
-      { expiresIn: '8h' }
+      { expiresIn: '8h', jwtid: crypto.randomUUID() }
     );
 
-    const session = new Session({
-      userId: user._id,
-      tokenIdentifier: token,
-      expiresAt: new Date(Date.now() + 8 * 60 * 60 * 1000)
-    });
-    await session.save();
+    await Session.findOneAndUpdate(
+      { tokenIdentifier: token },
+      {
+        userId: user._id,
+        tokenIdentifier: token,
+        isValid: true,
+        expiresAt: new Date(Date.now() + 8 * 60 * 60 * 1000)
+      },
+      { upsert: true, returnDocument: 'after' }
+    );
 
     res.status(200).json({
       success: true,

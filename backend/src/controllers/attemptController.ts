@@ -620,7 +620,7 @@ export const recordViolation = async (req: AuthRequest, res: Response, next: Nex
             const updated = await ViolationEvent.findByIdAndUpdate(
               violation._id, 
               { driveUrl: uploadRes.webViewLink },
-              { new: true }
+              { returnDocument: 'after' }
             ).populate('candidateId', 'name email')
              .populate({ path: 'attemptId', populate: { path: 'examId', select: 'title' } });
 

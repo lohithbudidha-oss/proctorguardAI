@@ -204,7 +204,7 @@ export const setupSockets = (io: Server) => {
                 const updated = await ViolationEvent.findByIdAndUpdate(
                   violation._id,
                   { driveUrl: uploadRes.webViewLink, driveFileId: uploadRes.fileId },
-                  { new: true }
+                  { returnDocument: 'after' }
                 ).populate('candidateId', 'name email')
                  .populate({ path: 'attemptId', populate: { path: 'examId', select: 'title' } });
 
@@ -310,7 +310,7 @@ export const setupSockets = (io: Server) => {
                 const updated = await ViolationEvent.findByIdAndUpdate(
                   savedViolationId,
                   { driveUrl: uploadRes.webViewLink },
-                  { new: true }
+                  { returnDocument: 'after' }
                 ).populate('candidateId', 'name email')
                  .populate({ path: 'attemptId', populate: { path: 'examId', select: 'title' } });
 

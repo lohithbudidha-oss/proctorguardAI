@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import mongoose from 'mongoose';
 import User, { Role, CandidateStatus } from '../models/User';
+import Session from '../models/Session';
 import Attempt, { AttemptStatus } from '../models/Attempt';
 
 export const getCandidates = async (req: Request, res: Response, next: NextFunction) => {
@@ -74,6 +75,7 @@ export const deleteCandidate = async (req: Request, res: Response, next: NextFun
     }
 
     await User.findByIdAndDelete(id);
+    await Session.deleteMany({ userId: id });
     await Assignment.deleteMany({ candidateId: id });
     await Attempt.deleteMany({ candidateId: id });
     await Result.deleteMany({ candidateId: id });
@@ -558,7 +560,7 @@ export const verifyResult = async (req: Request, res: Response, next: NextFuncti
       return res.status(400).json({ success: false, message: 'Invalid status' });
     }
 
-    const result = await Result.findByIdAndUpdate(id, { status }, { new: true });
+    const result = await Result.findByIdAndUpdate(id, { status }, { returnDocument: 'after' });
     if (!result) {
       return res.status(404).json({ success: false, message: 'Result not found' });
     }

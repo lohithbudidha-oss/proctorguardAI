@@ -117,7 +117,7 @@ export const parseQuestionsDocument = async (req: Request, res: Response, next: 
 export const updateQuestion = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { id } = req.params;
-    const question = await Question.findByIdAndUpdate(id, req.body, { new: true });
+    const question = await Question.findByIdAndUpdate(id, req.body, { returnDocument: 'after' });
     res.status(200).json({ success: true, message: 'Question updated', question });
   } catch (err) {
     next(err);
